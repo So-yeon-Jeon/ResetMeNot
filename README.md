@@ -9,6 +9,7 @@ Phaser 3, TypeScript, Vite로 만드는 타일 기반 시간 퍼즐 게임입니
 협업을 시작하기 전에 [CONTRIBUTING.md](./CONTRIBUTING.md)의 브랜치, 커밋, PR 규칙을 확인해 주세요.
 일정과 일일 진행 상황은 [프로젝트 트래커](./docs/PROJECT_TRACKER.md)에서 관리합니다.
 저장소 관리자는 첫 push 전에 [GitHub 설정 체크리스트](./docs/GITHUB_SETUP.md)를 완료해 주세요.
+아트와 레벨 작업은 [게임 화면 및 그리드 규격](./docs/GAME_SPEC.md)을 기준으로 합니다.
 
 ## 로컬 실행
 
