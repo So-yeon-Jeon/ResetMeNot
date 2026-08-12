@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { GRID_SIZE } from '../game-config';
+import type { GameAction } from '../game/action';
 import { DEMO_MAP, DEMO_MAP_ROWS, PLAYER_START } from '../game/demo-map';
-import { tryMove, type Direction, type GridPosition } from '../game/grid';
+import { advanceTime, applyAction, createGameState, type GameState } from '../game/game-state';
+import type { Direction, GridPosition } from '../game/grid';
 
 const MOVE_DURATION_MS = 110;
 const FLOOR_COLOR = 0x24212e;
@@ -18,7 +20,7 @@ type MovementKeys = Readonly<{
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
-  private playerPosition: GridPosition = PLAYER_START;
+  private gameState: GameState = createGameState(PLAYER_START);
   private movementKeys!: MovementKeys;
   private isMoving = false;
   private mapOrigin = { x: 0, y: 0 };
@@ -39,11 +41,12 @@ export class GameScene extends Phaser.Scene {
     this.createKeyboardControls();
   }
 
-  update(): void {
+  update(time: number): void {
     if (this.isMoving) return;
 
+    this.gameState = advanceTime(this.gameState, time);
     const direction = this.readDirection();
-    if (direction) this.movePlayer(direction);
+    if (direction) this.dispatch({ type: 'move', direction });
   }
 
   private drawMap(): void {
@@ -63,7 +66,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createPlayer(): void {
-    const pixel = this.gridToPixel(this.playerPosition);
+    const pixel = this.gridToPixel(this.gameState.player);
     this.player = this.add
       .rectangle(pixel.x, pixel.y, GRID_SIZE - 10, GRID_SIZE - 10, PLAYER_COLOR)
       .setStrokeStyle(2, 0xf1ded2)
@@ -105,12 +108,12 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
-  private movePlayer(direction: Direction): void {
-    const destination = tryMove(this.playerPosition, direction, DEMO_MAP);
-    if (destination === this.playerPosition) return;
+  private dispatch(action: GameAction): void {
+    const result = applyAction(this.gameState, action, DEMO_MAP);
+    this.gameState = result.state;
+    if (!result.changed) return;
 
-    this.playerPosition = destination;
-    const pixel = this.gridToPixel(destination);
+    const pixel = this.gridToPixel(this.gameState.player);
     this.isMoving = true;
 
     this.tweens.add({
