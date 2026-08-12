@@ -60,7 +60,7 @@ for (const message of messagesFromArgs()) {
 }
 
 if (failed) {
-  console.error('\n예시: feat(player): add grid movement');
+  console.error('\n예시: feat(player): 4방향 그리드 이동 구현');
   process.exit(1);
 }
 

@@ -20,7 +20,7 @@
 - [ ] `Allow rebase merging`을 비활성화한다.
 - [ ] `Automatically delete head branches`를 활성화한다.
 
-PR 제목은 최종 커밋이 되므로 `feat(player): add grid movement` 형식을 사용한다.
+PR 제목은 최종 커밋이 되므로 `feat(player): 4방향 그리드 이동 구현` 형식을 사용한다.
 
 ## 3. master Ruleset — 필수
 

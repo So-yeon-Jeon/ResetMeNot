@@ -61,12 +61,12 @@ level/*─┘
 `scope`는 선택 사항입니다. 게임 영역을 드러낼 때 사용합니다.
 
 ```text
-feat(player): add four-direction grid movement
-fix(echo): ignore blocked box push during replay
-level(ch01): add persistent key placement
-art(ui): add reset counter icons
-docs: document level JSON schema
-chore: configure Cloudflare deployment
+feat(player): 4방향 그리드 이동 구현
+fix(echo): 재생 중 막힌 상자 밀기 무시
+level(ch01): 기억하는 열쇠 배치
+art(ui): 리셋 카운터 아이콘 추가
+docs: 레벨 JSON 스키마 문서화
+chore: Cloudflare 배포 설정
 ```
 
 허용 타입:
@@ -79,11 +79,12 @@ chore: configure Cloudflare deployment
 
 - 제목 전체는 100자 이하로 작성합니다.
 - 타입과 scope는 소문자 kebab-case를 사용합니다.
-- subject는 명령형으로 작성하고 마침표를 붙이지 않습니다.
+- 타입과 scope는 영어로, subject는 한국어로 작성합니다.
+- subject는 변경 내용을 간결하게 작성하고 마침표를 붙이지 않습니다.
 - 한 커밋에는 하나의 논리적 변경만 담습니다.
 - 게임 동작과 무관한 포맷 변경을 기능 커밋에 섞지 않습니다.
 - 호환성이 깨지는 변경은 `feat(core)!: ...`와 본문의 `BREAKING CHANGE:`로 표시합니다.
-- 한국어 subject도 허용하지만 한 PR 안에서는 언어를 통일합니다.
+- 예외적으로 라이브러리명, API명, 고유명사는 원문 영문을 사용할 수 있습니다.
 
 ## 4. Pull Request 규칙
 
