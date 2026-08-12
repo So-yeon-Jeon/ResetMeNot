@@ -1,0 +1,3 @@
+#!/bin/sh
+branch="$(git branch --show-current)"
+npm run validate:branch -- "$branch"
