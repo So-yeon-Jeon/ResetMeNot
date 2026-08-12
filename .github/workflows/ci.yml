@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master, dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conventions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate branch name
+        if: github.event_name == 'pull_request'
+        run: npm run validate:branch -- "${{ github.head_ref }}"
+      - name: Validate pull request commits
+        if: github.event_name == 'pull_request'
+        run: npm run validate:commit -- --range "origin/${{ github.base_ref }}..HEAD"
+      - name: Validate pushed commit
+        if: github.event_name == 'push'
+        run: npm run validate:commit -- --range "${{ github.event.before }}..${{ github.sha }}"
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check

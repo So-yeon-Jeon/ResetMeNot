@@ -1,0 +1,35 @@
+name: 기능 또는 콘텐츠 작업
+description: 시스템, 레벨, 아트, 스토리 작업을 정의합니다.
+title: 'feat: '
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: 영역
+      options:
+        - 시스템
+        - 레벨
+        - 아트
+        - 스토리
+        - 오디오
+        - 배포/도구
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      description: 플레이어 또는 팀에 어떤 가치가 생기나요?
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 조건
+      placeholder: '- [ ] ...'
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 의존성 또는 합의가 필요한 사항
