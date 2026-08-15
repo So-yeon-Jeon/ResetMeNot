@@ -1,15 +1,10 @@
 import Phaser from 'phaser';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
-import { DEMO_LEVEL, DEMO_MAP, DEMO_MAP_ROWS, DEMO_OBJECTS, PLAYER_START } from '../game/demo-map';
-import {
-  advanceTime,
-  applyAction,
-  createGameState,
-  restartChapter,
-  type GameState,
-} from '../game/game-state';
+import { DEMO_LEVEL, DEMO_MAP, DEMO_MAP_ROWS } from '../game/demo-map';
+import { advanceTime, applyAction, restartChapter, type GameState } from '../game/game-state';
 import type { Direction, GridPosition } from '../game/grid';
+import { createLevelGameState } from '../levels/level-definition';
 
 const MOVE_DURATION_MS = 110;
 const FLOOR_COLOR = 0x24212e;
@@ -28,13 +23,7 @@ type MovementKeys = Readonly<{
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
-  private gameState: GameState = createGameState(PLAYER_START, {
-    facing: DEMO_LEVEL.playerFacing,
-    resetLimit: DEMO_LEVEL.resetLimit,
-    echoLimit: DEMO_LEVEL.echoLimit,
-    objects: DEMO_OBJECTS,
-    finalClockDurationMs: DEMO_LEVEL.finalClockDurationMs,
-  });
+  private gameState: GameState = createLevelGameState(DEMO_LEVEL);
   private movementKeys!: MovementKeys;
   private resetKey!: Phaser.Input.Keyboard.Key;
   private interactKey!: Phaser.Input.Keyboard.Key;
