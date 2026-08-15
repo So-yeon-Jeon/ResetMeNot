@@ -45,6 +45,7 @@ export class GameScene extends Phaser.Scene {
   private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
   private pendingReset = false;
+  private pendingDirection?: Direction;
   private mapOrigin = { x: 0, y: 0 };
 
   constructor() {
@@ -65,7 +66,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    this.gameState = advanceTime(this.gameState, delta);
+
     if (Phaser.Input.Keyboard.JustDown(this.restartKey)) {
+      this.tweens.killTweensOf(this.player);
+      this.isMoving = false;
+      this.pendingReset = false;
+      this.pendingDirection = undefined;
       this.gameState = restartChapter(this.gameState);
       this.renderResetState();
       this.phaseHud.setText('');
@@ -73,8 +80,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (Phaser.Input.Keyboard.JustDown(this.resetKey)) {
-      if (this.isMoving) this.pendingReset = true;
-      else this.dispatch({ type: 'reset' });
+      if (this.isMoving) {
+        this.pendingReset = true;
+        this.pendingDirection = undefined;
+      } else this.dispatch({ type: 'reset' });
       return;
     }
 
@@ -83,10 +92,12 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (this.isMoving) return;
-
-    this.gameState = advanceTime(this.gameState, delta);
     const direction = this.readDirection();
+    if (this.isMoving) {
+      if (direction && !this.pendingReset) this.pendingDirection = direction;
+      return;
+    }
+
     if (direction) this.dispatch({ type: 'move', direction });
   }
 
@@ -216,7 +227,11 @@ export class GameScene extends Phaser.Scene {
         if (this.pendingReset) {
           this.pendingReset = false;
           this.dispatch({ type: 'reset' });
+          return;
         }
+        const nextDirection = this.pendingDirection;
+        this.pendingDirection = undefined;
+        if (nextDirection) this.dispatch({ type: 'move', direction: nextDirection });
       },
     });
   }
