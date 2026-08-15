@@ -74,6 +74,13 @@ Tiled Object의 위치는 픽셀 좌표이지만 로더에서 32로 나눠 그�
 - 위치 상태를 가짐
 - `persistentFields`에 `position`이 있으면 RESET 후 위치 유지
 
+#### Lever
+
+| Property         | 타입   | 필수 | 설명                     |
+| ---------------- | ------ | ---- | ------------------------ |
+| `mode`           | string | 예   | `toggle` 또는 `hold`     |
+| `acceptedActors` | string | 예   | 쉼표 구분: `player,echo` |
+
 #### Switch
 
 | Property         | 타입   | 필수   | 설명                             |
@@ -84,10 +91,13 @@ Tiled Object의 위치는 픽셀 좌표이지만 로더에서 32로 나눠 그�
 
 #### Door
 
-| Property      | 타입   | 필수   | 설명                 |
-| ------------- | ------ | ------ | -------------------- |
-| `switchId`    | string | 예     | 연결할 Switch의 Name |
-| `initialOpen` | bool   | 아니오 | 기본 `false`         |
+| Property      | 타입   | 필수   | 설명                      |
+| ------------- | ------ | ------ | ------------------------- |
+| `switchIds`   | string | 아니오 | 연결할 Switch ID 목록     |
+| `leverIds`    | string | 아니오 | 연결할 Lever ID 목록      |
+| `keyId`       | string | 아니오 | 잠금 해제에 필요한 Key ID |
+| `consumesKey` | bool   | 아니오 | 사용 시 열쇠 소모 여부    |
+| `initialOpen` | bool   | 아니오 | 기본 `false`              |
 
 문 상태는 기본적으로 연결된 `switch.active === true`에서 파생합니다.
 
@@ -98,6 +108,12 @@ Tiled Object의 위치는 픽셀 좌표이지만 로더에서 32로 나눠 그�
 | `initialState` | string | 아니오 | 기본 `placed`, 허용값 `placed` |
 
 Chapter 1의 열쇠는 `persistentFields: position`으로 떨어진 위치만 기억합니다. `collected`는 기본 기억 속성이 아니며 레벨에서 명시적으로 허용할 때만 사용합니다.
+
+#### Exit
+
+| Property | 타입   | 필수 | 설명                    |
+| -------- | ------ | ---- | ----------------------- |
+| `mode`   | string | 예   | `enter` 또는 `interact` |
 
 ## 도메인 변환 결과
 

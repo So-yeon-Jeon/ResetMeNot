@@ -46,6 +46,8 @@ type EchoState = {
 type ChapterPhase = 'playing' | 'restarting' | 'let-time-go' | 'completed';
 ```
 
+`Puzzle State`에는 현재 오브젝트, Echo, RESET 횟수와 열쇠 소유 상태가 포함됩니다. `World Memory`에는 전체 RESET 횟수와 주요 이벤트 ID를 별도로 저장하며 Chapter Restart로 지우지 않습니다.
+
 실제 TypeScript 구현은 기능을 추가하면서 이 모델을 작은 단위로 확장합니다. 하나의 거대한 상태 객체를 한 번에 만들지 않습니다.
 
 ## 상태 출처
@@ -78,6 +80,13 @@ type ChapterPhase = 'playing' | 'restarting' | 'let-time-go' | 'completed';
 리셋 한도 소진 시 강제로 재시작하지 않습니다. RESET만 비활성화하고 현재 상태의 탐색과 상호작용은 유지합니다. 메뉴의 Chapter Restart를 선택하면 Echo와 기억 상태를 포함한 현재 챕터의 Puzzle State를 초기화합니다.
 
 Final 챕터의 시계는 RESET할 때 시작 시각으로 돌아갑니다. 지정 시각까지 RESET하지 않으면 `phase = 'let-time-go'`로 전환하며 별도 Player 버튼은 없습니다.
+
+## Chapter Restart
+
+- Player와 일반 오브젝트를 챕터 초기 상태로 복원합니다.
+- Echo, 현재 열쇠 소유, RESET 횟수와 Final 시계를 초기화합니다.
+- 회중시계 획득 상태는 특수 핵심 아이템이므로 유지합니다.
+- `World Memory`의 전체 RESET 횟수와 주요 이벤트는 유지합니다.
 
 ## 기억 상태
 
