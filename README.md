@@ -10,6 +10,8 @@ Phaser 3, TypeScript, Vite로 만드는 타일 기반 시간 퍼즐 게임입니
 저장소 관리자는 첫 push 전에 [GitHub 설정 체크리스트](./docs/GITHUB_SETUP.md)를 완료해 주세요.
 아트와 레벨 작업은 [게임 화면 및 그리드 규격](./docs/GAME_SPEC.md)을 기준으로 합니다.
 게임 상태와 렌더링 구조는 [게임 시스템 아키텍처](./docs/ARCHITECTURE.md)를 따릅니다.
+런타임 상태, 행동, 레벨 데이터의 상세 계약은 각각 [게임 상태 모델](./docs/GAME_STATE.md), [게임 행동 명세](./docs/ACTIONS.md), [레벨 데이터 기술 규격](./docs/LEVEL_SCHEMA.md)에 정의합니다.
+확정된 공통 판정은 [게임 규칙 결정서](./docs/GAME_RULE_DECISIONS.md)를 따르며, A/B가 추가로 합의할 게임 고유 항목은 [Reset Me Not 고유 규칙 결정서](./docs/GAME_IDENTITY_DECISIONS.md)에서 관리합니다.
 
 ## 로컬 실행
 
