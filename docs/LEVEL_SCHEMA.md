@@ -91,15 +91,16 @@ Tiled Object의 위치는 픽셀 좌표이지만 로더에서 32로 나눠 그�
 
 #### Door
 
-| Property      | 타입   | 필수   | 설명                      |
-| ------------- | ------ | ------ | ------------------------- |
-| `switchIds`   | string | 아니오 | 연결할 Switch ID 목록     |
-| `leverIds`    | string | 아니오 | 연결할 Lever ID 목록      |
-| `keyId`       | string | 아니오 | 잠금 해제에 필요한 Key ID |
-| `consumesKey` | bool   | 아니오 | 사용 시 열쇠 소모 여부    |
-| `initialOpen` | bool   | 아니오 | 기본 `false`              |
+| Property         | 타입   | 필수   | 설명                              |
+| ---------------- | ------ | ------ | --------------------------------- |
+| `switchIds`      | string | 아니오 | 연결할 Switch ID 목록             |
+| `leverIds`       | string | 아니오 | 연결할 Lever ID 목록              |
+| `activationMode` | string | 아니오 | `all`(AND, 기본값) 또는 `any`(OR) |
+| `keyId`          | string | 아니오 | 잠금 해제에 필요한 Key ID         |
+| `consumesKey`    | bool   | 아니오 | 사용 시 열쇠 소모 여부            |
+| `initialOpen`    | bool   | 아니오 | 기본 `false`                      |
 
-문 상태는 기본적으로 연결된 `switch.active === true`에서 파생합니다.
+문 상태는 연결된 Switch와 Lever의 활성 상태에서 파생합니다. 기본 `all`은 모든 장치가 활성화되어야 하며, `any`는 하나 이상 활성화되면 열립니다.
 
 #### Key
 

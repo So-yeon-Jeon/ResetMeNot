@@ -70,6 +70,7 @@ describe('loadTiledLevel', () => {
     expect(level.objects.find((object) => object.id === 'door-a')).toMatchObject({
       type: 'door',
       switchIds: ['switch-a'],
+      activationMode: 'all',
     });
   });
 

@@ -249,6 +249,44 @@ describe('game state', () => {
     ]);
   });
 
+  it('requires every controller for a door in the default all mode', () => {
+    const wideMap = createGridMap(['#######', '#.....#', '#######']);
+    const state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        objects: [
+          createPressureSwitch('switch-a', { x: 2, y: 1 }),
+          createPressureSwitch('switch-b', { x: 4, y: 1 }),
+          createDoor('door', { x: 5, y: 1 }, ['switch-a', 'switch-b']),
+        ],
+      },
+    );
+    const moved = applyAction(state, { type: 'move', direction: 'right' }, wideMap).state;
+
+    expect(moved.objects.find((object) => object.id === 'door')).toMatchObject({ open: false });
+  });
+
+  it('opens an any-mode door when at least one controller is active', () => {
+    const wideMap = createGridMap(['#######', '#.....#', '#######']);
+    const state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        objects: [
+          createPressureSwitch('switch-a', { x: 2, y: 1 }),
+          createPressureSwitch('switch-b', { x: 4, y: 1 }),
+          createDoor('door', { x: 5, y: 1 }, ['switch-a', 'switch-b'], {
+            activationMode: 'any',
+          }),
+        ],
+      },
+    );
+    const moved = applyAction(state, { type: 'move', direction: 'right' }, wideMap).state;
+
+    expect(moved.objects.find((object) => object.id === 'door')).toMatchObject({ open: true });
+  });
+
   it('blocks movement through a closed door', () => {
     const state = createGameState(
       { x: 1, y: 1 },

@@ -367,12 +367,15 @@ function recalculateDerivedObjects(
   return activated.map((object) => {
     if (object.type !== 'door') return object;
     const controllers = [...object.switchIds, ...object.leverIds];
+    const activeControllers = controllers.filter((id) => {
+      const linked = activated.find((candidate) => candidate.id === id);
+      return (linked?.type === 'pressure-switch' || linked?.type === 'lever') && linked.active;
+    });
     const controllersActive =
       controllers.length > 0 &&
-      controllers.every((id) => {
-        const linked = activated.find((candidate) => candidate.id === id);
-        return (linked?.type === 'pressure-switch' || linked?.type === 'lever') && linked.active;
-      });
+      (object.activationMode === 'all'
+        ? activeControllers.length === controllers.length
+        : activeControllers.length > 0);
     const occupied =
       samePosition(object.position, player) ||
       echoes.some((echo) => samePosition(echo.position, object.position)) ||

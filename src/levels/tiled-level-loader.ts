@@ -163,6 +163,11 @@ function createLevelObject(
     case 'Door':
       return createDoor(id, position, csv(props.switchIds), {
         leverIds: csv(props.leverIds),
+        activationMode: oneOf(
+          props.activationMode ?? 'all',
+          ['all', 'any'] as const,
+          `${id}.activationMode`,
+        ),
         keyId: optionalText(props.keyId),
         consumesKey: boolean(props.consumesKey, false, `${id}.consumesKey`),
       });

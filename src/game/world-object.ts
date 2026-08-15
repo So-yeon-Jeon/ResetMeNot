@@ -59,6 +59,7 @@ export type DoorState = Readonly<{
   open: boolean;
   switchIds: readonly string[];
   leverIds: readonly string[];
+  activationMode: 'all' | 'any';
   keyId?: string;
   consumesKey: boolean;
   unlocked: boolean;
@@ -160,6 +161,7 @@ export function createDoor(
   switchIds: readonly string[] = [],
   options: Readonly<{
     leverIds?: readonly string[];
+    activationMode?: 'all' | 'any';
     keyId?: string;
     consumesKey?: boolean;
   }> = {},
@@ -171,6 +173,7 @@ export function createDoor(
     open: false,
     switchIds: [...switchIds],
     leverIds: [...(options.leverIds ?? [])],
+    activationMode: options.activationMode ?? 'all',
     keyId: options.keyId,
     consumesKey: options.consumesKey ?? false,
     unlocked: options.keyId === undefined,
