@@ -1,11 +1,11 @@
-import type { GameAction, TimedAction } from './action';
+import type { GameAction } from './action';
 import type { GridMap, GridPosition } from './grid';
 import { tryMove } from './grid';
 
 export type GameState = Readonly<{
   player: GridPosition;
   elapsedMs: number;
-  actions: readonly TimedAction[];
+  hasAction: boolean;
 }>;
 
 export type ActionResult = Readonly<{
@@ -17,7 +17,7 @@ export function createGameState(player: GridPosition): GameState {
   return {
     player: { ...player },
     elapsedMs: 0,
-    actions: [],
+    hasAction: false,
   };
 }
 
@@ -30,16 +30,18 @@ export function advanceTime(state: GameState, elapsedMs: number): GameState {
 }
 
 export function applyAction(state: GameState, action: GameAction, map: GridMap): ActionResult {
-  const actions = [...state.actions, { action, atMs: state.elapsedMs }];
+  if (action.type === 'reset') {
+    return { state, changed: false };
+  }
 
-  if (action.type !== 'move') {
-    return { state: { ...state, actions }, changed: false };
+  if (action.type === 'interact') {
+    return { state: { ...state, hasAction: true }, changed: false };
   }
 
   const player = tryMove(state.player, action.direction, map);
   const changed = player !== state.player;
   return {
-    state: { ...state, player, actions },
+    state: { ...state, player, hasAction: true },
     changed,
   };
 }

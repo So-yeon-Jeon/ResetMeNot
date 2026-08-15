@@ -8,7 +8,7 @@ describe('game state', () => {
   it('creates an independent initial player position', () => {
     const start = { x: 1, y: 1 };
     const state = createGameState(start);
-    expect(state).toEqual({ player: start, elapsedMs: 0, actions: [] });
+    expect(state).toEqual({ player: start, elapsedMs: 0, hasAction: false });
     expect(state.player).not.toBe(start);
   });
 
@@ -18,29 +18,32 @@ describe('game state', () => {
 
     expect(result.changed).toBe(true);
     expect(result.state.player).toEqual({ x: 2, y: 1 });
-    expect(result.state.actions).toEqual([
-      { action: { type: 'move', direction: 'right' }, atMs: 120 },
-    ]);
+    expect(result.state.hasAction).toBe(true);
     expect(previous.player).toEqual({ x: 1, y: 1 });
-    expect(previous.actions).toEqual([]);
+    expect(previous.hasAction).toBe(false);
   });
 
-  it('records a blocked move for deterministic echo replay', () => {
+  it('marks a blocked move as an action for echo creation', () => {
     const state = advanceTime(createGameState({ x: 1, y: 1 }), 250);
     const result = applyAction(state, { type: 'move', direction: 'left' }, map);
 
     expect(result.changed).toBe(false);
     expect(result.state.player).toEqual({ x: 1, y: 1 });
-    expect(result.state.actions).toEqual([
-      { action: { type: 'move', direction: 'left' }, atMs: 250 },
-    ]);
+    expect(result.state.hasAction).toBe(true);
   });
 
-  it('records non-movement actions without changing the player', () => {
+  it('marks an interaction without changing the player', () => {
     const state = createGameState({ x: 1, y: 1 });
     const result = applyAction(state, { type: 'interact' }, map);
     expect(result.changed).toBe(false);
-    expect(result.state.actions[0]?.action).toEqual({ type: 'interact' });
+    expect(result.state.hasAction).toBe(true);
+  });
+
+  it('does not mark reset as a player action', () => {
+    const state = createGameState({ x: 1, y: 1 });
+    const result = applyAction(state, { type: 'reset' }, map);
+    expect(result.state).toBe(state);
+    expect(result.state.hasAction).toBe(false);
   });
 
   it('rejects time moving backwards', () => {
