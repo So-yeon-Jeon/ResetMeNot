@@ -1,0 +1,87 @@
+{
+  "width": 12,
+  "height": 10,
+  "tilewidth": 32,
+  "tileheight": 32,
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "properties": [
+    { "name": "schemaVersion", "type": "int", "value": 1 },
+    { "name": "levelId", "type": "string", "value": "demo-room" },
+    { "name": "chapterId", "type": "string", "value": "demo" },
+    { "name": "resetLimit", "type": "int", "value": 3 },
+    { "name": "echoLimit", "type": "int", "value": 3 },
+    { "name": "resetPolicy", "type": "string", "value": "disable" }
+  ],
+  "layers": [
+    { "name": "floor", "type": "tilelayer", "width": 12, "height": 10, "data": [] },
+    {
+      "name": "walls",
+      "type": "tilelayer",
+      "width": 12,
+      "height": 10,
+      "data": [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0,
+        0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+      ]
+    },
+    {
+      "name": "objects",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "name": "demo-spawn",
+          "class": "PlayerSpawn",
+          "x": 64,
+          "y": 64,
+          "width": 32,
+          "height": 32
+        },
+        {
+          "name": "demo-pocket-watch",
+          "class": "PocketWatch",
+          "x": 64,
+          "y": 96,
+          "width": 32,
+          "height": 32
+        },
+        { "name": "demo-switch", "class": "Switch", "x": 128, "y": 224, "width": 32, "height": 32 },
+        {
+          "name": "demo-door",
+          "class": "Door",
+          "x": 192,
+          "y": 224,
+          "width": 32,
+          "height": 32,
+          "properties": [{ "name": "switchIds", "type": "string", "value": "demo-switch" }]
+        },
+        {
+          "name": "demo-memory-box",
+          "class": "Box",
+          "x": 256,
+          "y": 160,
+          "width": 32,
+          "height": 32,
+          "properties": [{ "name": "persistentFields", "type": "string", "value": "position" }]
+        },
+        { "name": "demo-key", "class": "Key", "x": 288, "y": 64, "width": 32, "height": 32 },
+        {
+          "name": "demo-key-door",
+          "class": "Door",
+          "x": 288,
+          "y": 224,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "keyId", "type": "string", "value": "demo-key" },
+            { "name": "consumesKey", "type": "bool", "value": true }
+          ]
+        },
+        { "name": "demo-lever", "class": "Lever", "x": 256, "y": 256, "width": 32, "height": 32 },
+        { "name": "demo-exit", "class": "Exit", "x": 320, "y": 256, "width": 32, "height": 32 }
+      ]
+    }
+  ]
+}

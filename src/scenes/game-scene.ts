@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
-import { DEMO_MAP, DEMO_MAP_ROWS, DEMO_OBJECTS, PLAYER_START } from '../game/demo-map';
+import { DEMO_LEVEL, DEMO_MAP, DEMO_MAP_ROWS, DEMO_OBJECTS, PLAYER_START } from '../game/demo-map';
 import {
   advanceTime,
   applyAction,
@@ -29,8 +29,11 @@ type MovementKeys = Readonly<{
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
   private gameState: GameState = createGameState(PLAYER_START, {
-    resetLimit: 3,
+    facing: DEMO_LEVEL.playerFacing,
+    resetLimit: DEMO_LEVEL.resetLimit,
+    echoLimit: DEMO_LEVEL.echoLimit,
     objects: DEMO_OBJECTS,
+    finalClockDurationMs: DEMO_LEVEL.finalClockDurationMs,
   });
   private movementKeys!: MovementKeys;
   private resetKey!: Phaser.Input.Keyboard.Key;
