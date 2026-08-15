@@ -60,7 +60,7 @@ type EchoState = {
 };
 ```
 
-현재 Run에는 Echo 생성 여부를 판단할 `hasAction`만 기록합니다. 빈 Run은 Echo를 생성하지 않습니다.
+현재 Run에는 Echo 생성 여부를 판단할 `hasAction`만 기록합니다. 성공한 이동 또는 유효한 상호작용만 이 값을 활성화합니다. 빈 Run에서는 RESET을 실행하거나 횟수를 소비하지 않습니다.
 
 ## 현재 행동
 

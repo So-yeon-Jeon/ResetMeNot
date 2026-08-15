@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
-import { DEMO_MAP, DEMO_MAP_ROWS, PLAYER_START } from '../game/demo-map';
+import { DEMO_MAP, DEMO_MAP_ROWS, DEMO_OBJECTS, PLAYER_START } from '../game/demo-map';
 import { advanceTime, applyAction, createGameState, type GameState } from '../game/game-state';
 import type { Direction, GridPosition } from '../game/grid';
 
@@ -10,6 +10,8 @@ const FLOOR_COLOR = 0x24212e;
 const WALL_COLOR = 0x51485d;
 const WALL_EDGE_COLOR = 0x766981;
 const PLAYER_COLOR = 0xd9b6a3;
+const ECHO_COLOR = 0x73c8df;
+const POCKET_WATCH_COLOR = 0xd8b65a;
 
 type MovementKeys = Readonly<{
   up: Phaser.Input.Keyboard.Key[];
@@ -20,9 +22,18 @@ type MovementKeys = Readonly<{
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
-  private gameState: GameState = createGameState(PLAYER_START);
+  private gameState: GameState = createGameState(PLAYER_START, {
+    resetLimit: 3,
+    objects: DEMO_OBJECTS,
+  });
   private movementKeys!: MovementKeys;
+  private resetKey!: Phaser.Input.Keyboard.Key;
+  private interactKey!: Phaser.Input.Keyboard.Key;
+  private resetHud!: Phaser.GameObjects.Text;
+  private echoSprites: Phaser.GameObjects.Rectangle[] = [];
+  private objectSprites = new Map<string, Phaser.GameObjects.Arc>();
   private isMoving = false;
+  private pendingReset = false;
   private mapOrigin = { x: 0, y: 0 };
 
   constructor() {
@@ -37,11 +48,23 @@ export class GameScene extends Phaser.Scene {
 
     this.drawMap();
     this.createPlayer();
+    this.createObjects();
     this.createInstructions();
     this.createKeyboardControls();
   }
 
   update(time: number): void {
+    if (Phaser.Input.Keyboard.JustDown(this.resetKey)) {
+      if (this.isMoving) this.pendingReset = true;
+      else this.dispatch({ type: 'reset' });
+      return;
+    }
+
+    if (!this.isMoving && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+      this.dispatch({ type: 'interact' });
+      return;
+    }
+
     if (this.isMoving) return;
 
     this.gameState = advanceTime(this.gameState, time);
@@ -75,13 +98,28 @@ export class GameScene extends Phaser.Scene {
 
   private createInstructions(): void {
     this.add
-      .text(this.scale.width / 2, 12, 'ARROW KEYS / WASD  ·  MOVE', {
-        color: '#aaa1b5',
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        letterSpacing: 2,
-      })
+      .text(
+        this.scale.width / 2,
+        12,
+        'ARROW KEYS / WASD  ·  MOVE     Z  ·  INTERACT     R  ·  RESET',
+        {
+          color: '#aaa1b5',
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          letterSpacing: 2,
+        },
+      )
       .setOrigin(0.5, 0);
+
+    this.resetHud = this.add
+      .text(this.scale.width / 2, this.scale.height - 18, '', {
+        color: '#73c8df',
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        letterSpacing: 1,
+      })
+      .setOrigin(0.5, 1);
+    this.updateResetHud();
   }
 
   private createKeyboardControls(): void {
@@ -99,6 +137,8 @@ export class GameScene extends Phaser.Scene {
       left: [cursors.left, wasd.A],
       right: [cursors.right, wasd.D],
     };
+    this.resetKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+    this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
   }
 
   private readDirection(): Direction | undefined {
@@ -109,9 +149,28 @@ export class GameScene extends Phaser.Scene {
   }
 
   private dispatch(action: GameAction): void {
+    const previousPlayer = this.gameState.player;
     const result = applyAction(this.gameState, action, DEMO_MAP);
     this.gameState = result.state;
+
+    if (action.type === 'interact' && result.changed) {
+      this.renderObjects();
+      this.updateResetHud();
+    }
+
+    if (result.resetPerformed) {
+      this.renderResetState();
+      return;
+    }
+
     if (!result.changed) return;
+
+    if (
+      previousPlayer.x === this.gameState.player.x &&
+      previousPlayer.y === this.gameState.player.y
+    ) {
+      return;
+    }
 
     const pixel = this.gridToPixel(this.gameState.player);
     this.isMoving = true;
@@ -124,7 +183,58 @@ export class GameScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
       onComplete: () => {
         this.isMoving = false;
+        if (this.pendingReset) {
+          this.pendingReset = false;
+          this.dispatch({ type: 'reset' });
+        }
       },
+    });
+  }
+
+  private renderResetState(): void {
+    const playerPixel = this.gridToPixel(this.gameState.player);
+    this.player.setPosition(playerPixel.x, playerPixel.y);
+
+    this.echoSprites.forEach((echo) => echo.destroy());
+    this.echoSprites = this.gameState.echoes.map((echo) => {
+      const pixel = this.gridToPixel(echo.position);
+      return this.add
+        .rectangle(pixel.x, pixel.y, GRID_SIZE - 10, GRID_SIZE - 10, ECHO_COLOR, 0.42)
+        .setStrokeStyle(2, 0xb9efff, 0.7)
+        .setDepth(0.5);
+    });
+
+    this.updateResetHud();
+    this.cameras.main.flash(90, 115, 200, 223, false);
+  }
+
+  private updateResetHud(): void {
+    this.resetHud.setVisible(this.gameState.resetUnlocked);
+    if (!this.gameState.resetUnlocked) return;
+
+    const remaining = this.gameState.resetLimit - this.gameState.resetCount;
+    this.resetHud.setText(
+      remaining > 0
+        ? `RESET ${this.gameState.resetCount} / ${this.gameState.resetLimit}`
+        : 'RESET EXHAUSTED',
+    );
+  }
+
+  private createObjects(): void {
+    this.gameState.objects.forEach((object) => {
+      const pixel = this.gridToPixel(object.position);
+      const sprite = this.add
+        .circle(pixel.x, pixel.y, GRID_SIZE / 4, POCKET_WATCH_COLOR)
+        .setStrokeStyle(2, 0xffe6a3)
+        .setDepth(0.75);
+      this.objectSprites.set(object.id, sprite);
+    });
+    this.renderObjects();
+  }
+
+  private renderObjects(): void {
+    this.gameState.objects.forEach((object) => {
+      this.objectSprites.get(object.id)?.setVisible(!object.collected);
     });
   }
 
