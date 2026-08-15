@@ -345,7 +345,13 @@ function recalculateDerivedObjects(
       const echoActive =
         object.acceptedActors.includes('echo') &&
         echoes.some((echo) => samePosition(echo.position, object.position));
-      return { ...object, active: playerActive || echoActive };
+      const boxActive =
+        object.acceptedActors.includes('box') &&
+        objects.some(
+          (candidate) =>
+            candidate.type === 'box' && samePosition(candidate.position, object.position),
+        );
+      return { ...object, active: playerActive || echoActive || boxActive };
     }
     if (object.type === 'lever' && object.mode === 'hold') {
       const playerActive =
@@ -369,7 +375,11 @@ function recalculateDerivedObjects(
       });
     const occupied =
       samePosition(object.position, player) ||
-      echoes.some((echo) => samePosition(echo.position, object.position));
+      echoes.some((echo) => samePosition(echo.position, object.position)) ||
+      activated.some(
+        (candidate) =>
+          candidate.type === 'box' && samePosition(candidate.position, object.position),
+      );
     const previous = previousObjects?.find((candidate) => candidate.id === object.id);
     const keepOpenWhileOccupied = previous?.type === 'door' && previous.open && occupied;
     const keyOpen = object.keyId !== undefined && object.unlocked;

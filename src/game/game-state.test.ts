@@ -205,6 +205,50 @@ describe('game state', () => {
     ]);
   });
 
+  it('opens a linked door while a box occupies an accepting pressure switch', () => {
+    const wideMap = createGridMap(['#######', '#.....#', '#######']);
+    const state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        objects: [
+          createBox('box', { x: 2, y: 1 }),
+          createPressureSwitch('switch', { x: 3, y: 1 }),
+          createDoor('door', { x: 5, y: 1 }, ['switch']),
+        ],
+      },
+    );
+    const moved = applyAction(state, { type: 'move', direction: 'right' }, wideMap).state;
+
+    expect(moved.objects).toMatchObject([
+      { id: 'box', position: { x: 3, y: 1 } },
+      { id: 'switch', active: true },
+      { id: 'door', open: true },
+    ]);
+  });
+
+  it('does not activate a pressure switch for a disallowed box', () => {
+    const wideMap = createGridMap(['#######', '#.....#', '#######']);
+    const state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        objects: [
+          createBox('box', { x: 2, y: 1 }),
+          createPressureSwitch('switch', { x: 3, y: 1 }, ['player', 'echo']),
+          createDoor('door', { x: 5, y: 1 }, ['switch']),
+        ],
+      },
+    );
+    const moved = applyAction(state, { type: 'move', direction: 'right' }, wideMap).state;
+
+    expect(moved.objects).toMatchObject([
+      { id: 'box', position: { x: 3, y: 1 } },
+      { id: 'switch', active: false },
+      { id: 'door', open: false },
+    ]);
+  });
+
   it('blocks movement through a closed door', () => {
     const state = createGameState(
       { x: 1, y: 1 },

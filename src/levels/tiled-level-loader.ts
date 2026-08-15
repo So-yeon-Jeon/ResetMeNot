@@ -247,8 +247,8 @@ function readProperties(value: unknown, label: string): JsonObject {
   return result;
 }
 function actors(value: unknown): AcceptedActor[] {
-  return csv(value ?? 'player,echo').map((actor) =>
-    oneOf(actor, ['player', 'echo'], 'acceptedActors'),
+  return csv(value ?? 'player,echo,box').map((actor) =>
+    oneOf(actor, ['player', 'echo', 'box'], 'acceptedActors'),
   );
 }
 function persistent(value: unknown): PersistentField[] {

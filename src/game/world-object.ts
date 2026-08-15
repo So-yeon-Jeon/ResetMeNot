@@ -1,7 +1,7 @@
 import type { GridPosition } from './grid';
 
 export type PersistentField = 'position' | 'state' | 'broken' | 'collected';
-export type AcceptedActor = 'player' | 'echo';
+export type AcceptedActor = 'player' | 'echo' | 'box';
 
 export type PocketWatchState = Readonly<{
   id: string;
@@ -104,7 +104,7 @@ export function createPuzzleObject(
 export function createPressureSwitch(
   id: string,
   position: GridPosition,
-  acceptedActors: readonly AcceptedActor[] = ['player', 'echo'],
+  acceptedActors: readonly AcceptedActor[] = ['player', 'echo', 'box'],
 ): PressureSwitchState {
   return {
     id,
