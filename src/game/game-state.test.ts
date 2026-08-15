@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { advanceTime, applyAction, createGameState, unlockReset } from './game-state';
 import { createGridMap } from './grid';
-import { createPocketWatch } from './world-object';
+import { createDoor, createPocketWatch, createPressureSwitch } from './world-object';
 
 describe('game state', () => {
   const map = createGridMap(['#####', '#...#', '#####']);
@@ -132,6 +132,59 @@ describe('game state', () => {
     expect(result.resetPerformed).toBe(true);
     expect(result.state.objects[0]).toMatchObject({ id: 'watch', collected: true });
     expect(result.state.resetUnlocked).toBe(true);
+  });
+
+  it('opens a linked door while the player occupies a pressure switch', () => {
+    const state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        objects: [
+          createPressureSwitch('switch', { x: 2, y: 1 }),
+          createDoor('door', { x: 3, y: 1 }, ['switch']),
+        ],
+      },
+    );
+    const moved = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+
+    expect(moved.objects).toMatchObject([
+      { id: 'switch', active: true },
+      { id: 'door', open: true },
+    ]);
+  });
+
+  it('keeps a pressure switch active with a fixed echo after reset', () => {
+    let state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        resetUnlocked: true,
+        resetLimit: 1,
+        objects: [
+          createPressureSwitch('switch', { x: 2, y: 1 }),
+          createDoor('door', { x: 3, y: 1 }, ['switch']),
+        ],
+      },
+    );
+    state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    state = applyAction(state, { type: 'reset' }, map).state;
+
+    expect(state.echoes[0]?.position).toEqual({ x: 2, y: 1 });
+    expect(state.objects).toMatchObject([
+      { id: 'switch', active: true },
+      { id: 'door', open: true },
+    ]);
+  });
+
+  it('blocks movement through a closed door', () => {
+    const state = createGameState(
+      { x: 1, y: 1 },
+      { facing: 'right', objects: [createDoor('door', { x: 2, y: 1 }, [])] },
+    );
+    const result = applyAction(state, { type: 'move', direction: 'right' }, map);
+
+    expect(result.state.player).toEqual({ x: 1, y: 1 });
+    expect(result.state.hasAction).toBe(false);
   });
 
   it('rejects time moving backwards', () => {

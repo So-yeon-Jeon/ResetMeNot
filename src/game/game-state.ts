@@ -89,14 +89,25 @@ export function applyAction(state: GameState, action: GameAction, map: GridMap):
     return applyInteract(state);
   }
 
-  const player = tryMove(state.player, action.direction, map);
+  const candidate = tryMove(state.player, action.direction, map);
+  const blockedByDoor = state.objects.some(
+    (object) =>
+      object.type === 'door' &&
+      !object.open &&
+      positionKey(object.position) === positionKey(candidate),
+  );
+  const player = blockedByDoor ? state.player : candidate;
   const moved = player !== state.player;
+  const objects = moved
+    ? recalculateDerivedObjects(state.objects, player, state.echoes)
+    : state.objects;
   return result(
     {
       ...state,
       player,
       playerFacing: action.direction,
       hasAction: state.hasAction || moved,
+      objects,
     },
     moved || action.direction !== state.playerFacing,
   );
@@ -105,7 +116,10 @@ export function applyAction(state: GameState, action: GameAction, map: GridMap):
 function applyInteract(state: GameState): ActionResult {
   const target = positionInDirection(state.player, state.playerFacing);
   const objectIndex = state.objects.findIndex(
-    (object) => !object.collected && positionKey(object.position) === positionKey(target),
+    (object) =>
+      object.type === 'pocket-watch' &&
+      !object.collected &&
+      positionKey(object.position) === positionKey(target),
   );
   if (objectIndex < 0) return result(state, false);
 
@@ -143,6 +157,14 @@ function applyReset(state: GameState): ActionResult {
       ]
     : state.echoes;
 
+  const restoredObjects = restoreWorldObjects(state.objects, state.initialObjects);
+  const objects = recalculateDerivedObjects(
+    restoredObjects,
+    state.playerStart,
+    echoes,
+    state.objects,
+  );
+
   return {
     state: {
       ...state,
@@ -152,7 +174,7 @@ function applyReset(state: GameState): ActionResult {
       hasAction: false,
       resetCount: state.resetCount + 1,
       echoes,
-      objects: restoreWorldObjects(state.objects, state.initialObjects),
+      objects,
     },
     changed: true,
     resetPerformed: true,
@@ -162,4 +184,38 @@ function applyReset(state: GameState): ActionResult {
 
 function result(state: GameState, changed: boolean): ActionResult {
   return { state, changed, resetPerformed: false, echoCreated: false };
+}
+
+function recalculateDerivedObjects(
+  objects: readonly WorldObjectState[],
+  player: GridPosition,
+  echoes: readonly EchoState[],
+  previousObjects: readonly WorldObjectState[] = objects,
+): readonly WorldObjectState[] {
+  const switches = objects.map((object) => {
+    if (object.type !== 'pressure-switch') return object;
+
+    const playerActive =
+      object.acceptedActors.includes('player') &&
+      positionKey(object.position) === positionKey(player);
+    const echoActive =
+      object.acceptedActors.includes('echo') &&
+      echoes.some((echo) => positionKey(echo.position) === positionKey(object.position));
+    return { ...object, active: playerActive || echoActive };
+  });
+
+  return switches.map((object) => {
+    if (object.type !== 'door') return object;
+
+    const conditionsMet = object.switchIds.every((switchId) => {
+      const linked = switches.find((candidate) => candidate.id === switchId);
+      return linked?.type === 'pressure-switch' && linked.active;
+    });
+    const occupied =
+      positionKey(object.position) === positionKey(player) ||
+      echoes.some((echo) => positionKey(echo.position) === positionKey(object.position));
+    const previous = previousObjects.find((candidate) => candidate.id === object.id);
+    const keepOpenWhileOccupied = previous?.type === 'door' && previous.open && occupied;
+    return { ...object, open: conditionsMet || keepOpenWhileOccupied };
+  });
 }

@@ -31,7 +31,7 @@ export class GameScene extends Phaser.Scene {
   private interactKey!: Phaser.Input.Keyboard.Key;
   private resetHud!: Phaser.GameObjects.Text;
   private echoSprites: Phaser.GameObjects.Rectangle[] = [];
-  private objectSprites = new Map<string, Phaser.GameObjects.Arc>();
+  private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
   private pendingReset = false;
   private mapOrigin = { x: 0, y: 0 };
@@ -165,6 +165,8 @@ export class GameScene extends Phaser.Scene {
 
     if (!result.changed) return;
 
+    this.renderObjects();
+
     if (
       previousPlayer.x === this.gameState.player.x &&
       previousPlayer.y === this.gameState.player.y
@@ -204,6 +206,7 @@ export class GameScene extends Phaser.Scene {
         .setDepth(0.5);
     });
 
+    this.renderObjects();
     this.updateResetHud();
     this.cameras.main.flash(90, 115, 200, 223, false);
   }
@@ -221,20 +224,52 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createObjects(): void {
-    this.gameState.objects.forEach((object) => {
-      const pixel = this.gridToPixel(object.position);
-      const sprite = this.add
-        .circle(pixel.x, pixel.y, GRID_SIZE / 4, POCKET_WATCH_COLOR)
-        .setStrokeStyle(2, 0xffe6a3)
-        .setDepth(0.75);
-      this.objectSprites.set(object.id, sprite);
-    });
     this.renderObjects();
   }
 
   private renderObjects(): void {
+    this.objectSprites.forEach((object) => object.destroy());
+    this.objectSprites = [];
+
     this.gameState.objects.forEach((object) => {
-      this.objectSprites.get(object.id)?.setVisible(!object.collected);
+      const pixel = this.gridToPixel(object.position);
+      if (object.type === 'pocket-watch' && !object.collected) {
+        this.objectSprites.push(
+          this.add
+            .circle(pixel.x, pixel.y, GRID_SIZE / 4, POCKET_WATCH_COLOR)
+            .setStrokeStyle(2, 0xffe6a3)
+            .setDepth(0.75),
+        );
+      }
+      if (object.type === 'pressure-switch') {
+        this.objectSprites.push(
+          this.add
+            .rectangle(
+              pixel.x,
+              pixel.y,
+              GRID_SIZE - 8,
+              GRID_SIZE - 8,
+              object.active ? 0x73c8df : 0x625b70,
+            )
+            .setStrokeStyle(2, object.active ? 0xb9efff : 0x8e849c)
+            .setDepth(0.25),
+        );
+      }
+      if (object.type === 'door') {
+        this.objectSprites.push(
+          this.add
+            .rectangle(
+              pixel.x,
+              pixel.y,
+              GRID_SIZE - 4,
+              GRID_SIZE - 4,
+              object.open ? 0x355b55 : 0x8a644d,
+              object.open ? 0.35 : 1,
+            )
+            .setStrokeStyle(2, object.open ? 0x73c8df : 0xc69a6b)
+            .setDepth(0.7),
+        );
+      }
     });
   }
 

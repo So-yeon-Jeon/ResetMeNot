@@ -19,7 +19,24 @@ export type PuzzleObjectState = Readonly<{
   persistentFields: readonly PersistentField[];
 }>;
 
-export type WorldObjectState = PocketWatchState | PuzzleObjectState;
+export type PressureSwitchState = Readonly<{
+  id: string;
+  type: 'pressure-switch';
+  position: GridPosition;
+  active: boolean;
+  acceptedActors: readonly ('player' | 'echo')[];
+}>;
+
+export type DoorState = Readonly<{
+  id: string;
+  type: 'door';
+  position: GridPosition;
+  open: boolean;
+  switchIds: readonly string[];
+}>;
+
+export type WorldObjectState =
+  PocketWatchState | PuzzleObjectState | PressureSwitchState | DoorState;
 
 export function createPocketWatch(id: string, position: GridPosition): PocketWatchState {
   return {
@@ -43,6 +60,34 @@ export function createPuzzleObject(
     broken: false,
     collected: false,
     persistentFields: [...persistentFields],
+  };
+}
+
+export function createPressureSwitch(
+  id: string,
+  position: GridPosition,
+  acceptedActors: readonly ('player' | 'echo')[] = ['player', 'echo'],
+): PressureSwitchState {
+  return {
+    id,
+    type: 'pressure-switch',
+    position: { ...position },
+    active: false,
+    acceptedActors: [...acceptedActors],
+  };
+}
+
+export function createDoor(
+  id: string,
+  position: GridPosition,
+  switchIds: readonly string[],
+): DoorState {
+  return {
+    id,
+    type: 'door',
+    position: { ...position },
+    open: false,
+    switchIds: [...switchIds],
   };
 }
 
@@ -75,6 +120,16 @@ export function restoreWorldObjects(
 
 export function cloneWorldObject(object: WorldObjectState): WorldObjectState {
   if (object.type === 'pocket-watch') return { ...object, position: { ...object.position } };
+  if (object.type === 'pressure-switch') {
+    return {
+      ...object,
+      position: { ...object.position },
+      acceptedActors: [...object.acceptedActors],
+    };
+  }
+  if (object.type === 'door') {
+    return { ...object, position: { ...object.position }, switchIds: [...object.switchIds] };
+  }
   return {
     ...object,
     position: { ...object.position },
