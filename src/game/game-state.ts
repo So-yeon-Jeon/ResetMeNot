@@ -12,6 +12,7 @@ export type EchoState = Readonly<{
 
 export type WorldMemory = Readonly<{
   totalResetCount: number;
+  chapterRestartCount: number;
   events: readonly string[];
 }>;
 
@@ -87,7 +88,11 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
     initialObjects,
     inventoryKeys: [],
     phase: 'playing',
-    worldMemory: options.worldMemory ?? { totalResetCount: 0, events: [] },
+    worldMemory: options.worldMemory ?? {
+      totalResetCount: 0,
+      chapterRestartCount: 0,
+      events: [],
+    },
     finalClockDurationMs: options.finalClockDurationMs,
     finalClockElapsedMs: 0,
   };
@@ -141,6 +146,10 @@ export function restartChapter(state: GameState): GameState {
     inventoryKeys: [],
     phase: 'playing',
     finalClockElapsedMs: 0,
+    worldMemory: {
+      ...state.worldMemory,
+      chapterRestartCount: state.worldMemory.chapterRestartCount + 1,
+    },
   };
 }
 

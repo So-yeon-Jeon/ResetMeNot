@@ -433,7 +433,22 @@ describe('game state', () => {
     expect(state.player).toEqual({ x: 1, y: 1 });
     expect(state.resetCount).toBe(0);
     expect(state.echoes).toEqual([]);
-    expect(state.worldMemory).toEqual({ totalResetCount: 1, events: ['first-reset'] });
+    expect(state.worldMemory).toEqual({
+      totalResetCount: 1,
+      chapterRestartCount: 1,
+      events: ['first-reset'],
+    });
+  });
+
+  it('tracks chapter restarts separately from resets', () => {
+    let state = createGameState({ x: 1, y: 1 });
+    state = restartChapter(state);
+    state = restartChapter(state);
+
+    expect(state.worldMemory).toMatchObject({
+      totalResetCount: 0,
+      chapterRestartCount: 2,
+    });
   });
 
   it('enters let-time-go when the final clock reaches its target', () => {
