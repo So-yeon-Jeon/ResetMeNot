@@ -66,7 +66,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    const previousPhase = this.gameState.phase;
     this.gameState = advanceTime(this.gameState, delta);
+    if (previousPhase !== this.gameState.phase && this.gameState.phase === 'let-time-go') {
+      this.pendingReset = false;
+      this.pendingDirection = undefined;
+      this.phaseHud.setText('LET TIME GO');
+    }
 
     if (Phaser.Input.Keyboard.JustDown(this.restartKey)) {
       this.tweens.killTweensOf(this.player);
@@ -78,6 +84,8 @@ export class GameScene extends Phaser.Scene {
       this.phaseHud.setText('');
       return;
     }
+
+    if (this.gameState.phase !== 'playing') return;
 
     if (Phaser.Input.Keyboard.JustDown(this.resetKey)) {
       if (this.isMoving) {
