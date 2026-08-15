@@ -1,7 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { advanceTime, applyAction, createGameState, unlockReset } from './game-state';
+import {
+  advanceTime,
+  applyAction,
+  createGameState,
+  rememberWorldEvent,
+  restartChapter,
+  unlockReset,
+} from './game-state';
 import { createGridMap } from './grid';
-import { createDoor, createPocketWatch, createPressureSwitch } from './world-object';
+import {
+  createBox,
+  createDoor,
+  createExit,
+  createKey,
+  createLever,
+  createPocketWatch,
+  createPressureSwitch,
+} from './world-object';
 
 describe('game state', () => {
   const map = createGridMap(['#####', '#...#', '#####']);
@@ -134,6 +149,20 @@ describe('game state', () => {
     expect(result.state.resetUnlocked).toBe(true);
   });
 
+  it('stops in front of an interaction object so it can be examined', () => {
+    const state = createGameState(
+      { x: 1, y: 1 },
+      { facing: 'right', objects: [createKey('key', { x: 2, y: 1 })] },
+    );
+    const moved = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    const interacted = applyAction(moved, { type: 'interact' }, map).state;
+
+    expect(moved.player).toEqual({ x: 1, y: 1 });
+    expect(moved.playerFacing).toBe('right');
+    expect(moved.hasAction).toBe(false);
+    expect(interacted.inventoryKeys).toEqual(['key']);
+  });
+
   it('opens a linked door while the player occupies a pressure switch', () => {
     const state = createGameState(
       { x: 1, y: 1 },
@@ -187,8 +216,126 @@ describe('game state', () => {
     expect(result.state.hasAction).toBe(false);
   });
 
-  it('rejects time moving backwards', () => {
+  it('pushes a box one tile when its destination is empty', () => {
+    const state = createGameState(
+      { x: 1, y: 1 },
+      { facing: 'right', objects: [createBox('box', { x: 2, y: 1 })] },
+    );
+    const result = applyAction(state, { type: 'move', direction: 'right' }, map);
+
+    expect(result.state.player).toEqual({ x: 2, y: 1 });
+    expect(result.state.objects[0]).toMatchObject({ position: { x: 3, y: 1 } });
+  });
+
+  it('restores a normal box but keeps a memory box position on reset', () => {
+    const objects = [
+      createBox('normal', { x: 2, y: 1 }),
+      createBox('memory', { x: 3, y: 1 }, true),
+    ];
+    let state = unlockReset(createGameState({ x: 1, y: 1 }, { objects }));
+    state = {
+      ...state,
+      hasAction: true,
+      objects: [
+        { ...objects[0]!, position: { x: 3, y: 1 } },
+        { ...objects[1]!, position: { x: 1, y: 1 } },
+      ],
+    };
+    state = applyAction(state, { type: 'reset' }, map).state;
+
+    expect(state.objects).toMatchObject([
+      { id: 'normal', position: { x: 2, y: 1 } },
+      { id: 'memory', position: { x: 1, y: 1 } },
+    ]);
+  });
+
+  it('toggles a lever and opens its linked door', () => {
+    const state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        objects: [
+          createLever('lever', { x: 2, y: 1 }),
+          createDoor('door', { x: 3, y: 1 }, [], { leverIds: ['lever'] }),
+        ],
+      },
+    );
+    const result = applyAction(state, { type: 'interact' }, map);
+
+    expect(result.state.objects).toMatchObject([
+      { id: 'lever', active: true },
+      { id: 'door', open: true },
+    ]);
+  });
+
+  it('collects a key and unlocks a matching door', () => {
+    let state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        objects: [
+          createKey('key', { x: 2, y: 1 }),
+          createDoor('door', { x: 3, y: 1 }, [], { keyId: 'key', consumesKey: true }),
+        ],
+      },
+    );
+    state = applyAction(state, { type: 'interact' }, map).state;
+    state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    state = applyAction(state, { type: 'interact' }, map).state;
+
+    expect(state.inventoryKeys).toEqual([]);
+    expect(state.objects).toMatchObject([
+      { id: 'key', collected: true },
+      { id: 'door', unlocked: true, open: true },
+    ]);
+  });
+
+  it('completes a chapter only when the player enters an enter exit', () => {
+    const state = createGameState(
+      { x: 1, y: 1 },
+      { facing: 'right', objects: [createExit('exit', { x: 2, y: 1 })] },
+    );
+    const result = applyAction(state, { type: 'move', direction: 'right' }, map);
+
+    expect(result.chapterCompleted).toBe(true);
+    expect(result.state.phase).toBe('completed');
+  });
+
+  it('restarts puzzle state while preserving world memory', () => {
+    let state = unlockReset(createGameState({ x: 1, y: 1 }, { resetLimit: 2 }));
+    state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    state = applyAction(state, { type: 'reset' }, map).state;
+    state = rememberWorldEvent(state, 'first-reset');
+    state = restartChapter(state);
+
+    expect(state.player).toEqual({ x: 1, y: 1 });
+    expect(state.resetCount).toBe(0);
+    expect(state.echoes).toEqual([]);
+    expect(state.worldMemory).toEqual({ totalResetCount: 1, events: ['first-reset'] });
+  });
+
+  it('enters let-time-go when the final clock reaches its target', () => {
+    let state = createGameState({ x: 1, y: 1 }, { finalClockDurationMs: 1000 });
+    state = advanceTime(state, 999);
+    expect(state.phase).toBe('playing');
+    state = advanceTime(state, 1);
+    expect(state.phase).toBe('let-time-go');
+  });
+
+  it('rewinds the final clock when reset is performed', () => {
+    let state = unlockReset(
+      createGameState({ x: 1, y: 1 }, { resetLimit: 1, finalClockDurationMs: 1000 }),
+    );
+    state = advanceTime(state, 700);
+    state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    state = applyAction(state, { type: 'reset' }, map).state;
+
+    expect(state.finalClockElapsedMs).toBe(0);
+    expect(state.phase).toBe('playing');
+  });
+
+  it('rejects a negative time delta', () => {
     const state = advanceTime(createGameState({ x: 1, y: 1 }), 100);
-    expect(() => advanceTime(state, 99)).toThrow('게임 경과 시간은 이전 값보다 작을 수 없습니다.');
+    expect(() => advanceTime(state, -1)).toThrow('게임 경과 시간 증가량은 0 이상이어야 합니다.');
   });
 });

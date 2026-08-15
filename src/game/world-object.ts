@@ -1,13 +1,14 @@
 import type { GridPosition } from './grid';
 
+export type PersistentField = 'position' | 'state' | 'broken' | 'collected';
+export type AcceptedActor = 'player' | 'echo';
+
 export type PocketWatchState = Readonly<{
   id: string;
   type: 'pocket-watch';
   position: GridPosition;
   collected: boolean;
 }>;
-
-export type PersistentField = 'position' | 'state' | 'broken' | 'collected';
 
 export type PuzzleObjectState = Readonly<{
   id: string;
@@ -24,7 +25,31 @@ export type PressureSwitchState = Readonly<{
   type: 'pressure-switch';
   position: GridPosition;
   active: boolean;
-  acceptedActors: readonly ('player' | 'echo')[];
+  acceptedActors: readonly AcceptedActor[];
+}>;
+
+export type BoxState = Readonly<{
+  id: string;
+  type: 'box';
+  position: GridPosition;
+  persistentFields: readonly 'position'[];
+}>;
+
+export type LeverState = Readonly<{
+  id: string;
+  type: 'lever';
+  position: GridPosition;
+  active: boolean;
+  mode: 'toggle' | 'hold';
+  acceptedActors: readonly AcceptedActor[];
+}>;
+
+export type KeyState = Readonly<{
+  id: string;
+  type: 'key';
+  position: GridPosition;
+  collected: boolean;
+  persistentFields: readonly ('position' | 'collected')[];
 }>;
 
 export type DoorState = Readonly<{
@@ -33,18 +58,31 @@ export type DoorState = Readonly<{
   position: GridPosition;
   open: boolean;
   switchIds: readonly string[];
+  leverIds: readonly string[];
+  keyId?: string;
+  consumesKey: boolean;
+  unlocked: boolean;
+}>;
+
+export type ExitState = Readonly<{
+  id: string;
+  type: 'exit';
+  position: GridPosition;
+  mode: 'enter' | 'interact';
 }>;
 
 export type WorldObjectState =
-  PocketWatchState | PuzzleObjectState | PressureSwitchState | DoorState;
+  | PocketWatchState
+  | PuzzleObjectState
+  | PressureSwitchState
+  | BoxState
+  | LeverState
+  | KeyState
+  | DoorState
+  | ExitState;
 
 export function createPocketWatch(id: string, position: GridPosition): PocketWatchState {
-  return {
-    id,
-    type: 'pocket-watch',
-    position: { ...position },
-    collected: false,
-  };
+  return { id, type: 'pocket-watch', position: { ...position }, collected: false };
 }
 
 export function createPuzzleObject(
@@ -66,7 +104,7 @@ export function createPuzzleObject(
 export function createPressureSwitch(
   id: string,
   position: GridPosition,
-  acceptedActors: readonly ('player' | 'echo')[] = ['player', 'echo'],
+  acceptedActors: readonly AcceptedActor[] = ['player', 'echo'],
 ): PressureSwitchState {
   return {
     id,
@@ -77,10 +115,54 @@ export function createPressureSwitch(
   };
 }
 
+export function createBox(id: string, position: GridPosition, rememberPosition = false): BoxState {
+  return {
+    id,
+    type: 'box',
+    position: { ...position },
+    persistentFields: rememberPosition ? ['position'] : [],
+  };
+}
+
+export function createLever(
+  id: string,
+  position: GridPosition,
+  mode: 'toggle' | 'hold' = 'toggle',
+  acceptedActors: readonly AcceptedActor[] = ['player', 'echo'],
+): LeverState {
+  return {
+    id,
+    type: 'lever',
+    position: { ...position },
+    active: false,
+    mode,
+    acceptedActors: [...acceptedActors],
+  };
+}
+
+export function createKey(
+  id: string,
+  position: GridPosition,
+  persistentFields: readonly ('position' | 'collected')[] = [],
+): KeyState {
+  return {
+    id,
+    type: 'key',
+    position: { ...position },
+    collected: false,
+    persistentFields: [...persistentFields],
+  };
+}
+
 export function createDoor(
   id: string,
   position: GridPosition,
-  switchIds: readonly string[],
+  switchIds: readonly string[] = [],
+  options: Readonly<{
+    leverIds?: readonly string[];
+    keyId?: string;
+    consumesKey?: boolean;
+  }> = {},
 ): DoorState {
   return {
     id,
@@ -88,7 +170,19 @@ export function createDoor(
     position: { ...position },
     open: false,
     switchIds: [...switchIds],
+    leverIds: [...(options.leverIds ?? [])],
+    keyId: options.keyId,
+    consumesKey: options.consumesKey ?? false,
+    unlocked: options.keyId === undefined,
   };
+}
+
+export function createExit(
+  id: string,
+  position: GridPosition,
+  mode: 'enter' | 'interact' = 'enter',
+): ExitState {
+  return { id, type: 'exit', position: { ...position }, mode };
 }
 
 export function restoreWorldObjects(
@@ -101,7 +195,27 @@ export function restoreWorldObjects(
     if (initial.type === 'pocket-watch' && current.type === 'pocket-watch') {
       return cloneWorldObject(current);
     }
-
+    if (initial.type === 'box' && current.type === 'box') {
+      return {
+        ...initial,
+        position: initial.persistentFields.includes('position')
+          ? { ...current.position }
+          : { ...initial.position },
+        persistentFields: [...initial.persistentFields],
+      };
+    }
+    if (initial.type === 'key' && current.type === 'key') {
+      return {
+        ...initial,
+        position: initial.persistentFields.includes('position')
+          ? { ...current.position }
+          : { ...initial.position },
+        collected: initial.persistentFields.includes('collected')
+          ? current.collected
+          : initial.collected,
+        persistentFields: [...initial.persistentFields],
+      };
+    }
     if (initial.type !== 'puzzle-object' || current.type !== 'puzzle-object') {
       return cloneWorldObject(initial);
     }
@@ -119,8 +233,7 @@ export function restoreWorldObjects(
 }
 
 export function cloneWorldObject(object: WorldObjectState): WorldObjectState {
-  if (object.type === 'pocket-watch') return { ...object, position: { ...object.position } };
-  if (object.type === 'pressure-switch') {
+  if (object.type === 'pressure-switch' || object.type === 'lever') {
     return {
       ...object,
       position: { ...object.position },
@@ -128,11 +241,33 @@ export function cloneWorldObject(object: WorldObjectState): WorldObjectState {
     };
   }
   if (object.type === 'door') {
-    return { ...object, position: { ...object.position }, switchIds: [...object.switchIds] };
+    return {
+      ...object,
+      position: { ...object.position },
+      switchIds: [...object.switchIds],
+      leverIds: [...object.leverIds],
+    };
   }
-  return {
-    ...object,
-    position: { ...object.position },
-    persistentFields: [...object.persistentFields],
-  };
+  if (object.type === 'box') {
+    return {
+      ...object,
+      position: { ...object.position },
+      persistentFields: [...object.persistentFields],
+    };
+  }
+  if (object.type === 'key') {
+    return {
+      ...object,
+      position: { ...object.position },
+      persistentFields: [...object.persistentFields],
+    };
+  }
+  if (object.type === 'puzzle-object') {
+    return {
+      ...object,
+      position: { ...object.position },
+      persistentFields: [...object.persistentFields],
+    };
+  }
+  return { ...object, position: { ...object.position } };
 }

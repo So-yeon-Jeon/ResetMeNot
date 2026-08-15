@@ -2,7 +2,13 @@ import Phaser from 'phaser';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
 import { DEMO_MAP, DEMO_MAP_ROWS, DEMO_OBJECTS, PLAYER_START } from '../game/demo-map';
-import { advanceTime, applyAction, createGameState, type GameState } from '../game/game-state';
+import {
+  advanceTime,
+  applyAction,
+  createGameState,
+  restartChapter,
+  type GameState,
+} from '../game/game-state';
 import type { Direction, GridPosition } from '../game/grid';
 
 const MOVE_DURATION_MS = 110;
@@ -29,7 +35,9 @@ export class GameScene extends Phaser.Scene {
   private movementKeys!: MovementKeys;
   private resetKey!: Phaser.Input.Keyboard.Key;
   private interactKey!: Phaser.Input.Keyboard.Key;
+  private restartKey!: Phaser.Input.Keyboard.Key;
   private resetHud!: Phaser.GameObjects.Text;
+  private phaseHud!: Phaser.GameObjects.Text;
   private echoSprites: Phaser.GameObjects.Rectangle[] = [];
   private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
@@ -53,7 +61,14 @@ export class GameScene extends Phaser.Scene {
     this.createKeyboardControls();
   }
 
-  update(time: number): void {
+  update(_time: number, delta: number): void {
+    if (Phaser.Input.Keyboard.JustDown(this.restartKey)) {
+      this.gameState = restartChapter(this.gameState);
+      this.renderResetState();
+      this.phaseHud.setText('');
+      return;
+    }
+
     if (Phaser.Input.Keyboard.JustDown(this.resetKey)) {
       if (this.isMoving) this.pendingReset = true;
       else this.dispatch({ type: 'reset' });
@@ -67,7 +82,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.isMoving) return;
 
-    this.gameState = advanceTime(this.gameState, time);
+    this.gameState = advanceTime(this.gameState, delta);
     const direction = this.readDirection();
     if (direction) this.dispatch({ type: 'move', direction });
   }
@@ -101,7 +116,7 @@ export class GameScene extends Phaser.Scene {
       .text(
         this.scale.width / 2,
         12,
-        'ARROW KEYS / WASD  ·  MOVE     Z  ·  INTERACT     R  ·  RESET',
+        'ARROW/WASD · MOVE   Z · INTERACT   R · RESET   C · RESTART',
         {
           color: '#aaa1b5',
           fontFamily: 'monospace',
@@ -120,6 +135,14 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 1);
     this.updateResetHud();
+    this.phaseHud = this.add
+      .text(this.scale.width / 2, this.scale.height / 2, '', {
+        color: '#f1ded2',
+        fontFamily: 'serif',
+        fontSize: '32px',
+      })
+      .setOrigin(0.5)
+      .setDepth(5);
   }
 
   private createKeyboardControls(): void {
@@ -139,6 +162,7 @@ export class GameScene extends Phaser.Scene {
     };
     this.resetKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
     this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+    this.restartKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
   }
 
   private readDirection(): Direction | undefined {
@@ -152,6 +176,7 @@ export class GameScene extends Phaser.Scene {
     const previousPlayer = this.gameState.player;
     const result = applyAction(this.gameState, action, DEMO_MAP);
     this.gameState = result.state;
+    if (result.chapterCompleted) this.phaseHud.setText('CHAPTER CLEAR');
 
     if (action.type === 'interact' && result.changed) {
       this.renderObjects();
@@ -268,6 +293,48 @@ export class GameScene extends Phaser.Scene {
             )
             .setStrokeStyle(2, object.open ? 0x73c8df : 0xc69a6b)
             .setDepth(0.7),
+        );
+      }
+      if (object.type === 'box') {
+        this.objectSprites.push(
+          this.add
+            .rectangle(pixel.x, pixel.y, GRID_SIZE - 6, GRID_SIZE - 6, 0x9a754f)
+            .setStrokeStyle(2, 0xd8b65a)
+            .setDepth(0.65),
+        );
+      }
+      if (object.type === 'lever') {
+        this.objectSprites.push(
+          this.add
+            .triangle(
+              pixel.x,
+              pixel.y,
+              0,
+              GRID_SIZE / 2,
+              GRID_SIZE / 2,
+              0,
+              GRID_SIZE,
+              GRID_SIZE / 2,
+              object.active ? 0x73c8df : 0xb8a08c,
+            )
+            .setStrokeStyle(2, 0xe7d4bb)
+            .setDepth(0.65),
+        );
+      }
+      if (object.type === 'key' && !object.collected) {
+        this.objectSprites.push(
+          this.add
+            .star(pixel.x, pixel.y, 4, 4, GRID_SIZE / 4, 0xe5c86c)
+            .setStrokeStyle(2, 0xffe6a3)
+            .setDepth(0.65),
+        );
+      }
+      if (object.type === 'exit') {
+        this.objectSprites.push(
+          this.add
+            .rectangle(pixel.x, pixel.y, GRID_SIZE - 10, GRID_SIZE - 10, 0x6b8f71, 0.55)
+            .setStrokeStyle(2, 0xa7d7ad)
+            .setDepth(0.2),
         );
       }
     });
