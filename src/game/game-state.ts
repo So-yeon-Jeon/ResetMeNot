@@ -69,7 +69,8 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
   }
 
   const facing = options.facing ?? 'down';
-  const objects = (options.objects ?? []).map(cloneWorldObject);
+  const initialObjects = (options.objects ?? []).map(cloneWorldObject);
+  const objects = recalculateDerivedObjects(initialObjects, player, [], undefined, undefined);
   return {
     player: { ...player },
     playerFacing: facing,
@@ -83,7 +84,7 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
     echoLimit,
     echoes: [],
     objects,
-    initialObjects: objects.map(cloneWorldObject),
+    initialObjects,
     inventoryKeys: [],
     phase: 'playing',
     worldMemory: options.worldMemory ?? { totalResetCount: 0, events: [] },

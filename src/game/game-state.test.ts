@@ -182,6 +182,46 @@ describe('game state', () => {
     ]);
   });
 
+  it('calculates a player-occupied switch as soon as the level starts', () => {
+    const state = createGameState(
+      { x: 2, y: 1 },
+      {
+        objects: [
+          createPressureSwitch('switch', { x: 2, y: 1 }),
+          createDoor('door', { x: 3, y: 1 }, ['switch']),
+        ],
+      },
+    );
+
+    expect(state.objects).toMatchObject([
+      { id: 'switch', active: true },
+      { id: 'door', open: true },
+    ]);
+    expect(state.initialObjects).toMatchObject([
+      { id: 'switch', active: false },
+      { id: 'door', open: false },
+    ]);
+  });
+
+  it('calculates a box-occupied switch as soon as the level starts', () => {
+    const state = createGameState(
+      { x: 1, y: 1 },
+      {
+        objects: [
+          createPressureSwitch('switch', { x: 3, y: 1 }),
+          createBox('box', { x: 3, y: 1 }),
+          createDoor('door', { x: 4, y: 1 }, ['switch']),
+        ],
+      },
+    );
+
+    expect(state.objects).toMatchObject([
+      { id: 'switch', active: true },
+      { id: 'box' },
+      { id: 'door', open: true },
+    ]);
+  });
+
   it('keeps a pressure switch active with a fixed echo after reset', () => {
     let state = createGameState(
       { x: 1, y: 1 },
