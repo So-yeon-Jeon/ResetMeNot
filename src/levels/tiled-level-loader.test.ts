@@ -108,4 +108,52 @@ describe('loadTiledLevel', () => {
 
     expect(loadTiledLevel(map).finalClockDurationMs).toBe(10_000);
   });
+
+  it('상자와 문이 같은 초기 위치에 있으면 거부한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    const objects = layers[2]!.objects as Array<Record<string, unknown>>;
+    objects.push({
+      name: 'box-a',
+      class: 'Box',
+      x: 64,
+      y: 64,
+      width: 32,
+      height: 32,
+    });
+
+    expect(() => loadTiledLevel(map)).toThrow(/초기 위치 2,2/);
+  });
+
+  it('한 칸에 상호작용 대상이 둘 이상 있으면 거부한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    const objects = layers[2]!.objects as Array<Record<string, unknown>>;
+    objects.push({
+      name: 'lever-a',
+      class: 'Lever',
+      x: 32,
+      y: 64,
+      width: 32,
+      height: 32,
+    });
+
+    expect(() => loadTiledLevel(map)).toThrow(/상호작용 위치 1,2/);
+  });
+
+  it('압력 스위치 위의 상자는 허용한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    const objects = layers[2]!.objects as Array<Record<string, unknown>>;
+    objects.push({
+      name: 'box-on-switch',
+      class: 'Box',
+      x: 64,
+      y: 32,
+      width: 32,
+      height: 32,
+    });
+
+    expect(loadTiledLevel(map).objects).toHaveLength(4);
+  });
 });

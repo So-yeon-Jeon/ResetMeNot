@@ -81,6 +81,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   });
   if (!playerStart) fail('PlayerSpawn이 필요합니다.');
 
+  validateInitialOccupancy(objects);
   validateReferences(objects);
   const finalClockDurationMs = readFinalClock(properties);
   return {
@@ -95,6 +96,39 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     objects,
     finalClockDurationMs,
   };
+}
+
+function validateInitialOccupancy(objects: readonly WorldObjectState[]): void {
+  const solidTypes = new Set<WorldObjectState['type']>(['box', 'door', 'key']);
+  const solidByPosition = new Map<string, WorldObjectState>();
+  const interactionTypes = new Set<WorldObjectState['type']>([
+    'pocket-watch',
+    'puzzle-object',
+    'lever',
+    'key',
+    'door',
+  ]);
+  const interactionByPosition = new Map<string, WorldObjectState>();
+
+  for (const item of objects) {
+    const key = positionKey(item.position);
+    if (solidTypes.has(item.type)) {
+      const occupied = solidByPosition.get(key);
+      if (occupied) {
+        fail(`초기 위치 ${key}에 ${occupied.id}과(와) ${item.id}이(가) 함께 배치되었습니다.`);
+      }
+      solidByPosition.set(key, item);
+    }
+
+    const isInteractionTarget =
+      interactionTypes.has(item.type) || (item.type === 'exit' && item.mode === 'interact');
+    if (!isInteractionTarget) continue;
+    const occupied = interactionByPosition.get(key);
+    if (occupied) {
+      fail(`상호작용 위치 ${key}에 ${occupied.id}과(와) ${item.id}이(가) 중복되었습니다.`);
+    }
+    interactionByPosition.set(key, item);
+  }
 }
 
 function createLevelObject(
