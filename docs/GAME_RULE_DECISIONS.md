@@ -44,10 +44,8 @@
 
 ## 스위치와 문
 
-- 스위치의 방식과 활성화 주체는 레벨 데이터에 명시합니다.
-- `pressure`는 허용된 Player, Echo 또는 Box가 점유하는 동안 활성화됩니다.
-- `interact`는 허용된 Actor의 상호작용으로 작동합니다.
-- `toggle`은 필요한 레벨에서만 명시적으로 사용합니다.
+- Switch는 허용된 Player, Echo 또는 Box가 점유하는 동안 활성화되는 `pressure` 방식입니다.
+- Z 상호작용 방식은 Lever로 구분하며 레벨에서 `toggle` 또는 `hold`를 명시합니다.
 - 여러 문 조건의 기본 조합은 `AND`이며 `OR`가 필요하면 레벨 데이터에 명시합니다.
 - 조건을 잃어도 문 타일이 Player, Echo 또는 상자에 점유되어 있으면 닫히지 않습니다.
 - 점유가 사라지면 조건을 다시 계산해 닫습니다.
@@ -73,8 +71,8 @@
 
 ## 레벨 데이터에서 반드시 정할 항목
 
-- 스위치 방식: `pressure`, `interact`, `toggle`
-- 스위치 활성화 주체: Player, Echo, Box
+- Switch 활성화 주체: Player, Echo, Box
+- Lever 방식: `toggle` 또는 `hold`
 - 여러 문 조건의 `AND` 또는 `OR`
 - 열쇠 사용 시 소모 여부
 - 출구 완료 방식: 타일 도달 또는 상호작용

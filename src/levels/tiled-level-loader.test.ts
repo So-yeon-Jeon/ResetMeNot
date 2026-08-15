@@ -157,4 +157,21 @@ describe('loadTiledLevel', () => {
 
     expect(loadTiledLevel(map).objects).toHaveLength(4);
   });
+
+  it('오타가 난 Custom Property를 거부한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    const objects = layers[2]!.objects as Array<Record<string, unknown>>;
+    objects[2]!.properties = [property('switchId', 'switch-a')];
+
+    expect(() => loadTiledLevel(map)).toThrow(/지원하지 않는 Property.*switchId/);
+  });
+
+  it('같은 이름의 Custom Property가 중복되면 거부한다', () => {
+    const map = validMap();
+    const properties = map.properties as Array<Record<string, unknown>>;
+    properties.push(property('resetLimit', 5));
+
+    expect(() => loadTiledLevel(map)).toThrow(/중복 Property.*resetLimit/);
+  });
 });

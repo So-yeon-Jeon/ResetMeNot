@@ -83,11 +83,11 @@ Tiled Object의 위치는 픽셀 좌표이지만 로더에서 32로 나눠 그�
 
 #### Switch
 
-| Property         | 타입   | 필수   | 설명                             |
-| ---------------- | ------ | ------ | -------------------------------- |
-| `mode`           | string | 예     | `pressure`, `interact`, `toggle` |
-| `acceptedActors` | string | 예     | 쉼표 구분: `player,echo,box`     |
-| `initialActive`  | bool   | 아니오 | 기본 `false`                     |
+Switch Class는 점유 중에만 활성화되는 압력 스위치입니다. Z 입력 방식은 Lever Class의 `toggle` 또는 `hold`를 사용합니다.
+
+| Property         | 타입   | 필수   | 설명                                |
+| ---------------- | ------ | ------ | ----------------------------------- |
+| `acceptedActors` | string | 아니오 | 쉼표 구분, 기본값 `player,echo,box` |
 
 #### Door
 
@@ -98,15 +98,14 @@ Tiled Object의 위치는 픽셀 좌표이지만 로더에서 32로 나눠 그�
 | `activationMode` | string | 아니오 | `all`(AND, 기본값) 또는 `any`(OR) |
 | `keyId`          | string | 아니오 | 잠금 해제에 필요한 Key ID         |
 | `consumesKey`    | bool   | 아니오 | 사용 시 열쇠 소모 여부            |
-| `initialOpen`    | bool   | 아니오 | 기본 `false`                      |
 
 문 상태는 연결된 Switch와 Lever의 활성 상태에서 파생합니다. 기본 `all`은 모든 장치가 활성화되어야 하며, `any`는 하나 이상 활성화되면 열립니다.
 
 #### Key
 
-| Property       | 타입   | 필수   | 설명                           |
-| -------------- | ------ | ------ | ------------------------------ |
-| `initialState` | string | 아니오 | 기본 `placed`, 허용값 `placed` |
+| Property           | 타입   | 필수   | 설명                              |
+| ------------------ | ------ | ------ | --------------------------------- |
+| `persistentFields` | string | 아니오 | `position`, `collected` 쉼표 목록 |
 
 Chapter 1의 열쇠는 `persistentFields: position`으로 떨어진 위치만 기억합니다. `collected`는 기본 기억 속성이 아니며 레벨에서 명시적으로 허용할 때만 사용합니다.
 

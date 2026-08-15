@@ -25,6 +25,20 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   if (map.tilewidth !== 32 || map.tileheight !== 32) fail('타일 크기는 32x32px이어야 합니다.');
 
   const properties = readProperties(map.properties, 'map.properties');
+  assertAllowedProperties(
+    properties,
+    [
+      'schemaVersion',
+      'levelId',
+      'chapterId',
+      'resetLimit',
+      'echoLimit',
+      'resetPolicy',
+      'finalClockStart',
+      'finalClockTarget',
+    ],
+    'map',
+  );
   if (properties.schemaVersion !== 1) fail('schemaVersion은 1이어야 합니다.');
   const id = text(properties.levelId, 'levelId');
   const chapterId = text(properties.chapterId, 'chapterId');
@@ -68,6 +82,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     const props = readProperties(item.properties, `${label}.properties`);
 
     if (type === 'PlayerSpawn') {
+      assertAllowedProperties(props, ['facing'], name);
       if (playerStart) fail('PlayerSpawn은 정확히 하나만 있어야 합니다.');
       playerStart = position;
       playerFacing = oneOf(
@@ -137,6 +152,20 @@ function createLevelObject(
   position: GridPosition,
   props: JsonObject,
 ): WorldObjectState {
+  const allowedProperties: Readonly<Record<string, readonly string[]>> = {
+    PocketWatch: [],
+    Box: ['persistentFields'],
+    Switch: ['acceptedActors'],
+    Lever: ['mode', 'acceptedActors'],
+    Key: ['persistentFields'],
+    Door: ['switchIds', 'leverIds', 'activationMode', 'keyId', 'consumesKey'],
+    Exit: ['mode'],
+    PuzzleObject: ['persistentFields'],
+  };
+  const allowed = allowedProperties[type];
+  if (!allowed) return fail(`지원하지 않는 Object Class입니다: ${type}`);
+  assertAllowedProperties(props, allowed, id);
+
   switch (type) {
     case 'PocketWatch':
       return createPocketWatch(id, position);
@@ -247,9 +276,19 @@ function readProperties(value: unknown, label: string): JsonObject {
   const result: JsonObject = {};
   array(value, label).forEach((entry, index) => {
     const prop = object(entry, `${label}[${index}]`);
-    result[text(prop.name, `${label}[${index}].name`)] = prop.value;
+    const name = text(prop.name, `${label}[${index}].name`);
+    if (Object.hasOwn(result, name)) fail(`${label}에 중복 Property가 있습니다: ${name}`);
+    result[name] = prop.value;
   });
   return result;
+}
+function assertAllowedProperties(
+  properties: JsonObject,
+  allowed: readonly string[],
+  label: string,
+): void {
+  const unknown = Object.keys(properties).find((name) => !allowed.includes(name));
+  if (unknown) fail(`${label}에서 지원하지 않는 Property입니다: ${unknown}`);
 }
 function actors(value: unknown): AcceptedActor[] {
   return csv(value ?? 'player,echo,box').map((actor) =>
