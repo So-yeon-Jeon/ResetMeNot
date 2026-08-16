@@ -16,6 +16,20 @@ import type { LevelDefinition } from './level-definition';
 
 type JsonObject = Record<string, unknown>;
 
+export type LevelLoadResult =
+  Readonly<{ ok: true; level: LevelDefinition }> | Readonly<{ ok: false; error: Error }>;
+
+export function tryLoadTiledLevel(source: unknown): LevelLoadResult {
+  try {
+    return { ok: true, level: loadTiledLevel(source) };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+}
+
 export function loadTiledLevel(source: unknown): LevelDefinition {
   const map = object(source, 'Tiled map');
   const width = integer(map.width, 'map.width');

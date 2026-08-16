@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadTiledLevel } from './tiled-level-loader';
+import { loadTiledLevel, tryLoadTiledLevel } from './tiled-level-loader';
 
 const property = (name: string, value: unknown) => ({ name, value });
 
@@ -173,6 +173,13 @@ describe('loadTiledLevel', () => {
     properties.push(property('resetLimit', 5));
 
     expect(() => loadTiledLevel(map)).toThrow(/중복 Property.*resetLimit/);
+  });
+
+  it('안전 로더는 예외 대신 화면에 표시할 오류를 반환한다', () => {
+    const result = tryLoadTiledLevel({});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toMatch(/Tiled level validation failed/);
   });
 
   it('PlayerSpawn과 상자가 같은 칸에 있으면 거부한다', () => {

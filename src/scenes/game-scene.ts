@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
-import { DEMO_LEVEL } from '../game/demo-map';
+import { DEMO_LEVEL_LOAD_RESULT } from '../game/demo-map';
 import {
   advanceGameSession,
   createGameSession,
@@ -29,8 +29,9 @@ type MovementKeys = Readonly<{
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
-  private session: GameSession = createGameSession([DEMO_LEVEL]);
-  private gameState: GameState = this.session.state;
+  private session!: GameSession;
+  private gameState!: GameState;
+  private loadError?: Error;
   private mapGraphics?: Phaser.GameObjects.Graphics;
   private movementKeys!: MovementKeys;
   private resetKey!: Phaser.Input.Keyboard.Key;
@@ -48,9 +49,19 @@ export class GameScene extends Phaser.Scene {
 
   constructor() {
     super('game');
+    if (DEMO_LEVEL_LOAD_RESULT.ok) {
+      this.session = createGameSession([DEMO_LEVEL_LOAD_RESULT.level]);
+      this.gameState = this.session.state;
+    } else {
+      this.loadError = DEMO_LEVEL_LOAD_RESULT.error;
+    }
   }
 
   create(): void {
+    if (this.loadError) {
+      this.renderLoadError(this.loadError);
+      return;
+    }
     const map = currentLevel(this.session).map;
     this.mapOrigin = {
       x: Math.floor((this.scale.width - map.width * GRID_SIZE) / 2),
@@ -65,6 +76,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    if (this.loadError) return;
     const previousPhase = this.gameState.phase;
     this.setGameState(advanceTime(this.gameState, delta));
     if (previousPhase !== this.gameState.phase && this.gameState.phase === 'let-time-go') {
@@ -419,5 +431,18 @@ export class GameScene extends Phaser.Scene {
     this.createObjects();
     this.updateResetHud();
     this.phaseHud.setText('');
+  }
+
+  private renderLoadError(error: Error): void {
+    this.add
+      .text(this.scale.width / 2, this.scale.height / 2, `LEVEL LOAD FAILED\n\n${error.message}`, {
+        align: 'center',
+        color: '#f0a6a6',
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        lineSpacing: 8,
+        wordWrap: { width: this.scale.width - 120 },
+      })
+      .setOrigin(0.5);
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEMO_MAP, DEMO_MAP_ROWS } from './demo-map';
+import { DEMO_LEVEL_LOAD_RESULT } from './demo-map';
 import { createGridMap, tryMove } from './grid';
 
 describe('grid movement', () => {
@@ -36,16 +36,24 @@ describe('grid movement', () => {
 });
 
 describe('shared map specification', () => {
+  if (!DEMO_LEVEL_LOAD_RESULT.ok) throw DEMO_LEVEL_LOAD_RESULT.error;
+  const demoMap = DEMO_LEVEL_LOAD_RESULT.level.map;
+  const demoMapRows = Array.from({ length: demoMap.height }, (_, y) =>
+    Array.from({ length: demoMap.width }, (_, x) =>
+      demoMap.walls.has(`${x},${y}`) ? '#' : '.',
+    ).join(''),
+  );
+
   it('uses a 12 by 10 map with a 10 by 8 interior', () => {
-    expect(DEMO_MAP.width).toBe(12);
-    expect(DEMO_MAP.height).toBe(10);
+    expect(demoMap.width).toBe(12);
+    expect(demoMap.height).toBe(10);
   });
 
   it('surrounds the playable area with wall tiles', () => {
-    expect(DEMO_MAP_ROWS[0]).toBe('############');
-    expect(DEMO_MAP_ROWS.at(-1)).toBe('############');
-    expect(
-      DEMO_MAP_ROWS.slice(1, -1).every((row) => row.startsWith('#') && row.endsWith('#')),
-    ).toBe(true);
+    expect(demoMapRows[0]).toBe('############');
+    expect(demoMapRows.at(-1)).toBe('############');
+    expect(demoMapRows.slice(1, -1).every((row) => row.startsWith('#') && row.endsWith('#'))).toBe(
+      true,
+    );
   });
 });
