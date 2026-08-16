@@ -1,10 +1,16 @@
 import Phaser from 'phaser';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
-import { DEMO_LEVEL, DEMO_MAP, DEMO_MAP_ROWS } from '../game/demo-map';
+import { DEMO_LEVEL } from '../game/demo-map';
+import {
+  advanceGameSession,
+  createGameSession,
+  currentLevel,
+  updateSessionState,
+  type GameSession,
+} from '../game/game-session';
 import { advanceTime, applyAction, restartChapter, type GameState } from '../game/game-state';
 import type { Direction, GridPosition } from '../game/grid';
-import { createLevelGameState } from '../levels/level-definition';
 
 const MOVE_DURATION_MS = 110;
 const FLOOR_COLOR = 0x24212e;
@@ -23,11 +29,14 @@ type MovementKeys = Readonly<{
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
-  private gameState: GameState = createLevelGameState(DEMO_LEVEL);
+  private session: GameSession = createGameSession([DEMO_LEVEL]);
+  private gameState: GameState = this.session.state;
+  private mapGraphics?: Phaser.GameObjects.Graphics;
   private movementKeys!: MovementKeys;
   private resetKey!: Phaser.Input.Keyboard.Key;
   private interactKey!: Phaser.Input.Keyboard.Key;
   private restartKey!: Phaser.Input.Keyboard.Key;
+  private continueKey!: Phaser.Input.Keyboard.Key;
   private resetHud!: Phaser.GameObjects.Text;
   private phaseHud!: Phaser.GameObjects.Text;
   private echoSprites: Phaser.GameObjects.Rectangle[] = [];
@@ -42,9 +51,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    const map = currentLevel(this.session).map;
     this.mapOrigin = {
-      x: Math.floor((this.scale.width - DEMO_MAP.width * GRID_SIZE) / 2),
-      y: Math.floor((this.scale.height - DEMO_MAP.height * GRID_SIZE) / 2),
+      x: Math.floor((this.scale.width - map.width * GRID_SIZE) / 2),
+      y: Math.floor((this.scale.height - map.height * GRID_SIZE) / 2),
     };
 
     this.drawMap();
@@ -56,21 +66,28 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     const previousPhase = this.gameState.phase;
-    this.gameState = advanceTime(this.gameState, delta);
+    this.setGameState(advanceTime(this.gameState, delta));
     if (previousPhase !== this.gameState.phase && this.gameState.phase === 'let-time-go') {
       this.pendingReset = false;
       this.pendingDirection = undefined;
       this.phaseHud.setText('LET TIME GO');
     }
 
+    if (this.session.completed) return;
+
     if (Phaser.Input.Keyboard.JustDown(this.restartKey)) {
       this.tweens.killTweensOf(this.player);
       this.isMoving = false;
       this.pendingReset = false;
       this.pendingDirection = undefined;
-      this.gameState = restartChapter(this.gameState);
+      this.setGameState(restartChapter(this.gameState));
       this.renderResetState();
       this.phaseHud.setText('');
+      return;
+    }
+
+    if (this.gameState.phase !== 'playing' && Phaser.Input.Keyboard.JustDown(this.continueKey)) {
+      this.advanceToNextLevel();
       return;
     }
 
@@ -99,19 +116,22 @@ export class GameScene extends Phaser.Scene {
   }
 
   private drawMap(): void {
+    const map = currentLevel(this.session).map;
     const graphics = this.add.graphics();
+    this.mapGraphics = graphics;
 
-    DEMO_MAP_ROWS.forEach((row, y) => {
-      [...row].forEach((tile, x) => {
+    for (let y = 0; y < map.height; y += 1) {
+      for (let x = 0; x < map.width; x += 1) {
+        const isWall = map.walls.has(`${x},${y}`);
         const pixelX = this.mapOrigin.x + x * GRID_SIZE;
         const pixelY = this.mapOrigin.y + y * GRID_SIZE;
 
-        graphics.fillStyle(tile === '#' ? WALL_COLOR : FLOOR_COLOR);
+        graphics.fillStyle(isWall ? WALL_COLOR : FLOOR_COLOR);
         graphics.fillRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
-        graphics.lineStyle(1, tile === '#' ? WALL_EDGE_COLOR : 0x302b3b, 0.75);
+        graphics.lineStyle(1, isWall ? WALL_EDGE_COLOR : 0x302b3b, 0.75);
         graphics.strokeRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
-      });
-    });
+      }
+    }
   }
 
   private createPlayer(): void {
@@ -127,7 +147,7 @@ export class GameScene extends Phaser.Scene {
       .text(
         this.scale.width / 2,
         12,
-        'ARROW/WASD · MOVE   Z · INTERACT   R · RESET   C · RESTART',
+        'ARROW/WASD · MOVE   Z · INTERACT   R · RESET   C · RESTART   ENTER · CONTINUE',
         {
           color: '#aaa1b5',
           fontFamily: 'monospace',
@@ -174,6 +194,7 @@ export class GameScene extends Phaser.Scene {
     this.resetKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
     this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.restartKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+    this.continueKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
   }
 
   private readDirection(): Direction | undefined {
@@ -185,8 +206,8 @@ export class GameScene extends Phaser.Scene {
 
   private dispatch(action: GameAction): void {
     const previousPlayer = this.gameState.player;
-    const result = applyAction(this.gameState, action, DEMO_MAP);
-    this.gameState = result.state;
+    const result = applyAction(this.gameState, action, currentLevel(this.session).map);
+    this.setGameState(result.state);
     if (result.chapterCompleted) this.phaseHud.setText('CHAPTER CLEAR');
 
     if (action.type === 'interact' && result.changed) {
@@ -360,5 +381,43 @@ export class GameScene extends Phaser.Scene {
       x: this.mapOrigin.x + position.x * GRID_SIZE + GRID_SIZE / 2,
       y: this.mapOrigin.y + position.y * GRID_SIZE + GRID_SIZE / 2,
     };
+  }
+
+  private setGameState(state: GameState): void {
+    this.gameState = state;
+    this.session = updateSessionState(this.session, state);
+  }
+
+  private advanceToNextLevel(): void {
+    const previousIndex = this.session.currentLevelIndex;
+    this.session = advanceGameSession(this.session);
+    this.gameState = this.session.state;
+    if (this.session.completed) {
+      this.phaseHud.setText('GAME CLEAR');
+      return;
+    }
+    if (this.session.currentLevelIndex === previousIndex) return;
+
+    this.tweens.killTweensOf(this.player);
+    this.isMoving = false;
+    this.pendingReset = false;
+    this.pendingDirection = undefined;
+    this.mapGraphics?.destroy();
+    this.player.destroy();
+    this.echoSprites.forEach((echo) => echo.destroy());
+    this.echoSprites = [];
+    this.objectSprites.forEach((object) => object.destroy());
+    this.objectSprites = [];
+
+    const map = currentLevel(this.session).map;
+    this.mapOrigin = {
+      x: Math.floor((this.scale.width - map.width * GRID_SIZE) / 2),
+      y: Math.floor((this.scale.height - map.height * GRID_SIZE) / 2),
+    };
+    this.drawMap();
+    this.createPlayer();
+    this.createObjects();
+    this.updateResetHud();
+    this.phaseHud.setText('');
   }
 }
