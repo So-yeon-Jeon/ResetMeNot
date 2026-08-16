@@ -174,4 +174,45 @@ describe('loadTiledLevel', () => {
 
     expect(() => loadTiledLevel(map)).toThrow(/중복 Property.*resetLimit/);
   });
+
+  it('PlayerSpawn과 상자가 같은 칸에 있으면 거부한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    const objects = layers[2]!.objects as Array<Record<string, unknown>>;
+    objects.push({
+      name: 'spawn-blocking-box',
+      class: 'Box',
+      x: 32,
+      y: 32,
+      width: 32,
+      height: 32,
+    });
+
+    expect(() => loadTiledLevel(map)).toThrow(/PlayerSpawn.*spawn-blocking-box/);
+  });
+
+  it('PlayerSpawn이 압력 스위치나 통로형 출구 위에 있는 것은 허용한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    const objects = layers[2]!.objects as Array<Record<string, unknown>>;
+    objects.push({
+      name: 'spawn-switch',
+      class: 'Switch',
+      x: 32,
+      y: 32,
+      width: 32,
+      height: 32,
+    });
+    objects.push({
+      name: 'spawn-exit',
+      class: 'Exit',
+      x: 32,
+      y: 32,
+      width: 32,
+      height: 32,
+      properties: [property('mode', 'enter')],
+    });
+
+    expect(loadTiledLevel(map).objects).toHaveLength(5);
+  });
 });

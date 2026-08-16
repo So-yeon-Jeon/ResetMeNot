@@ -149,6 +149,7 @@ Tiled의 GID, 레이어 인덱스, 픽셀 좌표는 변환 이후 게임 규칙�
 - PlayerSpawn 정확히 하나
 - 모든 좌표가 맵 안에 존재
 - PlayerSpawn과 오브젝트가 벽에 겹치지 않음
+- PlayerSpawn과 상자, 문, 상호작용 오브젝트의 초기 위치 중첩 금지
 - 상자, 문, 열쇠의 초기 위치 중첩 금지
 - `switchId`가 실제 Switch를 참조
 - `resetLimit >= 0`, `echoLimit >= 0`

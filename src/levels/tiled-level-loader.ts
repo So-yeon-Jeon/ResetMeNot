@@ -96,7 +96,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   });
   if (!playerStart) fail('PlayerSpawn이 필요합니다.');
 
-  validateInitialOccupancy(objects);
+  validateInitialOccupancy(objects, playerStart);
   validateReferences(objects);
   const finalClockDurationMs = readFinalClock(properties);
   return {
@@ -113,7 +113,10 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   };
 }
 
-function validateInitialOccupancy(objects: readonly WorldObjectState[]): void {
+function validateInitialOccupancy(
+  objects: readonly WorldObjectState[],
+  playerStart: GridPosition,
+): void {
   const solidTypes = new Set<WorldObjectState['type']>(['box', 'door', 'key']);
   const solidByPosition = new Map<string, WorldObjectState>();
   const interactionTypes = new Set<WorldObjectState['type']>([
@@ -127,6 +130,16 @@ function validateInitialOccupancy(objects: readonly WorldObjectState[]): void {
 
   for (const item of objects) {
     const key = positionKey(item.position);
+    const blocksPlayerStart =
+      item.type === 'box' ||
+      item.type === 'door' ||
+      item.type === 'pocket-watch' ||
+      item.type === 'puzzle-object' ||
+      item.type === 'lever' ||
+      item.type === 'key';
+    if (blocksPlayerStart && samePosition(item.position, playerStart)) {
+      fail(`PlayerSpawn과 ${item.id}이(가) 초기 위치 ${key}에서 겹칩니다.`);
+    }
     if (solidTypes.has(item.type)) {
       const occupied = solidByPosition.get(key);
       if (occupied) {
@@ -144,6 +157,10 @@ function validateInitialOccupancy(objects: readonly WorldObjectState[]): void {
     }
     interactionByPosition.set(key, item);
   }
+}
+
+function samePosition(left: GridPosition, right: GridPosition): boolean {
+  return positionKey(left) === positionKey(right);
 }
 
 function createLevelObject(
