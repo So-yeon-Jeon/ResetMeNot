@@ -38,12 +38,13 @@ Cloudflare 설정은 빌드 명령 `npm run build`, 배포 명령 `npx wrangler 
 
 ## 주요 명령
 
-| 명령                | 용도                   |
-| ------------------- | ---------------------- |
-| `npm run dev`       | 개발 서버              |
-| `npm run test`      | 테스트                 |
-| `npm run typecheck` | TypeScript 검사        |
-| `npm run lint`      | ESLint 검사            |
-| `npm run build`     | 프로덕션 빌드          |
-| `npm run preview`   | 빌드 결과 미리보기     |
-| `npm run deploy`    | Cloudflare에 수동 배포 |
+| 명령                      | 용도                   |
+| ------------------------- | ---------------------- |
+| `npm run dev`             | 개발 서버              |
+| `npm run test`            | 테스트                 |
+| `npm run typecheck`       | TypeScript 검사        |
+| `npm run lint`            | ESLint 검사            |
+| `npm run validate:levels` | 등록된 Tiled 레벨 검사 |
+| `npm run build`           | 프로덕션 빌드          |
+| `npm run preview`         | 빌드 결과 미리보기     |
+| `npm run deploy`          | Cloudflare에 수동 배포 |

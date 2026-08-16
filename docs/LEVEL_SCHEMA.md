@@ -173,7 +173,16 @@ Tiled의 GID, 레이어 인덱스, 픽셀 좌표는 변환 이후 게임 규칙�
 3. 점유 장치는 Switch, Z 상호작용 장치는 Lever로 만듭니다.
 4. `persistentFields`에는 RESET 후 유지할 필드만 명시합니다.
 5. JSON을 `src/levels/level-catalog.ts`의 `LEVEL_SOURCES`에 진행 순서대로 등록합니다.
-6. JSON을 추가한 뒤 `npm run check`로 로더 검증을 실행합니다.
+6. JSON을 추가한 뒤 `npm run validate:levels`로 레벨 검증을 실행합니다.
+7. PR 전에는 `npm run check`로 전체 품질 검사를 실행합니다.
+
+## 레벨 검증 명령
+
+```bash
+npm run validate:levels
+```
+
+등록된 모든 Tiled JSON을 실제 카탈로그 순서대로 로드합니다. 실패하면 파일명과 잘못된 Property, 좌표, 참조 ID 등의 원인을 출력합니다.
 
 현재 `src/levels/demo-level.json`을 Tiled JSON 계약의 기준 샘플로 사용합니다.
 
