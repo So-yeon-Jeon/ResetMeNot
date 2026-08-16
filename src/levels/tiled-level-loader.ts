@@ -64,15 +64,13 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   const layers = array(map.layers, 'map.layers').map((layer, index) =>
     object(layer, `map.layers[${index}]`),
   );
-  requireLayer(layers, 'floor', 'tilelayer');
+  const floorLayer = requireLayer(layers, 'floor', 'tilelayer');
   const wallLayer = requireLayer(layers, 'walls', 'tilelayer');
   const objectLayer = requireLayer(layers, 'objects', 'objectgroup');
-  const wallData = array(wallLayer.data, 'walls.data');
-  if (wallData.length !== width * height) fail('walls.data 크기가 맵 크기와 일치하지 않습니다.');
+  readTileLayerData(floorLayer, 'floor', width, height);
+  const wallData = readTileLayerData(wallLayer, 'walls', width, height);
   const walls = new Set<string>();
   wallData.forEach((gid, index) => {
-    if (typeof gid !== 'number' || !Number.isInteger(gid) || gid < 0)
-      fail('walls.data의 GID가 올바르지 않습니다.');
     if (gid !== 0) walls.add(positionKey({ x: index % width, y: Math.floor(index / width) }));
   });
   const gridMap: GridMap = { width, height, walls };
@@ -221,16 +219,7 @@ function createLevelObject(
         ),
       );
     case 'Door':
-      return createDoor(id, position, csv(props.switchIds), {
-        leverIds: csv(props.leverIds),
-        activationMode: oneOf(
-          props.activationMode ?? 'all',
-          ['all', 'any'] as const,
-          `${id}.activationMode`,
-        ),
-        keyId: optionalText(props.keyId),
-        consumesKey: boolean(props.consumesKey, false, `${id}.consumesKey`),
-      });
+      return createDoorFromProperties(id, position, props);
     case 'Exit':
       return createExit(
         id,
@@ -242,6 +231,31 @@ function createLevelObject(
     default:
       return fail(`지원하지 않는 Object Class입니다: ${type}`);
   }
+}
+
+function createDoorFromProperties(
+  id: string,
+  position: GridPosition,
+  props: JsonObject,
+): WorldObjectState {
+  const switchIds = uniqueCsv(props.switchIds, `${id}.switchIds`);
+  const leverIds = uniqueCsv(props.leverIds, `${id}.leverIds`);
+  const keyId = optionalText(props.keyId);
+  const consumesKey = boolean(props.consumesKey, false, `${id}.consumesKey`);
+  if (consumesKey && !keyId) fail(`${id}.consumesKey는 keyId가 있을 때만 사용할 수 있습니다.`);
+  if (keyId && (switchIds.length > 0 || leverIds.length > 0)) {
+    fail(`${id}은(는) 열쇠 조건과 Switch/Lever 조건을 함께 사용할 수 없습니다.`);
+  }
+  return createDoor(id, position, switchIds, {
+    leverIds,
+    activationMode: oneOf(
+      props.activationMode ?? 'all',
+      ['all', 'any'] as const,
+      `${id}.activationMode`,
+    ),
+    keyId,
+    consumesKey,
+  });
 }
 
 function validateReferences(objects: readonly WorldObjectState[]): void {
@@ -302,6 +316,20 @@ function requireLayer(layers: JsonObject[], name: string, type: string): JsonObj
   if (found.length !== 1) return fail(`${name} ${type} 레이어가 정확히 하나 필요합니다.`);
   return found[0]!;
 }
+function readTileLayerData(
+  layer: JsonObject,
+  name: string,
+  width: number,
+  height: number,
+): number[] {
+  const data = array(layer.data, `${name}.data`);
+  if (data.length !== width * height) fail(`${name}.data 크기가 맵 크기와 일치하지 않습니다.`);
+  return data.map((gid) => {
+    if (typeof gid !== 'number' || !Number.isInteger(gid) || gid < 0)
+      return fail(`${name}.data의 GID가 올바르지 않습니다.`);
+    return gid;
+  });
+}
 function readProperties(value: unknown, label: string): JsonObject {
   if (value === undefined) return {};
   const result: JsonObject = {};
@@ -337,6 +365,11 @@ function csv(value: unknown): string[] {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+}
+function uniqueCsv(value: unknown, label: string): string[] {
+  const values = csv(value);
+  if (new Set(values).size !== values.length) fail(`${label}에 중복 ID가 있습니다.`);
+  return values;
 }
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], label: string): T {
   const parsed = text(value, label);

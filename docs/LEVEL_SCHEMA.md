@@ -144,6 +144,7 @@ Tiled의 GID, 레이어 인덱스, 픽셀 좌표는 변환 이후 게임 규칙�
 
 - `schemaVersion` 지원 여부
 - 필수 레이어와 속성 존재
+- `floor`, `walls` Tile Layer 데이터 크기와 GID 유효성
 - 32×32 타일과 정수 그리드 정렬
 - 오브젝트 ID 유일성
 - PlayerSpawn 정확히 하나
@@ -151,7 +152,8 @@ Tiled의 GID, 레이어 인덱스, 픽셀 좌표는 변환 이후 게임 규칙�
 - PlayerSpawn과 오브젝트가 벽에 겹치지 않음
 - PlayerSpawn과 상자, 문, 상호작용 오브젝트의 초기 위치 중첩 금지
 - 상자, 문, 열쇠의 초기 위치 중첩 금지
-- `switchId`가 실제 Switch를 참조
+- `switchIds`가 실제 Switch를 참조
+- Door의 연결 ID 중복과 열쇠·장치 조건 혼용 금지
 - `resetLimit >= 0`, `echoLimit >= 0`
 - `echoLimit <= resetLimit`
 - Final의 마지막 방에 시작 시각과 목표 시각 존재

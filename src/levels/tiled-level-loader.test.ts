@@ -222,4 +222,47 @@ describe('loadTiledLevel', () => {
 
     expect(loadTiledLevel(map).objects).toHaveLength(5);
   });
+
+  it('Tile Layer 데이터 크기가 맵과 다르면 거부한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    layers[0]!.data = [1];
+
+    expect(() => loadTiledLevel(map)).toThrow(/floor\.data 크기/);
+  });
+
+  it('Door의 장치 참조 ID가 중복되면 거부한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    const objects = layers[2]!.objects as Array<Record<string, unknown>>;
+    objects[2]!.properties = [property('switchIds', 'switch-a,switch-a')];
+
+    expect(() => loadTiledLevel(map)).toThrow(/switchIds.*중복 ID/);
+  });
+
+  it('keyId 없이 consumesKey를 설정한 Door를 거부한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    const objects = layers[2]!.objects as Array<Record<string, unknown>>;
+    objects[2]!.properties = [property('consumesKey', true)];
+
+    expect(() => loadTiledLevel(map)).toThrow(/consumesKey.*keyId/);
+  });
+
+  it('열쇠와 장치 조건을 동시에 사용하는 Door를 거부한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    const objects = layers[2]!.objects as Array<Record<string, unknown>>;
+    objects.push({
+      name: 'key-a',
+      class: 'Key',
+      x: 32,
+      y: 64,
+      width: 32,
+      height: 32,
+    });
+    objects[2]!.properties = [property('switchIds', 'switch-a'), property('keyId', 'key-a')];
+
+    expect(() => loadTiledLevel(map)).toThrow(/열쇠 조건.*Switch\/Lever/);
+  });
 });
