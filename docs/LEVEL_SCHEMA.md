@@ -166,14 +166,14 @@ Tiled의 GID, 레이어 인덱스, 픽셀 좌표는 변환 이후 게임 규칙�
 - 스키마 변경 PR에는 B가 사용할 마이그레이션 방법과 샘플 변경을 포함합니다.
 - 런타임은 알 수 없는 상위 버전을 추측해서 읽지 않습니다.
 
-## B 검토 요청
+## B 레벨 제작 체크리스트
 
-1. 레이어 이름과 오브젝트 Type/Class 입력이 편한가?
-2. `persistentFields`, `switchId`를 Custom Property로 편집하기 쉬운가?
-3. Switch의 `pressure/interact` 구분이 레벨 설계에 필요한가?
-4. 외곽 벽을 매번 타일로 두는 방식이 아트 제작에 적합한가?
-5. Chapter 1 샘플을 이 계약으로 코드 수정 없이 표현할 수 있는가?
+1. `floor`, `walls`, `objects` 레이어 이름을 정확히 사용합니다.
+2. Object Class와 Custom Property는 이 문서에 정의된 이름만 사용합니다.
+3. 점유 장치는 Switch, Z 상호작용 장치는 Lever로 만듭니다.
+4. `persistentFields`에는 RESET 후 유지할 필드만 명시합니다.
+5. JSON을 추가한 뒤 `npm run check`로 로더 검증을 실행합니다.
 
-검토 후 샘플 `.tmj` 또는 `.json` 한 개를 저장소에 추가하고 로더 구현의 기준 fixture로 사용합니다.
+현재 `src/levels/demo-level.json`을 Tiled JSON 계약의 기준 샘플로 사용합니다.
 
 게임 의미가 확정되지 않은 필드는 [게임 규칙 공동 결정 체크리스트](./GAME_RULE_DECISIONS.md)의 결정을 기준으로 갱신합니다.

@@ -459,6 +459,20 @@ describe('game state', () => {
     expect(state.phase).toBe('let-time-go');
   });
 
+  it.each(['completed', 'let-time-go'] as const)(
+    'ignores game actions while the phase is %s',
+    (phase) => {
+      const state = {
+        ...createGameState({ x: 1, y: 1 }),
+        phase,
+      };
+
+      expect(applyAction(state, { type: 'move', direction: 'right' }, map).state).toBe(state);
+      expect(applyAction(state, { type: 'interact' }, map).state).toBe(state);
+      expect(applyAction(state, { type: 'reset' }, map).state).toBe(state);
+    },
+  );
+
   it('rewinds the final clock when reset is performed', () => {
     let state = unlockReset(
       createGameState({ x: 1, y: 1 }, { resetLimit: 1, finalClockDurationMs: 1000 }),

@@ -62,22 +62,21 @@ type EchoState = {
 
 현재 Run에는 Echo 생성 여부를 판단할 `hasAction`만 기록합니다. 성공한 이동 또는 유효한 상호작용만 이 값을 활성화합니다. 빈 Run에서는 RESET을 실행하거나 횟수를 소비하지 않습니다.
 
-## 현재 행동
+## 구현된 행동
 
 - `move`: 구현 완료
-- `interact`: 명령 타입과 행동 여부 표시 지원, 상호작용 규칙은 후속 구현
-- `reset`: 명령 타입 지원, Echo 스냅샷 생성은 후속 구현
+- `interact`: 회중시계, 열쇠, 레버, 문, 조사형 출구 상호작용 구현 완료
+- `reset`: 유효 Run 판정, 고정형 Echo 생성, 기억 상태 복원 구현 완료
+
+레벨 완료와 Final의 `let-time-go` 상태에서는 게임 행동을 받지 않으며, 게임 세션이 다음 레벨의 새 `GameState`를 생성합니다.
 
 ## 디렉터리 책임
 
 ```text
 src/
-├─ game/       순수 상태, 행동, 규칙, 레벨 도메인 타입
-├─ input/      키보드 등 입력 어댑터
-├─ levels/     Tiled 로더, 검증, 변환
-├─ echo/       Echo 스냅샷 생성과 고정 상호작용
-├─ scenes/     Phaser Scene과 화면 조립
-└─ ui/         HUD, 대화, 메뉴
+├─ game/       순수 상태, 행동, 퍼즐 규칙, 게임 세션
+├─ levels/     Tiled JSON, 로더, 검증, LevelDefinition
+└─ scenes/     키보드 입력, Phaser 렌더링, 레벨 화면 전환
 ```
 
 폴더는 해당 기능을 구현할 때 생성합니다. 빈 구조를 미리 만들지 않습니다.

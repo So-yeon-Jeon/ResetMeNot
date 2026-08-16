@@ -6,18 +6,19 @@
 
 ```text
 GameSession
-├─ chapterId
-├─ chapterAttempt
-├─ resetCount
-├─ phase
-├─ initialState
-├─ persistentMemory
-├─ currentRun
-│  ├─ elapsedMs
-│  ├─ player
-│  ├─ objects
-│  └─ hasAction
-└─ echoes[]
+├─ levels[]
+├─ currentLevelIndex
+├─ completed
+└─ GameState
+   ├─ player / playerFacing
+   ├─ playerStart / playerStartFacing
+   ├─ objects / initialObjects
+   ├─ resetCount / resetLimit / echoLimit
+   ├─ elapsedMs / hasAction
+   ├─ inventoryKeys
+   ├─ phase
+   ├─ WorldMemory
+   └─ echoes[]
    ├─ id
    ├─ actor
    └─ heldInteraction
@@ -26,24 +27,20 @@ GameSession
 ## 핵심 타입
 
 ```ts
-type ActorState = {
+type EchoState = {
+  id: number;
   position: GridPosition;
   facing: Direction;
+  heldInteractionId?: string;
 };
 
-type ObjectState =
-  | { id: string; type: 'box'; position: GridPosition }
-  | { id: string; type: 'switch'; active: boolean }
-  | { id: string; type: 'door'; open: boolean }
-  | { id: string; type: 'key'; position: GridPosition; state: 'placed' | 'pickedUp' };
+type GamePhase = 'playing' | 'let-time-go' | 'completed';
 
-type EchoState = {
-  id: string;
-  actor: ActorState;
-  heldInteraction?: { objectId: string };
+type WorldMemory = {
+  totalResetCount: number;
+  chapterRestartCount: number;
+  events: readonly string[];
 };
-
-type ChapterPhase = 'playing' | 'restarting' | 'let-time-go' | 'completed';
 ```
 
 `Puzzle State`에는 현재 오브젝트, Echo, RESET 횟수와 열쇠 소유 상태가 포함됩니다. `World Memory`에는 전체 RESET 횟수, Chapter Restart 횟수와 주요 이벤트 ID를 별도로 저장하며 Chapter Restart로 지우지 않습니다.
