@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
-import { DEMO_LEVEL_LOAD_RESULT } from '../game/demo-map';
 import {
   advanceGameSession,
   createGameSession,
@@ -11,6 +10,7 @@ import {
 } from '../game/game-session';
 import { advanceTime, applyAction, restartChapter, type GameState } from '../game/game-state';
 import type { Direction, GridPosition } from '../game/grid';
+import { GAME_LEVELS_LOAD_RESULT } from '../levels/level-catalog';
 
 const MOVE_DURATION_MS = 110;
 const FLOOR_COLOR = 0x24212e;
@@ -49,11 +49,11 @@ export class GameScene extends Phaser.Scene {
 
   constructor() {
     super('game');
-    if (DEMO_LEVEL_LOAD_RESULT.ok) {
-      this.session = createGameSession([DEMO_LEVEL_LOAD_RESULT.level]);
+    if (GAME_LEVELS_LOAD_RESULT.ok) {
+      this.session = createGameSession(GAME_LEVELS_LOAD_RESULT.levels);
       this.gameState = this.session.state;
     } else {
-      this.loadError = DEMO_LEVEL_LOAD_RESULT.error;
+      this.loadError = GAME_LEVELS_LOAD_RESULT.error;
     }
   }
 

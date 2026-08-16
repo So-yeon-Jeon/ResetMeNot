@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEMO_LEVEL_LOAD_RESULT } from './demo-map';
 import { createGridMap, tryMove } from './grid';
+import { GAME_LEVELS_LOAD_RESULT } from '../levels/level-catalog';
 
 describe('grid movement', () => {
   const map = createGridMap(['#####', '#...#', '#.#.#', '#...#', '#####']);
@@ -36,8 +36,8 @@ describe('grid movement', () => {
 });
 
 describe('shared map specification', () => {
-  if (!DEMO_LEVEL_LOAD_RESULT.ok) throw DEMO_LEVEL_LOAD_RESULT.error;
-  const demoMap = DEMO_LEVEL_LOAD_RESULT.level.map;
+  if (!GAME_LEVELS_LOAD_RESULT.ok) throw GAME_LEVELS_LOAD_RESULT.error;
+  const demoMap = GAME_LEVELS_LOAD_RESULT.levels[0]!.map;
   const demoMapRows = Array.from({ length: demoMap.height }, (_, y) =>
     Array.from({ length: demoMap.width }, (_, x) =>
       demoMap.walls.has(`${x},${y}`) ? '#' : '.',
