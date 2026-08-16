@@ -13,6 +13,7 @@ import type { Direction, GridPosition } from '../game/grid';
 import { GAME_LEVELS_LOAD_RESULT } from '../levels/level-catalog';
 
 const MOVE_DURATION_MS = 110;
+const RESET_LOCK_MS = 100;
 const FLOOR_COLOR = 0x24212e;
 const WALL_COLOR = 0x51485d;
 const WALL_EDGE_COLOR = 0x766981;
@@ -39,10 +40,12 @@ export class GameScene extends Phaser.Scene {
   private restartKey!: Phaser.Input.Keyboard.Key;
   private continueKey!: Phaser.Input.Keyboard.Key;
   private resetHud!: Phaser.GameObjects.Text;
+  private feedbackHud!: Phaser.GameObjects.Text;
   private phaseHud!: Phaser.GameObjects.Text;
   private echoSprites: Phaser.GameObjects.Rectangle[] = [];
   private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
+  private isResetting = false;
   private pendingReset = false;
   private pendingDirection?: Direction;
   private mapOrigin = { x: 0, y: 0 };
@@ -86,6 +89,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.session.completed) return;
+    if (this.isResetting) return;
 
     if (Phaser.Input.Keyboard.JustDown(this.restartKey)) {
       this.tweens.killTweensOf(this.player);
@@ -95,6 +99,7 @@ export class GameScene extends Phaser.Scene {
       this.setGameState(restartChapter(this.gameState));
       this.renderResetState();
       this.phaseHud.setText('');
+      this.feedbackHud.setText('');
       return;
     }
 
@@ -178,6 +183,14 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 1);
     this.updateResetHud();
+    this.feedbackHud = this.add
+      .text(this.scale.width / 2, this.scale.height - 42, '', {
+        color: '#d8b65a',
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        letterSpacing: 1,
+      })
+      .setOrigin(0.5, 1);
     this.phaseHud = this.add
       .text(this.scale.width / 2, this.scale.height / 2, '', {
         color: '#f1ded2',
@@ -211,9 +224,14 @@ export class GameScene extends Phaser.Scene {
 
   private readDirection(): Direction | undefined {
     const directions: readonly Direction[] = ['up', 'down', 'left', 'right'];
-    return directions.find((direction) =>
-      this.movementKeys[direction].some((key) => Phaser.Input.Keyboard.JustDown(key)),
-    );
+    const pressed = Object.fromEntries(
+      directions.map((direction) => [
+        direction,
+        this.movementKeys[direction].some((key) => Phaser.Input.Keyboard.JustDown(key)),
+      ]),
+    ) as Record<Direction, boolean>;
+    if ((pressed.up && pressed.down) || (pressed.left && pressed.right)) return undefined;
+    return directions.find((direction) => pressed[direction]);
   }
 
   private dispatch(action: GameAction): void {
@@ -228,6 +246,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (result.resetPerformed) {
+      if (result.echoCreationBlocked === 'occupied') {
+        this.showFeedback('ECHO SPACE OCCUPIED');
+      } else if (result.echoCreationBlocked === 'limit') {
+        this.showFeedback('ECHO LIMIT REACHED');
+      }
+      this.lockInputForReset();
       this.renderResetState();
       return;
     }
@@ -412,6 +436,7 @@ export class GameScene extends Phaser.Scene {
 
     this.tweens.killTweensOf(this.player);
     this.isMoving = false;
+    this.isResetting = false;
     this.pendingReset = false;
     this.pendingDirection = undefined;
     this.mapGraphics?.destroy();
@@ -431,6 +456,21 @@ export class GameScene extends Phaser.Scene {
     this.createObjects();
     this.updateResetHud();
     this.phaseHud.setText('');
+    this.feedbackHud.setText('');
+  }
+
+  private lockInputForReset(): void {
+    this.isResetting = true;
+    this.time.delayedCall(RESET_LOCK_MS, () => {
+      this.isResetting = false;
+    });
+  }
+
+  private showFeedback(message: string): void {
+    this.feedbackHud.setText(message);
+    this.time.delayedCall(900, () => {
+      if (this.feedbackHud.text === message) this.feedbackHud.setText('');
+    });
   }
 
   private renderLoadError(error: Error): void {

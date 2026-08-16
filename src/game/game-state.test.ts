@@ -85,17 +85,29 @@ describe('game state', () => {
     expect(result.state.resetCount).toBe(0);
   });
 
-  it('keeps existing echoes fixed across later resets', () => {
+  it('keeps existing echoes fixed and does not create another on the same tile', () => {
     let state = unlockReset(createGameState({ x: 1, y: 1 }, { resetLimit: 2 }));
     state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
     state = applyAction(state, { type: 'reset' }, map).state;
     state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
     state = applyAction(state, { type: 'reset' }, map).state;
 
-    expect(state.echoes).toEqual([
-      { id: 1, position: { x: 2, y: 1 }, facing: 'right' },
-      { id: 2, position: { x: 2, y: 1 }, facing: 'right' },
-    ]);
+    expect(state.echoes).toEqual([{ id: 1, position: { x: 2, y: 1 }, facing: 'right' }]);
+    expect(state.resetCount).toBe(2);
+  });
+
+  it('performs reset without creating an echo when its tile is already occupied by one', () => {
+    let state = unlockReset(createGameState({ x: 1, y: 1 }, { resetLimit: 2 }));
+    state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    state = applyAction(state, { type: 'reset' }, map).state;
+    state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    const result = applyAction(state, { type: 'reset' }, map);
+
+    expect(result.resetPerformed).toBe(true);
+    expect(result.echoCreated).toBe(false);
+    expect(result.echoCreationBlocked).toBe('occupied');
+    expect(result.state.echoes).toHaveLength(1);
+    expect(result.state.resetCount).toBe(2);
   });
 
   it('disables further resets after the limit without restarting', () => {
@@ -108,6 +120,16 @@ describe('game state', () => {
     expect(exhausted.state).toBe(state);
     expect(exhausted.state.player).toEqual({ x: 1, y: 1 });
     expect(exhausted.state.echoes).toHaveLength(1);
+  });
+
+  it('reports when reset succeeds but the echo limit is already reached', () => {
+    let state = unlockReset(createGameState({ x: 1, y: 1 }, { resetLimit: 2, echoLimit: 0 }));
+    state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    const result = applyAction(state, { type: 'reset' }, map);
+
+    expect(result.resetPerformed).toBe(true);
+    expect(result.echoCreated).toBe(false);
+    expect(result.echoCreationBlocked).toBe('limit');
   });
 
   it('validates reset and echo limits', () => {
@@ -147,6 +169,16 @@ describe('game state', () => {
     expect(result.resetPerformed).toBe(true);
     expect(result.state.objects[0]).toMatchObject({ id: 'watch', collected: true });
     expect(result.state.resetUnlocked).toBe(true);
+  });
+
+  it('records pocket-watch acquisition in world memory', () => {
+    const state = createGameState(
+      { x: 1, y: 1 },
+      { objects: [createPocketWatch('watch', { x: 2, y: 1 })], facing: 'right' },
+    );
+    const collected = applyAction(state, { type: 'interact' }, map).state;
+
+    expect(collected.worldMemory.pocketWatchCollected).toBe(true);
   });
 
   it('stops in front of an interaction object so it can be examined', () => {
@@ -243,6 +275,27 @@ describe('game state', () => {
       { id: 'switch', active: true },
       { id: 'door', open: true },
     ]);
+  });
+
+  it('keeps an open door open while the player occupies its tile', () => {
+    const wideMap = createGridMap(['######', '#....#', '######']);
+    let state = createGameState(
+      { x: 2, y: 1 },
+      {
+        facing: 'right',
+        objects: [
+          createPressureSwitch('switch', { x: 2, y: 1 }),
+          createDoor('door', { x: 3, y: 1 }, ['switch']),
+        ],
+      },
+    );
+
+    state = applyAction(state, { type: 'move', direction: 'right' }, wideMap).state;
+    expect(state.player).toEqual({ x: 3, y: 1 });
+    expect(state.objects.find((object) => object.id === 'door')).toMatchObject({ open: true });
+
+    state = applyAction(state, { type: 'move', direction: 'right' }, wideMap).state;
+    expect(state.objects.find((object) => object.id === 'door')).toMatchObject({ open: false });
   });
 
   it('opens a linked door while a box occupies an accepting pressure switch', () => {
@@ -349,6 +402,21 @@ describe('game state', () => {
     expect(result.state.objects[0]).toMatchObject({ position: { x: 3, y: 1 } });
   });
 
+  it('does not push a box onto a blocking interaction object', () => {
+    const wideMap = createGridMap(['######', '#....#', '######']);
+    const state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        objects: [createBox('box', { x: 2, y: 1 }), createKey('key', { x: 3, y: 1 })],
+      },
+    );
+    const result = applyAction(state, { type: 'move', direction: 'right' }, wideMap);
+
+    expect(result.state.player).toEqual({ x: 1, y: 1 });
+    expect(result.state.objects[0]).toMatchObject({ position: { x: 2, y: 1 } });
+  });
+
   it('restores a normal box but keeps a memory box position on reset', () => {
     const objects = [
       createBox('normal', { x: 2, y: 1 }),
@@ -390,6 +458,45 @@ describe('game state', () => {
     ]);
   });
 
+  it('releases a hold lever and recalculates its door after a blocked move', () => {
+    const state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        objects: [
+          createLever('lever', { x: 2, y: 1 }, 'hold'),
+          createDoor('door', { x: 3, y: 1 }, [], { leverIds: ['lever'] }),
+        ],
+      },
+    );
+    const held = applyAction(state, { type: 'interact' }, map).state;
+    const released = applyAction(held, { type: 'move', direction: 'left' }, map).state;
+
+    expect(released.heldInteractionId).toBeUndefined();
+    expect(released.objects).toMatchObject([
+      { id: 'lever', active: false },
+      { id: 'door', open: false },
+    ]);
+  });
+
+  it('selects an actionable object when it overlaps a floor switch', () => {
+    const state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        objects: [
+          createPressureSwitch('switch', { x: 2, y: 1 }),
+          createLever('lever', { x: 2, y: 1 }),
+        ],
+      },
+    );
+    const interacted = applyAction(state, { type: 'interact' }, map).state;
+
+    expect(interacted.objects.find((object) => object.id === 'lever')).toMatchObject({
+      active: true,
+    });
+  });
+
   it('collects a key and unlocks a matching door', () => {
     let state = createGameState(
       { x: 1, y: 1 },
@@ -410,6 +517,22 @@ describe('game state', () => {
       { id: 'key', collected: true },
       { id: 'door', unlocked: true, open: true },
     ]);
+  });
+
+  it('restores a persistently collected key to player inventory after reset', () => {
+    let state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        resetUnlocked: true,
+        objects: [createKey('memory-key', { x: 2, y: 1 }, ['collected'])],
+      },
+    );
+    state = applyAction(state, { type: 'interact' }, map).state;
+    state = applyAction(state, { type: 'reset' }, map).state;
+
+    expect(state.objects[0]).toMatchObject({ id: 'memory-key', collected: true });
+    expect(state.inventoryKeys).toEqual(['memory-key']);
   });
 
   it('completes a chapter only when the player enters an enter exit', () => {
@@ -436,6 +559,7 @@ describe('game state', () => {
     expect(state.worldMemory).toEqual({
       totalResetCount: 1,
       chapterRestartCount: 1,
+      pocketWatchCollected: false,
       events: ['first-reset'],
     });
   });

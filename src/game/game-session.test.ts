@@ -55,8 +55,25 @@ describe('game session', () => {
     expect(session.state.worldMemory).toEqual({
       totalResetCount: 2,
       chapterRestartCount: 0,
+      pocketWatchCollected: false,
       events: ['level-cleared:room-01'],
     });
+  });
+
+  it('keeps reset unlocked in later levels after the pocket watch is collected', () => {
+    let session = createGameSession([level('room-01'), level('room-02')]);
+    session = updateSessionState(session, {
+      ...session.state,
+      phase: 'completed',
+      resetUnlocked: true,
+      worldMemory: {
+        ...session.state.worldMemory,
+        pocketWatchCollected: true,
+      },
+    });
+    session = advanceGameSession(session);
+
+    expect(session.state.resetUnlocked).toBe(true);
   });
 
   it('finishes the session after the last level', () => {

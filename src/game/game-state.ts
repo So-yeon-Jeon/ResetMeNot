@@ -13,6 +13,7 @@ export type EchoState = Readonly<{
 export type WorldMemory = Readonly<{
   totalResetCount: number;
   chapterRestartCount: number;
+  pocketWatchCollected: boolean;
   events: readonly string[];
 }>;
 
@@ -55,6 +56,7 @@ export type ActionResult = Readonly<{
   changed: boolean;
   resetPerformed: boolean;
   echoCreated: boolean;
+  echoCreationBlocked?: 'occupied' | 'limit';
   chapterCompleted: boolean;
 }>;
 
@@ -79,7 +81,7 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
     playerStartFacing: facing,
     elapsedMs: 0,
     hasAction: false,
-    resetUnlocked: options.resetUnlocked ?? false,
+    resetUnlocked: options.resetUnlocked ?? options.worldMemory?.pocketWatchCollected ?? false,
     resetCount: 0,
     resetLimit,
     echoLimit,
@@ -91,6 +93,7 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
     worldMemory: options.worldMemory ?? {
       totalResetCount: 0,
       chapterRestartCount: 0,
+      pocketWatchCollected: false,
       events: [],
     },
     finalClockDurationMs: options.finalClockDurationMs,
@@ -189,7 +192,12 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
       boxDestination === box.position ||
       objects.some(
         (object) =>
-          (object.type === 'box' || (object.type === 'door' && !object.open)) &&
+          (object.type === 'box' ||
+            (object.type === 'door' && !object.open) ||
+            (object.type === 'pocket-watch' && !object.collected) ||
+            (object.type === 'key' && !object.collected) ||
+            object.type === 'lever' ||
+            object.type === 'puzzle-object') &&
           object.id !== box.id &&
           positionKey(object.position) === positionKey(boxDestination),
       );
@@ -199,7 +207,7 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
     );
   }
 
-  objects = recalculateDerivedObjects(objects, candidate, state.echoes, undefined, undefined);
+  objects = recalculateDerivedObjects(objects, candidate, state.echoes, state.objects, undefined);
   const completed = objects.some(
     (object) =>
       object.type === 'exit' &&
@@ -220,13 +228,29 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
 
 function applyInteract(state: GameState): ActionResult {
   const target = positionInDirection(state.player, state.playerFacing);
-  const object = state.objects.find(
-    (candidate) => positionKey(candidate.position) === positionKey(target),
-  );
+  const object = state.objects.find((candidate) => {
+    if (positionKey(candidate.position) !== positionKey(target)) return false;
+    return (
+      (candidate.type === 'pocket-watch' && !candidate.collected) ||
+      (candidate.type === 'key' && !candidate.collected) ||
+      candidate.type === 'lever' ||
+      (candidate.type === 'door' && !candidate.unlocked && candidate.keyId !== undefined) ||
+      (candidate.type === 'exit' && candidate.mode === 'interact') ||
+      candidate.type === 'puzzle-object'
+    );
+  });
   if (!object) return result(state, false);
 
   if (object.type === 'pocket-watch' && !object.collected) {
-    return changedInteraction(state, object.id, { collected: true }, { resetUnlocked: true });
+    return changedInteraction(
+      state,
+      object.id,
+      { collected: true },
+      {
+        resetUnlocked: true,
+        worldMemory: { ...state.worldMemory, pocketWatchCollected: true },
+      },
+    );
   }
   if (object.type === 'key' && !object.collected) {
     return changedInteraction(
@@ -295,7 +319,16 @@ function applyReset(state: GameState): ActionResult {
     return result(state, false);
   }
 
-  const canCreateEcho = state.echoes.length < state.echoLimit;
+  const echoAlreadyAtPlayer = state.echoes.some((echo) =>
+    samePosition(echo.position, state.player),
+  );
+  const echoLimitReached = state.echoes.length >= state.echoLimit;
+  const canCreateEcho = !echoLimitReached && !echoAlreadyAtPlayer;
+  const echoCreationBlocked = echoAlreadyAtPlayer
+    ? 'occupied'
+    : echoLimitReached
+      ? 'limit'
+      : undefined;
   const echoes: readonly EchoState[] = canCreateEcho
     ? [
         ...state.echoes,
@@ -327,7 +360,9 @@ function applyReset(state: GameState): ActionResult {
       resetCount: state.resetCount + 1,
       echoes,
       objects,
-      inventoryKeys: [],
+      inventoryKeys: restoredObjects
+        .filter((object) => object.type === 'key' && object.collected)
+        .map((object) => object.id),
       finalClockElapsedMs: 0,
       worldMemory: {
         ...state.worldMemory,
@@ -337,6 +372,7 @@ function applyReset(state: GameState): ActionResult {
     changed: true,
     resetPerformed: true,
     echoCreated: canCreateEcho,
+    echoCreationBlocked,
     chapterCompleted: false,
   };
 }
@@ -416,9 +452,13 @@ function samePosition(left: GridPosition, right: GridPosition): boolean {
 }
 
 function facingResult(state: GameState, direction: Direction): ActionResult {
+  const releasedHold = state.heldInteractionId !== undefined;
+  const objects = releasedHold
+    ? recalculateDerivedObjects(state.objects, state.player, state.echoes, state.objects, undefined)
+    : state.objects;
   return result(
-    { ...state, playerFacing: direction, heldInteractionId: undefined },
-    direction !== state.playerFacing,
+    { ...state, playerFacing: direction, heldInteractionId: undefined, objects },
+    direction !== state.playerFacing || releasedHold,
   );
 }
 

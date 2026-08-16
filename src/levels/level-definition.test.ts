@@ -32,6 +32,7 @@ describe('createLevelGameState', () => {
     const worldMemory = {
       totalResetCount: 7,
       chapterRestartCount: 2,
+      pocketWatchCollected: true,
       events: ['chapter-01-clear'],
     } as const;
 
