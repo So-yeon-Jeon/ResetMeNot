@@ -51,6 +51,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
       'resetPolicy',
       'finalClockStart',
       'finalClockTarget',
+      'finalDoorId',
     ],
     'map',
   );
@@ -118,6 +119,14 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   validateInitialOccupancy(objects, playerStart);
   validateReferences(objects);
   const finalClock = readFinalClock(properties);
+  const finalDoorId = optionalText(properties.finalDoorId);
+  if ((finalClock === undefined) !== (finalDoorId === undefined)) {
+    fail('Final 시계와 finalDoorId는 함께 지정해야 합니다.');
+  }
+  if (finalDoorId !== undefined) {
+    const finalDoor = objects.find((item) => item.id === finalDoorId);
+    if (finalDoor?.type !== 'door') fail(`finalDoorId가 Door를 참조하지 않습니다: ${finalDoorId}`);
+  }
   return {
     schemaVersion: 1,
     id,
@@ -131,6 +140,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     objects,
     finalClockStartSeconds: finalClock?.startSeconds,
     finalClockDurationMs: finalClock?.durationMs,
+    finalDoorId,
   };
 }
 

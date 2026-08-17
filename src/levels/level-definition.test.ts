@@ -16,6 +16,7 @@ describe('createLevelGameState', () => {
     echoLimit: 2,
     objects: [createPocketWatch('watch', { x: 1, y: 1 })],
     finalClockDurationMs: 10_000,
+    finalDoorId: 'final-door',
   };
 
   it('copies every runtime option from the level definition', () => {
@@ -28,6 +29,7 @@ describe('createLevelGameState', () => {
     expect(state.echoLimit).toBe(2);
     expect(state.objects[0]).toMatchObject({ id: 'watch' });
     expect(state.finalClockDurationMs).toBe(10_000);
+    expect(state.finalDoorId).toBe('final-door');
   });
 
   it('carries world memory into the next level state', () => {

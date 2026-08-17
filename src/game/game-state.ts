@@ -40,6 +40,7 @@ export type GameState = Readonly<{
   phase: GamePhase;
   worldMemory: WorldMemory;
   finalClockDurationMs?: number;
+  finalDoorId?: string;
   finalClockElapsedMs: number;
 }>;
 
@@ -52,6 +53,7 @@ export type GameStateOptions = Readonly<{
   objects?: readonly WorldObjectState[];
   worldMemory?: WorldMemory;
   finalClockDurationMs?: number;
+  finalDoorId?: string;
 }>;
 
 export type ActionResult = Readonly<{
@@ -102,6 +104,7 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
       events: [],
     },
     finalClockDurationMs: options.finalClockDurationMs,
+    finalDoorId: options.finalDoorId,
     finalClockElapsedMs: 0,
   };
 }
@@ -120,10 +123,25 @@ export function advanceTime(state: GameState, deltaMs: number): GameState {
   const finalClockElapsedMs = state.finalClockElapsedMs + deltaMs;
   const reachedFinalClock =
     state.finalClockDurationMs !== undefined && finalClockElapsedMs >= state.finalClockDurationMs;
+  const objects = reachedFinalClock
+    ? state.objects.map((object) =>
+        object.type === 'door' && object.id === state.finalDoorId
+          ? { ...object, open: true }
+          : object,
+      )
+    : state.objects;
+  const echoes = reachedFinalClock
+    ? state.echoes.map((echo) => ({
+        ...echo,
+        facing: directionToward(echo.position, state.player, echo.facing),
+      }))
+    : state.echoes;
   return {
     ...state,
     elapsedMs: state.elapsedMs + deltaMs,
     finalClockElapsedMs,
+    objects,
+    echoes,
     phase: reachedFinalClock ? 'let-time-go' : state.phase,
   };
 }
@@ -455,6 +473,16 @@ function findObjectAt(
 
 function samePosition(left: GridPosition, right: GridPosition): boolean {
   return positionKey(left) === positionKey(right);
+}
+
+function directionToward(from: GridPosition, target: GridPosition, fallback: Direction): Direction {
+  const horizontalDistance = target.x - from.x;
+  const verticalDistance = target.y - from.y;
+  if (Math.abs(horizontalDistance) >= Math.abs(verticalDistance) && horizontalDistance !== 0) {
+    return horizontalDistance > 0 ? 'right' : 'left';
+  }
+  if (verticalDistance !== 0) return verticalDistance > 0 ? 'down' : 'up';
+  return fallback;
 }
 
 function facingResult(state: GameState, direction: Direction): ActionResult {

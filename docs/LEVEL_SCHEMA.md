@@ -45,9 +45,10 @@ Tiled 편집 → JSON export → 런타임 검증 → 도메인 레벨 변환 �
 | `resetPolicy`      | string | 예     | `disable`            | `disable` 또는 `unlimited` |
 | `finalClockStart`  | string | 조건부 | `11:59:30`           | Final 시계 시작 시각       |
 | `finalClockTarget` | string | 조건부 | `12:00:00`           | 종과 해결 연출의 목표 시각 |
+| `finalDoorId`      | string | 조건부 | `final-door`         | 종이 울릴 때 열릴 Door ID  |
 
 Final의 마지막 방에는 `resetPolicy: unlimited`, `finalClockStart: 11:59:30`,
-`finalClockTarget: 12:00:00`을 사용합니다. `resetLimit`은 스키마 호환을 위해 `0`으로 두되
+`finalClockTarget: 12:00:00`, `finalDoorId`를 사용합니다. `resetLimit`은 스키마 호환을 위해 `0`으로 두되
 `unlimited` 정책에서는 적용하지 않습니다. RESET 횟수는 계속 기록하고 Echo 생성만
 `echoLimit`으로 제한합니다.
 
@@ -134,6 +135,7 @@ type LevelDefinition = {
   objects: readonly WorldObjectState[];
   finalClockStartSeconds?: number;
   finalClockDurationMs?: number;
+  finalDoorId?: string;
 };
 ```
 
@@ -159,6 +161,7 @@ Tiled의 GID, 레이어 인덱스, 픽셀 좌표는 변환 이후 게임 규칙�
 - `disable` 정책에서는 `echoLimit <= resetLimit`
 - `unlimited` 정책에서는 `resetLimit`을 적용하지 않고 `echoLimit`만 독립적으로 적용
 - Final의 마지막 방에 시작 시각과 목표 시각 존재
+- Final의 `finalDoorId`가 실제 Door를 참조
 - 알 수 없는 Object Type과 Property는 오류 처리
 
 ## 버전 관리

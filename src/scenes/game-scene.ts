@@ -15,6 +15,8 @@ import { GAME_LEVELS_LOAD_RESULT } from '../levels/level-catalog';
 
 const MOVE_DURATION_MS = 110;
 const RESET_LOCK_MS = 100;
+const FINALE_BASE_DURATION_MS = 900;
+const ECHO_FADE_STAGGER_MS = 220;
 const FLOOR_COLOR = 0x24212e;
 const WALL_COLOR = 0x51485d;
 const WALL_EDGE_COLOR = 0x766981;
@@ -48,6 +50,7 @@ export class GameScene extends Phaser.Scene {
   private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
   private isResetting = false;
+  private isFinalePlaying = false;
   private pendingReset = false;
   private pendingDirection?: Direction;
   private mapOrigin = { x: 0, y: 0 };
@@ -88,13 +91,13 @@ export class GameScene extends Phaser.Scene {
     if (previousPhase !== this.gameState.phase && this.gameState.phase === 'let-time-go') {
       this.pendingReset = false;
       this.pendingDirection = undefined;
-      this.phaseHud.setText('LET TIME GO');
+      this.playFinaleSequence();
     }
 
     if (this.session.completed) return;
     if (this.isResetting) return;
 
-    if (Phaser.Input.Keyboard.JustDown(this.restartKey)) {
+    if (this.gameState.phase === 'playing' && Phaser.Input.Keyboard.JustDown(this.restartKey)) {
       this.tweens.killTweensOf(this.player);
       this.isMoving = false;
       this.pendingReset = false;
@@ -107,7 +110,11 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (this.gameState.phase !== 'playing' && Phaser.Input.Keyboard.JustDown(this.continueKey)) {
+    if (
+      this.gameState.phase !== 'playing' &&
+      !this.isFinalePlaying &&
+      Phaser.Input.Keyboard.JustDown(this.continueKey)
+    ) {
       this.advanceToNextLevel();
       return;
     }
@@ -457,6 +464,7 @@ export class GameScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.player);
     this.isMoving = false;
     this.isResetting = false;
+    this.isFinalePlaying = false;
     this.pendingReset = false;
     this.pendingDirection = undefined;
     this.mapGraphics?.destroy();
@@ -484,6 +492,34 @@ export class GameScene extends Phaser.Scene {
     this.isResetting = true;
     this.time.delayedCall(RESET_LOCK_MS, () => {
       this.isResetting = false;
+    });
+  }
+
+  private playFinaleSequence(): void {
+    this.isFinalePlaying = true;
+    this.tweens.killTweensOf(this.player);
+    this.isMoving = false;
+    this.renderObjects();
+    this.phaseHud.setText('DONG—\nLET TIME GO');
+    this.cameras.main.shake(260, 0.004);
+    this.cameras.main.flash(350, 225, 216, 180, false);
+
+    this.echoSprites.forEach((echo, index) => {
+      this.tweens.add({
+        targets: echo,
+        alpha: 0,
+        scale: 0.65,
+        duration: 650,
+        delay: index * ECHO_FADE_STAGGER_MS,
+        ease: 'Sine.easeIn',
+      });
+    });
+
+    const duration =
+      FINALE_BASE_DURATION_MS + Math.max(0, this.echoSprites.length - 1) * ECHO_FADE_STAGGER_MS;
+    this.time.delayedCall(duration, () => {
+      this.isFinalePlaying = false;
+      this.feedbackHud.setText('THE DOOR REMEMBERS · ENTER');
     });
   }
 

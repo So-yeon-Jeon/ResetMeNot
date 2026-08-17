@@ -128,11 +128,23 @@ describe('loadTiledLevel', () => {
     const properties = map.properties as Array<Record<string, unknown>>;
     properties.push(property('finalClockStart', '11:59:30'));
     properties.push(property('finalClockTarget', '12:00:00'));
+    properties.push(property('finalDoorId', 'door-a'));
 
     expect(loadTiledLevel(map)).toMatchObject({
       finalClockStartSeconds: 43_170,
       finalClockDurationMs: 30_000,
+      finalDoorId: 'door-a',
     });
+  });
+
+  it('Final 문 ID가 Door를 참조하지 않으면 거부한다', () => {
+    const map = validMap();
+    const properties = map.properties as Array<Record<string, unknown>>;
+    properties.push(property('finalClockStart', '11:59:30'));
+    properties.push(property('finalClockTarget', '12:00:00'));
+    properties.push(property('finalDoorId', 'switch-a'));
+
+    expect(() => loadTiledLevel(map)).toThrow(/finalDoorId/);
   });
 
   it('상자와 문이 같은 초기 위치에 있으면 거부한다', () => {

@@ -576,11 +576,26 @@ describe('game state', () => {
   });
 
   it('enters let-time-go when the final clock reaches its target', () => {
-    let state = createGameState({ x: 1, y: 1 }, { finalClockDurationMs: 1000 });
+    let state = createGameState(
+      { x: 2, y: 1 },
+      {
+        finalClockDurationMs: 1000,
+        finalDoorId: 'final-door',
+        objects: [createDoor('final-door', { x: 3, y: 1 })],
+      },
+    );
+    state = {
+      ...state,
+      echoes: [{ id: 1, position: { x: 1, y: 1 }, facing: 'left' }],
+    };
     state = advanceTime(state, 999);
     expect(state.phase).toBe('playing');
     state = advanceTime(state, 1);
     expect(state.phase).toBe('let-time-go');
+    expect(state.objects.find((object) => object.id === 'final-door')).toMatchObject({
+      open: true,
+    });
+    expect(state.echoes[0]?.facing).toBe('right');
   });
 
   it.each(['completed', 'let-time-go'] as const)(

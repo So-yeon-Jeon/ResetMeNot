@@ -20,6 +20,7 @@ export type LevelDefinition = Readonly<{
   objects: readonly WorldObjectState[];
   finalClockStartSeconds?: number;
   finalClockDurationMs?: number;
+  finalDoorId?: string;
 }>;
 
 export function createLevelGameState(level: LevelDefinition, worldMemory?: WorldMemory): GameState {
@@ -30,6 +31,7 @@ export function createLevelGameState(level: LevelDefinition, worldMemory?: World
     echoLimit: level.echoLimit,
     objects: level.objects,
     finalClockDurationMs: level.finalClockDurationMs,
+    finalDoorId: level.finalDoorId,
     worldMemory,
   });
 }

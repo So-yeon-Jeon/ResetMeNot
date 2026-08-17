@@ -77,7 +77,9 @@ type WorldMemory = {
 
 리셋 한도 소진 시 강제로 재시작하지 않습니다. RESET만 비활성화하고 현재 상태의 탐색과 상호작용은 유지합니다. 메뉴의 Chapter Restart를 선택하면 Echo와 기억 상태를 포함한 현재 챕터의 Puzzle State를 초기화합니다.
 
-Final 챕터의 시계는 RESET할 때 시작 시각으로 돌아갑니다. 지정 시각까지 RESET하지 않으면 `phase = 'let-time-go'`로 전환하며 별도 Player 버튼은 없습니다.
+Final 챕터의 시계는 RESET할 때 시작 시각으로 돌아갑니다. 지정 시각까지 RESET하지 않으면
+`phase = 'let-time-go'`로 전환하고 Echo가 Player를 바라보며, 지정된 마지막 문이 열립니다.
+화면에서는 Echo가 순차적으로 사라지는 동안 입력을 잠그며 별도 Player 버튼은 없습니다.
 
 ## Chapter Restart
 
