@@ -598,6 +598,23 @@ describe('game state', () => {
     expect(state.echoes[0]?.facing).toBe('right');
   });
 
+  it('turns Echoes toward the player during the final three seconds', () => {
+    let state = createGameState({ x: 3, y: 1 }, { finalClockDurationMs: 30_000 });
+    state = {
+      ...state,
+      echoes: [{ id: 1, position: { x: 1, y: 1 }, facing: 'left' }],
+    };
+
+    state = advanceTime(state, 26_999);
+    expect(state.finalClockWarning).toBe(false);
+    expect(state.echoes[0]?.facing).toBe('left');
+
+    state = advanceTime(state, 1);
+    expect(state.finalClockWarning).toBe(true);
+    expect(state.echoes[0]?.facing).toBe('right');
+    expect(state.phase).toBe('playing');
+  });
+
   it.each(['completed', 'let-time-go'] as const)(
     'ignores game actions while the phase is %s',
     (phase) => {
@@ -621,6 +638,7 @@ describe('game state', () => {
     state = applyAction(state, { type: 'reset' }, map).state;
 
     expect(state.finalClockElapsedMs).toBe(0);
+    expect(state.finalClockWarning).toBe(false);
     expect(state.phase).toBe('playing');
   });
 

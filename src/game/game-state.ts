@@ -19,6 +19,7 @@ export type WorldMemory = Readonly<{
 
 export type GamePhase = 'playing' | 'let-time-go' | 'completed';
 export type ResetPolicy = 'disable' | 'unlimited';
+const FINAL_GAZE_LEAD_MS = 3_000;
 
 export type GameState = Readonly<{
   player: GridPosition;
@@ -42,6 +43,7 @@ export type GameState = Readonly<{
   finalClockDurationMs?: number;
   finalDoorId?: string;
   finalClockElapsedMs: number;
+  finalClockWarning: boolean;
 }>;
 
 export type GameStateOptions = Readonly<{
@@ -106,6 +108,7 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
     finalClockDurationMs: options.finalClockDurationMs,
     finalDoorId: options.finalDoorId,
     finalClockElapsedMs: 0,
+    finalClockWarning: false,
   };
 }
 
@@ -123,6 +126,9 @@ export function advanceTime(state: GameState, deltaMs: number): GameState {
   const finalClockElapsedMs = state.finalClockElapsedMs + deltaMs;
   const reachedFinalClock =
     state.finalClockDurationMs !== undefined && finalClockElapsedMs >= state.finalClockDurationMs;
+  const finalClockWarning =
+    state.finalClockDurationMs !== undefined &&
+    finalClockElapsedMs >= Math.max(0, state.finalClockDurationMs - FINAL_GAZE_LEAD_MS);
   const objects = reachedFinalClock
     ? state.objects.map((object) =>
         object.type === 'door' && object.id === state.finalDoorId
@@ -130,16 +136,18 @@ export function advanceTime(state: GameState, deltaMs: number): GameState {
           : object,
       )
     : state.objects;
-  const echoes = reachedFinalClock
-    ? state.echoes.map((echo) => ({
-        ...echo,
-        facing: directionToward(echo.position, state.player, echo.facing),
-      }))
-    : state.echoes;
+  const echoes =
+    finalClockWarning && !state.finalClockWarning
+      ? state.echoes.map((echo) => ({
+          ...echo,
+          facing: directionToward(echo.position, state.player, echo.facing),
+        }))
+      : state.echoes;
   return {
     ...state,
     elapsedMs: state.elapsedMs + deltaMs,
     finalClockElapsedMs,
+    finalClockWarning,
     objects,
     echoes,
     phase: reachedFinalClock ? 'let-time-go' : state.phase,
@@ -172,6 +180,7 @@ export function restartChapter(state: GameState): GameState {
     inventoryKeys: [],
     phase: 'playing',
     finalClockElapsedMs: 0,
+    finalClockWarning: false,
     worldMemory: {
       ...state.worldMemory,
       chapterRestartCount: state.worldMemory.chapterRestartCount + 1,
@@ -388,6 +397,7 @@ function applyReset(state: GameState): ActionResult {
         .filter((object) => object.type === 'key' && object.collected)
         .map((object) => object.id),
       finalClockElapsedMs: 0,
+      finalClockWarning: false,
       worldMemory: {
         ...state.worldMemory,
         totalResetCount: state.worldMemory.totalResetCount + 1,

@@ -46,7 +46,7 @@ export class GameScene extends Phaser.Scene {
   private feedbackHud!: Phaser.GameObjects.Text;
   private phaseHud!: Phaser.GameObjects.Text;
   private clockHud!: Phaser.GameObjects.Text;
-  private echoSprites: Phaser.GameObjects.Rectangle[] = [];
+  private echoSprites: Phaser.GameObjects.Container[] = [];
   private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
   private isResetting = false;
@@ -86,8 +86,19 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (this.loadError) return;
     const previousPhase = this.gameState.phase;
+    const previousClockWarning = this.gameState.finalClockWarning;
     this.setGameState(advanceTime(this.gameState, delta));
     this.updateClockHud();
+    if (!previousClockWarning && this.gameState.finalClockWarning) {
+      this.renderEchoes();
+      this.tweens.add({
+        targets: this.clockHud,
+        alpha: 0.45,
+        duration: 280,
+        yoyo: true,
+        repeat: 4,
+      });
+    }
     if (previousPhase !== this.gameState.phase && this.gameState.phase === 'let-time-go') {
       this.pendingReset = false;
       this.pendingDirection = undefined;
@@ -314,14 +325,7 @@ export class GameScene extends Phaser.Scene {
     const playerPixel = this.gridToPixel(this.gameState.player);
     this.player.setPosition(playerPixel.x, playerPixel.y);
 
-    this.echoSprites.forEach((echo) => echo.destroy());
-    this.echoSprites = this.gameState.echoes.map((echo) => {
-      const pixel = this.gridToPixel(echo.position);
-      return this.add
-        .rectangle(pixel.x, pixel.y, GRID_SIZE - 10, GRID_SIZE - 10, ECHO_COLOR, 0.42)
-        .setStrokeStyle(2, 0xb9efff, 0.7)
-        .setDepth(0.5);
-    });
+    this.renderEchoes();
 
     this.renderObjects();
     this.updateResetHud();
@@ -345,6 +349,26 @@ export class GameScene extends Phaser.Scene {
         ? `RESET ${this.gameState.resetCount} / ${this.gameState.resetLimit}`
         : 'RESET EXHAUSTED',
     );
+  }
+
+  private renderEchoes(): void {
+    this.echoSprites.forEach((echo) => echo.destroy());
+    this.echoSprites = this.gameState.echoes.map((echo) => {
+      const pixel = this.gridToPixel(echo.position);
+      const facingOffset = this.facingOffset(echo.facing, GRID_SIZE / 4);
+      const body = this.add
+        .rectangle(0, 0, GRID_SIZE - 10, GRID_SIZE - 10, ECHO_COLOR, 0.42)
+        .setStrokeStyle(2, 0xb9efff, 0.7);
+      const gaze = this.add.circle(facingOffset.x, facingOffset.y, 3, 0xe8fbff, 0.95);
+      return this.add.container(pixel.x, pixel.y, [body, gaze]).setDepth(0.5);
+    });
+  }
+
+  private facingOffset(direction: Direction, distance: number): GridPosition {
+    if (direction === 'up') return { x: 0, y: -distance };
+    if (direction === 'down') return { x: 0, y: distance };
+    if (direction === 'left') return { x: -distance, y: 0 };
+    return { x: distance, y: 0 };
   }
 
   private createObjects(): void {
@@ -500,6 +524,7 @@ export class GameScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.player);
     this.isMoving = false;
     this.renderObjects();
+    this.renderEchoes();
     this.phaseHud.setText('DONG—\nLET TIME GO');
     this.cameras.main.shake(260, 0.004);
     this.cameras.main.flash(350, 225, 216, 180, false);

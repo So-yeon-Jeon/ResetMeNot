@@ -80,6 +80,8 @@ type WorldMemory = {
 Final 챕터의 시계는 RESET할 때 시작 시각으로 돌아갑니다. 지정 시각까지 RESET하지 않으면
 `phase = 'let-time-go'`로 전환하고 Echo가 Player를 바라보며, 지정된 마지막 문이 열립니다.
 화면에서는 Echo가 순차적으로 사라지는 동안 입력을 잠그며 별도 Player 버튼은 없습니다.
+목표 시각 3초 전에는 `finalClockWarning`이 활성화되고 Echo의 방향 표시가 Player를 향하며
+시계 HUD가 점멸합니다. RESET하면 경고 상태도 함께 초기화됩니다.
 
 ## Chapter Restart
 
