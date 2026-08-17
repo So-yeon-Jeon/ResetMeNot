@@ -18,6 +18,7 @@ export type WorldMemory = Readonly<{
 }>;
 
 export type GamePhase = 'playing' | 'let-time-go' | 'completed';
+export type ResetPolicy = 'disable' | 'unlimited';
 
 export type GameState = Readonly<{
   player: GridPosition;
@@ -30,6 +31,7 @@ export type GameState = Readonly<{
   resetUnlocked: boolean;
   resetCount: number;
   resetLimit: number;
+  resetPolicy: ResetPolicy;
   echoLimit: number;
   echoes: readonly EchoState[];
   objects: readonly WorldObjectState[];
@@ -45,6 +47,7 @@ export type GameStateOptions = Readonly<{
   facing?: Direction;
   resetUnlocked?: boolean;
   resetLimit?: number;
+  resetPolicy?: ResetPolicy;
   echoLimit?: number;
   objects?: readonly WorldObjectState[];
   worldMemory?: WorldMemory;
@@ -62,8 +65,9 @@ export type ActionResult = Readonly<{
 
 export function createGameState(player: GridPosition, options: GameStateOptions = {}): GameState {
   const resetLimit = options.resetLimit ?? 3;
+  const resetPolicy = options.resetPolicy ?? 'disable';
   const echoLimit = options.echoLimit ?? resetLimit;
-  validateLimits(resetLimit, echoLimit);
+  validateLimits(resetLimit, echoLimit, resetPolicy);
   if (
     options.finalClockDurationMs !== undefined &&
     (!Number.isFinite(options.finalClockDurationMs) || options.finalClockDurationMs <= 0)
@@ -84,6 +88,7 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
     resetUnlocked: options.resetUnlocked ?? options.worldMemory?.pocketWatchCollected ?? false,
     resetCount: 0,
     resetLimit,
+    resetPolicy,
     echoLimit,
     echoes: [],
     objects,
@@ -315,7 +320,8 @@ function changedInteraction(
 }
 
 function applyReset(state: GameState): ActionResult {
-  if (!state.resetUnlocked || !state.hasAction || state.resetCount >= state.resetLimit) {
+  const resetLimitReached = state.resetPolicy === 'disable' && state.resetCount >= state.resetLimit;
+  if (!state.resetUnlocked || !state.hasAction || resetLimitReached) {
     return result(state, false);
   }
 
@@ -472,11 +478,15 @@ function result(state: GameState, changed: boolean): ActionResult {
   };
 }
 
-function validateLimits(resetLimit: number, echoLimit: number): void {
+function validateLimits(resetLimit: number, echoLimit: number, resetPolicy: ResetPolicy): void {
   if (!Number.isInteger(resetLimit) || resetLimit < 0) {
     throw new Error('RESET 한도는 0 이상의 정수여야 합니다.');
   }
-  if (!Number.isInteger(echoLimit) || echoLimit < 0 || echoLimit > resetLimit) {
+  if (
+    !Number.isInteger(echoLimit) ||
+    echoLimit < 0 ||
+    (resetPolicy === 'disable' && echoLimit > resetLimit)
+  ) {
     throw new Error('Echo 한도는 RESET 한도 이하의 0 이상 정수여야 합니다.');
   }
 }

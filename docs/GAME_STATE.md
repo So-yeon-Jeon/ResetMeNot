@@ -13,7 +13,7 @@ GameSession
    ├─ player / playerFacing
    ├─ playerStart / playerStartFacing
    ├─ objects / initialObjects
-   ├─ resetCount / resetLimit / echoLimit
+   ├─ resetCount / resetLimit / resetPolicy / echoLimit
    ├─ elapsedMs / hasAction
    ├─ inventoryKeys
    ├─ phase

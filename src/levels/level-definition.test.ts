@@ -12,6 +12,7 @@ describe('createLevelGameState', () => {
     playerStart: { x: 1, y: 1 },
     playerFacing: 'left',
     resetLimit: 4,
+    resetPolicy: 'disable',
     echoLimit: 2,
     objects: [createPocketWatch('watch', { x: 1, y: 1 })],
     finalClockDurationMs: 10_000,
@@ -23,6 +24,7 @@ describe('createLevelGameState', () => {
     expect(state.player).toEqual({ x: 1, y: 1 });
     expect(state.playerFacing).toBe('left');
     expect(state.resetLimit).toBe(4);
+    expect(state.resetPolicy).toBe('disable');
     expect(state.echoLimit).toBe(2);
     expect(state.objects[0]).toMatchObject({ id: 'watch' });
     expect(state.finalClockDurationMs).toBe(10_000);

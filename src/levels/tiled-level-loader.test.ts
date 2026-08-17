@@ -101,13 +101,38 @@ describe('loadTiledLevel', () => {
     expect(() => loadTiledLevel(map)).toThrow(/echoLimit/);
   });
 
+  it('unlimited 정책에서는 RESET 한도와 별도로 Echo 수를 제한한다', () => {
+    const map = validMap();
+    const properties = map.properties as Array<Record<string, unknown>>;
+    properties.find((item) => item.name === 'resetLimit')!.value = 0;
+    properties.find((item) => item.name === 'echoLimit')!.value = 3;
+    properties.find((item) => item.name === 'resetPolicy')!.value = 'unlimited';
+
+    expect(loadTiledLevel(map)).toMatchObject({
+      resetLimit: 0,
+      resetPolicy: 'unlimited',
+      echoLimit: 3,
+    });
+  });
+
+  it('지원하지 않는 RESET 정책을 거부한다', () => {
+    const map = validMap();
+    const properties = map.properties as Array<Record<string, unknown>>;
+    properties.find((item) => item.name === 'resetPolicy')!.value = 'restart';
+
+    expect(() => loadTiledLevel(map)).toThrow(/resetPolicy/);
+  });
+
   it('Final 시계 구간을 밀리초로 변환한다', () => {
     const map = validMap();
     const properties = map.properties as Array<Record<string, unknown>>;
-    properties.push(property('finalClockStart', '11:59:50'));
+    properties.push(property('finalClockStart', '11:59:30'));
     properties.push(property('finalClockTarget', '12:00:00'));
 
-    expect(loadTiledLevel(map).finalClockDurationMs).toBe(10_000);
+    expect(loadTiledLevel(map)).toMatchObject({
+      finalClockStartSeconds: 43_170,
+      finalClockDurationMs: 30_000,
+    });
   });
 
   it('상자와 문이 같은 초기 위치에 있으면 거부한다', () => {

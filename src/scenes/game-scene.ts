@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
+import { formatClockTime } from '../game/clock';
 import {
   advanceGameSession,
   createGameSession,
@@ -42,6 +43,7 @@ export class GameScene extends Phaser.Scene {
   private resetHud!: Phaser.GameObjects.Text;
   private feedbackHud!: Phaser.GameObjects.Text;
   private phaseHud!: Phaser.GameObjects.Text;
+  private clockHud!: Phaser.GameObjects.Text;
   private echoSprites: Phaser.GameObjects.Rectangle[] = [];
   private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
@@ -82,6 +84,7 @@ export class GameScene extends Phaser.Scene {
     if (this.loadError) return;
     const previousPhase = this.gameState.phase;
     this.setGameState(advanceTime(this.gameState, delta));
+    this.updateClockHud();
     if (previousPhase !== this.gameState.phase && this.gameState.phase === 'let-time-go') {
       this.pendingReset = false;
       this.pendingDirection = undefined;
@@ -100,6 +103,7 @@ export class GameScene extends Phaser.Scene {
       this.renderResetState();
       this.phaseHud.setText('');
       this.feedbackHud.setText('');
+      this.updateClockHud();
       return;
     }
 
@@ -199,6 +203,15 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(5);
+    this.clockHud = this.add
+      .text(this.scale.width - 20, 18, '', {
+        color: '#d8b65a',
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        letterSpacing: 2,
+      })
+      .setOrigin(1, 0);
+    this.updateClockHud();
   }
 
   private createKeyboardControls(): void {
@@ -311,6 +324,13 @@ export class GameScene extends Phaser.Scene {
   private updateResetHud(): void {
     this.resetHud.setVisible(this.gameState.resetUnlocked);
     if (!this.gameState.resetUnlocked) return;
+
+    if (this.gameState.resetPolicy === 'unlimited') {
+      this.resetHud.setText(
+        `RESET ∞ · ECHO ${this.gameState.echoes.length} / ${this.gameState.echoLimit}`,
+      );
+      return;
+    }
 
     const remaining = this.gameState.resetLimit - this.gameState.resetCount;
     this.resetHud.setText(
@@ -457,6 +477,7 @@ export class GameScene extends Phaser.Scene {
     this.updateResetHud();
     this.phaseHud.setText('');
     this.feedbackHud.setText('');
+    this.updateClockHud();
   }
 
   private lockInputForReset(): void {
@@ -471,6 +492,14 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(900, () => {
       if (this.feedbackHud.text === message) this.feedbackHud.setText('');
     });
+  }
+
+  private updateClockHud(): void {
+    const startSeconds = currentLevel(this.session).finalClockStartSeconds;
+    this.clockHud.setVisible(startSeconds !== undefined);
+    if (startSeconds === undefined) return;
+
+    this.clockHud.setText(formatClockTime(startSeconds, this.gameState.finalClockElapsedMs));
   }
 
   private renderLoadError(error: Error): void {

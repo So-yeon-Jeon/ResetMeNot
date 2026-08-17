@@ -609,6 +609,32 @@ describe('game state', () => {
     expect(state.phase).toBe('playing');
   });
 
+  it('allows unlimited resets while keeping the Echo limit', () => {
+    let state = unlockReset(
+      createGameState(
+        { x: 1, y: 1 },
+        { resetLimit: 0, resetPolicy: 'unlimited', echoLimit: 1, finalClockDurationMs: 30_000 },
+      ),
+    );
+
+    state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    const firstReset = applyAction(state, { type: 'reset' }, map);
+    expect(firstReset.resetPerformed).toBe(true);
+    expect(firstReset.echoCreated).toBe(true);
+
+    state = applyAction(firstReset.state, { type: 'move', direction: 'right' }, map).state;
+    state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    state = advanceTime(state, 29_000);
+    const secondReset = applyAction(state, { type: 'reset' }, map);
+
+    expect(secondReset.resetPerformed).toBe(true);
+    expect(secondReset.echoCreated).toBe(false);
+    expect(secondReset.echoCreationBlocked).toBe('limit');
+    expect(secondReset.state.resetCount).toBe(2);
+    expect(secondReset.state.echoes).toHaveLength(1);
+    expect(secondReset.state.finalClockElapsedMs).toBe(0);
+  });
+
   it('rejects a negative time delta', () => {
     const state = advanceTime(createGameState({ x: 1, y: 1 }), 100);
     expect(() => advanceTime(state, -1)).toThrow('게임 경과 시간 증가량은 0 이상이어야 합니다.');

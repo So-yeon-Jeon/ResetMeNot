@@ -18,6 +18,7 @@ function level(id: string, chapterId = 'chapter-01'): LevelDefinition {
     playerStart: { x: 1, y: 1 },
     playerFacing: 'down',
     resetLimit: 3,
+    resetPolicy: 'disable',
     echoLimit: 2,
     objects: [],
   };

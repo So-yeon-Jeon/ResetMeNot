@@ -35,18 +35,21 @@ Tiled 편집 → JSON export → 런타임 검증 → 도메인 레벨 변환 �
 
 ## Map Custom Properties
 
-| 이름               | 타입   | 필수   | 예시                 | 설명                        |
-| ------------------ | ------ | ------ | -------------------- | --------------------------- |
-| `schemaVersion`    | int    | 예     | `1`                  | 데이터 계약 버전            |
-| `levelId`          | string | 예     | `chapter-01-room-01` | 전역 고유 ID                |
-| `chapterId`        | string | 예     | `chapter-01`         | 챕터 ID                     |
-| `resetLimit`       | int    | 예     | `3`                  | 허용 RESET 횟수             |
-| `echoLimit`        | int    | 예     | `3`                  | 동시에 유지할 Echo 최대 수  |
-| `resetPolicy`      | string | 예     | `disable`            | 한도 소진 후 RESET 비활성화 |
-| `finalClockStart`  | string | 조건부 | `11:59:50`           | Final 시계 시작 시각        |
-| `finalClockTarget` | string | 조건부 | `12:00:00`           | 종과 해결 연출의 목표 시각  |
+| 이름               | 타입   | 필수   | 예시                 | 설명                       |
+| ------------------ | ------ | ------ | -------------------- | -------------------------- |
+| `schemaVersion`    | int    | 예     | `1`                  | 데이터 계약 버전           |
+| `levelId`          | string | 예     | `chapter-01-room-01` | 전역 고유 ID               |
+| `chapterId`        | string | 예     | `chapter-01`         | 챕터 ID                    |
+| `resetLimit`       | int    | 예     | `3`                  | 허용 RESET 횟수            |
+| `echoLimit`        | int    | 예     | `3`                  | 동시에 유지할 Echo 최대 수 |
+| `resetPolicy`      | string | 예     | `disable`            | `disable` 또는 `unlimited` |
+| `finalClockStart`  | string | 조건부 | `11:59:30`           | Final 시계 시작 시각       |
+| `finalClockTarget` | string | 조건부 | `12:00:00`           | 종과 해결 연출의 목표 시각 |
 
-Final의 마지막 방에만 `finalClockStart`와 `finalClockTarget`이 필요합니다.
+Final의 마지막 방에는 `resetPolicy: unlimited`, `finalClockStart: 11:59:30`,
+`finalClockTarget: 12:00:00`을 사용합니다. `resetLimit`은 스키마 호환을 위해 `0`으로 두되
+`unlimited` 정책에서는 적용하지 않습니다. RESET 횟수는 계속 기록하고 Echo 생성만
+`echoLimit`으로 제한합니다.
 
 ## Object Layer 계약
 
@@ -122,17 +125,15 @@ type LevelDefinition = {
   schemaVersion: 1;
   id: string;
   chapterId: string;
-  size: { width: number; height: number };
-  reset: {
-    limit: number;
-    echoLimit: number;
-    policy: 'disable';
-    finalClockStart?: string;
-    finalClockTarget?: string;
-  };
+  map: GridMap;
   playerStart: GridPosition;
-  walls: ReadonlySet<string>;
-  objects: readonly LevelObjectDefinition[];
+  playerFacing: Direction;
+  resetLimit: number;
+  resetPolicy: 'disable' | 'unlimited';
+  echoLimit: number;
+  objects: readonly WorldObjectState[];
+  finalClockStartSeconds?: number;
+  finalClockDurationMs?: number;
 };
 ```
 
@@ -155,7 +156,8 @@ Tiled의 GID, 레이어 인덱스, 픽셀 좌표는 변환 이후 게임 규칙�
 - `switchIds`가 실제 Switch를 참조
 - Door의 연결 ID 중복과 열쇠·장치 조건 혼용 금지
 - `resetLimit >= 0`, `echoLimit >= 0`
-- `echoLimit <= resetLimit`
+- `disable` 정책에서는 `echoLimit <= resetLimit`
+- `unlimited` 정책에서는 `resetLimit`을 적용하지 않고 `echoLimit`만 독립적으로 적용
 - Final의 마지막 방에 시작 시각과 목표 시각 존재
 - 알 수 없는 Object Type과 Property는 오류 처리
 

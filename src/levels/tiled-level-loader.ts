@@ -13,6 +13,7 @@ import {
   type WorldObjectState,
 } from '../game/world-object';
 import type { LevelDefinition } from './level-definition';
+import type { ResetPolicy } from '../game/game-state';
 
 type JsonObject = Record<string, unknown>;
 
@@ -58,8 +59,14 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   const chapterId = text(properties.chapterId, 'chapterId');
   const resetLimit = nonNegativeInteger(properties.resetLimit, 'resetLimit');
   const echoLimit = nonNegativeInteger(properties.echoLimit, 'echoLimit');
-  if (echoLimit > resetLimit) fail('echoLimit은 resetLimit보다 클 수 없습니다.');
-  if (properties.resetPolicy !== 'disable') fail('resetPolicy는 disable이어야 합니다.');
+  const resetPolicy = oneOf(
+    properties.resetPolicy,
+    ['disable', 'unlimited'],
+    'resetPolicy',
+  ) as ResetPolicy;
+  if (resetPolicy === 'disable' && echoLimit > resetLimit) {
+    fail('disable 정책에서는 echoLimit이 resetLimit보다 클 수 없습니다.');
+  }
 
   const layers = array(map.layers, 'map.layers').map((layer, index) =>
     object(layer, `map.layers[${index}]`),
@@ -110,7 +117,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
 
   validateInitialOccupancy(objects, playerStart);
   validateReferences(objects);
-  const finalClockDurationMs = readFinalClock(properties);
+  const finalClock = readFinalClock(properties);
   return {
     schemaVersion: 1,
     id,
@@ -119,9 +126,11 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     playerStart,
     playerFacing,
     resetLimit,
+    resetPolicy,
     echoLimit,
     objects,
-    finalClockDurationMs,
+    finalClockStartSeconds: finalClock?.startSeconds,
+    finalClockDurationMs: finalClock?.durationMs,
   };
 }
 
@@ -290,7 +299,9 @@ function readPosition(
   return position;
 }
 
-function readFinalClock(props: JsonObject): number | undefined {
+function readFinalClock(
+  props: JsonObject,
+): Readonly<{ startSeconds: number; durationMs: number }> | undefined {
   const start = optionalText(props.finalClockStart);
   const target = optionalText(props.finalClockTarget);
   if ((start === undefined) !== (target === undefined))
@@ -300,7 +311,7 @@ function readFinalClock(props: JsonObject): number | undefined {
   const targetSeconds = clockSeconds(target, 'finalClockTarget');
   const duration = (targetSeconds - startSeconds + 86400) % 86400;
   if (duration === 0) fail('Final 시계 시작과 목표 시각은 달라야 합니다.');
-  return duration * 1000;
+  return { startSeconds, durationMs: duration * 1000 };
 }
 
 function clockSeconds(value: string, label: string): number {
