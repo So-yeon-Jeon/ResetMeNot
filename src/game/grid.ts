@@ -22,6 +22,11 @@ export function positionKey(position: GridPosition): string {
   return `${position.x},${position.y}`;
 }
 
+export function positionInDirection(position: GridPosition, direction: Direction): GridPosition {
+  const offset = DIRECTION_OFFSETS[direction];
+  return { x: position.x + offset.x, y: position.y + offset.y };
+}
+
 export function createGridMap(rows: readonly string[]): GridMap {
   const firstRow = rows[0];
   if (firstRow === undefined || firstRow.length === 0) {
@@ -44,11 +49,7 @@ export function createGridMap(rows: readonly string[]): GridMap {
 }
 
 export function tryMove(current: GridPosition, direction: Direction, map: GridMap): GridPosition {
-  const offset = DIRECTION_OFFSETS[direction];
-  const destination = {
-    x: current.x + offset.x,
-    y: current.y + offset.y,
-  };
+  const destination = positionInDirection(current, direction);
 
   const isOutOfBounds =
     destination.x < 0 ||

@@ -1,13 +1,35 @@
 import Phaser from 'phaser';
 import { GRID_SIZE } from '../game-config';
-import { DEMO_MAP, DEMO_MAP_ROWS, PLAYER_START } from '../game/demo-map';
-import { tryMove, type Direction, type GridPosition } from '../game/grid';
+import type { GameAction } from '../game/action';
+import { formatClockTime } from '../game/clock';
+import { createEndingSequence, type EndingPage } from '../game/ending';
+import {
+  advanceGameSession,
+  createGameSession,
+  currentLevel,
+  updateSessionState,
+  type GameSession,
+} from '../game/game-session';
+import {
+  advanceTime,
+  applyAction,
+  finishFinale,
+  restartChapter,
+  type GameState,
+} from '../game/game-state';
+import type { Direction, GridPosition } from '../game/grid';
+import { GAME_LEVELS_LOAD_RESULT } from '../levels/level-catalog';
 
 const MOVE_DURATION_MS = 110;
+const RESET_LOCK_MS = 100;
+const FINALE_BASE_DURATION_MS = 900;
+const ECHO_FADE_STAGGER_MS = 220;
 const FLOOR_COLOR = 0x24212e;
 const WALL_COLOR = 0x51485d;
 const WALL_EDGE_COLOR = 0x766981;
 const PLAYER_COLOR = 0xd9b6a3;
+const ECHO_COLOR = 0x73c8df;
+const POCKET_WATCH_COLOR = 0xd8b65a;
 
 type MovementKeys = Readonly<{
   up: Phaser.Input.Keyboard.Key[];
@@ -18,52 +40,158 @@ type MovementKeys = Readonly<{
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Rectangle;
-  private playerPosition: GridPosition = PLAYER_START;
+  private session!: GameSession;
+  private gameState!: GameState;
+  private loadError?: Error;
+  private mapGraphics?: Phaser.GameObjects.Graphics;
   private movementKeys!: MovementKeys;
+  private resetKey!: Phaser.Input.Keyboard.Key;
+  private interactKey!: Phaser.Input.Keyboard.Key;
+  private restartKey!: Phaser.Input.Keyboard.Key;
+  private continueKey!: Phaser.Input.Keyboard.Key;
+  private resetHud!: Phaser.GameObjects.Text;
+  private feedbackHud!: Phaser.GameObjects.Text;
+  private phaseHud!: Phaser.GameObjects.Text;
+  private clockHud!: Phaser.GameObjects.Text;
+  private endingHud!: Phaser.GameObjects.Text;
+  private echoSprites: Phaser.GameObjects.Container[] = [];
+  private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
+  private isResetting = false;
+  private isFinalePlaying = false;
+  private pendingReset = false;
+  private pendingDirection?: Direction;
+  private endingPages: readonly EndingPage[] = [];
+  private endingPageIndex = 0;
   private mapOrigin = { x: 0, y: 0 };
 
   constructor() {
     super('game');
+    if (GAME_LEVELS_LOAD_RESULT.ok) {
+      this.session = createGameSession(GAME_LEVELS_LOAD_RESULT.levels);
+      this.gameState = this.session.state;
+    } else {
+      this.loadError = GAME_LEVELS_LOAD_RESULT.error;
+    }
   }
 
   create(): void {
+    if (this.loadError) {
+      this.renderLoadError(this.loadError);
+      return;
+    }
+    const map = currentLevel(this.session).map;
     this.mapOrigin = {
-      x: Math.floor((this.scale.width - DEMO_MAP.width * GRID_SIZE) / 2),
-      y: Math.floor((this.scale.height - DEMO_MAP.height * GRID_SIZE) / 2),
+      x: Math.floor((this.scale.width - map.width * GRID_SIZE) / 2),
+      y: Math.floor((this.scale.height - map.height * GRID_SIZE) / 2),
     };
 
     this.drawMap();
     this.createPlayer();
+    this.createObjects();
     this.createInstructions();
     this.createKeyboardControls();
   }
 
-  update(): void {
-    if (this.isMoving) return;
+  update(_time: number, delta: number): void {
+    if (this.loadError) return;
+    const previousPhase = this.gameState.phase;
+    const previousClockWarning = this.gameState.finalClockWarning;
+    this.setGameState(advanceTime(this.gameState, delta));
+    this.updateClockHud();
+    if (!previousClockWarning && this.gameState.finalClockWarning) {
+      this.renderEchoes();
+      this.tweens.add({
+        targets: this.clockHud,
+        alpha: 0.45,
+        duration: 280,
+        yoyo: true,
+        repeat: 4,
+      });
+    }
+    if (previousPhase !== this.gameState.phase && this.gameState.phase === 'let-time-go') {
+      this.pendingReset = false;
+      this.pendingDirection = undefined;
+      this.playFinaleSequence();
+    }
+
+    if (this.session.completed) {
+      if (Phaser.Input.Keyboard.JustDown(this.continueKey)) this.advanceEndingPage();
+      return;
+    }
+    if (this.isResetting) return;
+
+    if (
+      this.gameState.phase === 'playing' &&
+      !this.gameState.finalResolved &&
+      Phaser.Input.Keyboard.JustDown(this.restartKey)
+    ) {
+      this.tweens.killTweensOf(this.player);
+      this.isMoving = false;
+      this.pendingReset = false;
+      this.pendingDirection = undefined;
+      this.setGameState(restartChapter(this.gameState));
+      this.renderResetState();
+      this.phaseHud.setText('');
+      this.feedbackHud.setText('');
+      this.updateClockHud();
+      return;
+    }
+
+    if (
+      this.gameState.phase === 'completed' &&
+      !this.isFinalePlaying &&
+      Phaser.Input.Keyboard.JustDown(this.continueKey)
+    ) {
+      this.advanceToNextLevel();
+      return;
+    }
+
+    if (this.gameState.phase !== 'playing') return;
+
+    if (Phaser.Input.Keyboard.JustDown(this.resetKey)) {
+      if (this.isMoving) {
+        this.pendingReset = true;
+        this.pendingDirection = undefined;
+      } else this.dispatch({ type: 'reset' });
+      return;
+    }
+
+    if (!this.isMoving && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+      this.dispatch({ type: 'interact' });
+      return;
+    }
 
     const direction = this.readDirection();
-    if (direction) this.movePlayer(direction);
+    if (this.isMoving) {
+      if (direction && !this.pendingReset) this.pendingDirection = direction;
+      return;
+    }
+
+    if (direction) this.dispatch({ type: 'move', direction });
   }
 
   private drawMap(): void {
+    const map = currentLevel(this.session).map;
     const graphics = this.add.graphics();
+    this.mapGraphics = graphics;
 
-    DEMO_MAP_ROWS.forEach((row, y) => {
-      [...row].forEach((tile, x) => {
+    for (let y = 0; y < map.height; y += 1) {
+      for (let x = 0; x < map.width; x += 1) {
+        const isWall = map.walls.has(`${x},${y}`);
         const pixelX = this.mapOrigin.x + x * GRID_SIZE;
         const pixelY = this.mapOrigin.y + y * GRID_SIZE;
 
-        graphics.fillStyle(tile === '#' ? WALL_COLOR : FLOOR_COLOR);
+        graphics.fillStyle(isWall ? WALL_COLOR : FLOOR_COLOR);
         graphics.fillRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
-        graphics.lineStyle(1, tile === '#' ? WALL_EDGE_COLOR : 0x302b3b, 0.75);
+        graphics.lineStyle(1, isWall ? WALL_EDGE_COLOR : 0x302b3b, 0.75);
         graphics.strokeRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
-      });
-    });
+      }
+    }
   }
 
   private createPlayer(): void {
-    const pixel = this.gridToPixel(this.playerPosition);
+    const pixel = this.gridToPixel(this.gameState.player);
     this.player = this.add
       .rectangle(pixel.x, pixel.y, GRID_SIZE - 10, GRID_SIZE - 10, PLAYER_COLOR)
       .setStrokeStyle(2, 0xf1ded2)
@@ -72,13 +200,65 @@ export class GameScene extends Phaser.Scene {
 
   private createInstructions(): void {
     this.add
-      .text(this.scale.width / 2, 12, 'ARROW KEYS / WASD  ·  MOVE', {
-        color: '#aaa1b5',
+      .text(
+        this.scale.width / 2,
+        12,
+        'ARROW/WASD · MOVE   Z · INTERACT   R · RESET   C · RESTART   ENTER · CONTINUE',
+        {
+          color: '#aaa1b5',
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          letterSpacing: 2,
+        },
+      )
+      .setOrigin(0.5, 0);
+
+    this.resetHud = this.add
+      .text(this.scale.width / 2, this.scale.height - 18, '', {
+        color: '#73c8df',
         fontFamily: 'monospace',
-        fontSize: '14px',
+        fontSize: '13px',
+        letterSpacing: 1,
+      })
+      .setOrigin(0.5, 1);
+    this.updateResetHud();
+    this.feedbackHud = this.add
+      .text(this.scale.width / 2, this.scale.height - 42, '', {
+        color: '#d8b65a',
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        letterSpacing: 1,
+      })
+      .setOrigin(0.5, 1);
+    this.phaseHud = this.add
+      .text(this.scale.width / 2, this.scale.height / 2, '', {
+        color: '#f1ded2',
+        fontFamily: 'serif',
+        fontSize: '32px',
+      })
+      .setOrigin(0.5)
+      .setDepth(5);
+    this.clockHud = this.add
+      .text(this.scale.width - 20, 18, '', {
+        color: '#d8b65a',
+        fontFamily: 'monospace',
+        fontSize: '18px',
         letterSpacing: 2,
       })
-      .setOrigin(0.5, 0);
+      .setOrigin(1, 0);
+    this.endingHud = this.add
+      .text(this.scale.width / 2, this.scale.height / 2, '', {
+        align: 'center',
+        color: '#f1ded2',
+        fontFamily: 'serif',
+        fontSize: '24px',
+        lineSpacing: 14,
+        wordWrap: { width: this.scale.width - 180 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setVisible(false);
+    this.updateClockHud();
   }
 
   private createKeyboardControls(): void {
@@ -96,21 +276,58 @@ export class GameScene extends Phaser.Scene {
       left: [cursors.left, wasd.A],
       right: [cursors.right, wasd.D],
     };
+    this.resetKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+    this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+    this.restartKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+    this.continueKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
   }
 
   private readDirection(): Direction | undefined {
     const directions: readonly Direction[] = ['up', 'down', 'left', 'right'];
-    return directions.find((direction) =>
-      this.movementKeys[direction].some((key) => Phaser.Input.Keyboard.JustDown(key)),
-    );
+    const pressed = Object.fromEntries(
+      directions.map((direction) => [
+        direction,
+        this.movementKeys[direction].some((key) => Phaser.Input.Keyboard.JustDown(key)),
+      ]),
+    ) as Record<Direction, boolean>;
+    if ((pressed.up && pressed.down) || (pressed.left && pressed.right)) return undefined;
+    return directions.find((direction) => pressed[direction]);
   }
 
-  private movePlayer(direction: Direction): void {
-    const destination = tryMove(this.playerPosition, direction, DEMO_MAP);
-    if (destination === this.playerPosition) return;
+  private dispatch(action: GameAction): void {
+    const previousPlayer = this.gameState.player;
+    const result = applyAction(this.gameState, action, currentLevel(this.session).map);
+    this.setGameState(result.state);
+    if (result.chapterCompleted) this.phaseHud.setText('CHAPTER CLEAR');
 
-    this.playerPosition = destination;
-    const pixel = this.gridToPixel(destination);
+    if (action.type === 'interact' && result.changed) {
+      this.renderObjects();
+      this.updateResetHud();
+    }
+
+    if (result.resetPerformed) {
+      if (result.echoCreationBlocked === 'occupied') {
+        this.showFeedback('ECHO SPACE OCCUPIED');
+      } else if (result.echoCreationBlocked === 'limit') {
+        this.showFeedback('ECHO LIMIT REACHED');
+      }
+      this.lockInputForReset();
+      this.renderResetState();
+      return;
+    }
+
+    if (!result.changed) return;
+
+    this.renderObjects();
+
+    if (
+      previousPlayer.x === this.gameState.player.x &&
+      previousPlayer.y === this.gameState.player.y
+    ) {
+      return;
+    }
+
+    const pixel = this.gridToPixel(this.gameState.player);
     this.isMoving = true;
 
     this.tweens.add({
@@ -121,7 +338,162 @@ export class GameScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
       onComplete: () => {
         this.isMoving = false;
+        if (this.pendingReset) {
+          this.pendingReset = false;
+          this.dispatch({ type: 'reset' });
+          return;
+        }
+        const nextDirection = this.pendingDirection;
+        this.pendingDirection = undefined;
+        if (nextDirection) this.dispatch({ type: 'move', direction: nextDirection });
       },
+    });
+  }
+
+  private renderResetState(): void {
+    const playerPixel = this.gridToPixel(this.gameState.player);
+    this.player.setPosition(playerPixel.x, playerPixel.y);
+
+    this.renderEchoes();
+
+    this.renderObjects();
+    this.updateResetHud();
+    this.cameras.main.flash(90, 115, 200, 223, false);
+  }
+
+  private updateResetHud(): void {
+    this.resetHud.setVisible(this.gameState.resetUnlocked);
+    if (!this.gameState.resetUnlocked) return;
+
+    if (this.gameState.finalResolved) {
+      this.resetHud.setText('TIME RELEASED');
+      return;
+    }
+
+    if (this.gameState.resetPolicy === 'unlimited') {
+      this.resetHud.setText(
+        `RESET ∞ · ECHO ${this.gameState.echoes.length} / ${this.gameState.echoLimit}`,
+      );
+      return;
+    }
+
+    const remaining = this.gameState.resetLimit - this.gameState.resetCount;
+    this.resetHud.setText(
+      remaining > 0
+        ? `RESET ${this.gameState.resetCount} / ${this.gameState.resetLimit}`
+        : 'RESET EXHAUSTED',
+    );
+  }
+
+  private renderEchoes(): void {
+    this.echoSprites.forEach((echo) => echo.destroy());
+    this.echoSprites = this.gameState.echoes.map((echo) => {
+      const pixel = this.gridToPixel(echo.position);
+      const facingOffset = this.facingOffset(echo.facing, GRID_SIZE / 4);
+      const body = this.add
+        .rectangle(0, 0, GRID_SIZE - 10, GRID_SIZE - 10, ECHO_COLOR, 0.42)
+        .setStrokeStyle(2, 0xb9efff, 0.7);
+      const gaze = this.add.circle(facingOffset.x, facingOffset.y, 3, 0xe8fbff, 0.95);
+      return this.add.container(pixel.x, pixel.y, [body, gaze]).setDepth(0.5);
+    });
+  }
+
+  private facingOffset(direction: Direction, distance: number): GridPosition {
+    if (direction === 'up') return { x: 0, y: -distance };
+    if (direction === 'down') return { x: 0, y: distance };
+    if (direction === 'left') return { x: -distance, y: 0 };
+    return { x: distance, y: 0 };
+  }
+
+  private createObjects(): void {
+    this.renderObjects();
+  }
+
+  private renderObjects(): void {
+    this.objectSprites.forEach((object) => object.destroy());
+    this.objectSprites = [];
+
+    this.gameState.objects.forEach((object) => {
+      const pixel = this.gridToPixel(object.position);
+      if (object.type === 'pocket-watch' && !object.collected) {
+        this.objectSprites.push(
+          this.add
+            .circle(pixel.x, pixel.y, GRID_SIZE / 4, POCKET_WATCH_COLOR)
+            .setStrokeStyle(2, 0xffe6a3)
+            .setDepth(0.75),
+        );
+      }
+      if (object.type === 'pressure-switch') {
+        this.objectSprites.push(
+          this.add
+            .rectangle(
+              pixel.x,
+              pixel.y,
+              GRID_SIZE - 8,
+              GRID_SIZE - 8,
+              object.active ? 0x73c8df : 0x625b70,
+            )
+            .setStrokeStyle(2, object.active ? 0xb9efff : 0x8e849c)
+            .setDepth(0.25),
+        );
+      }
+      if (object.type === 'door') {
+        this.objectSprites.push(
+          this.add
+            .rectangle(
+              pixel.x,
+              pixel.y,
+              GRID_SIZE - 4,
+              GRID_SIZE - 4,
+              object.open ? 0x355b55 : 0x8a644d,
+              object.open ? 0.35 : 1,
+            )
+            .setStrokeStyle(2, object.open ? 0x73c8df : 0xc69a6b)
+            .setDepth(0.7),
+        );
+      }
+      if (object.type === 'box') {
+        this.objectSprites.push(
+          this.add
+            .rectangle(pixel.x, pixel.y, GRID_SIZE - 6, GRID_SIZE - 6, 0x9a754f)
+            .setStrokeStyle(2, 0xd8b65a)
+            .setDepth(0.65),
+        );
+      }
+      if (object.type === 'lever') {
+        this.objectSprites.push(
+          this.add
+            .triangle(
+              pixel.x,
+              pixel.y,
+              0,
+              GRID_SIZE / 2,
+              GRID_SIZE / 2,
+              0,
+              GRID_SIZE,
+              GRID_SIZE / 2,
+              object.active ? 0x73c8df : 0xb8a08c,
+            )
+            .setStrokeStyle(2, 0xe7d4bb)
+            .setDepth(0.65),
+        );
+      }
+      if (object.type === 'key' && !object.collected) {
+        this.objectSprites.push(
+          this.add
+            .star(pixel.x, pixel.y, 4, 4, GRID_SIZE / 4, 0xe5c86c)
+            .setStrokeStyle(2, 0xffe6a3)
+            .setDepth(0.65),
+        );
+      }
+      if (object.type === 'exit') {
+        this.objectSprites.push(
+          this.add
+            .rectangle(pixel.x, pixel.y, GRID_SIZE - 10, GRID_SIZE - 10, 0x6b8f71, 0.55)
+            .setStrokeStyle(2, 0xa7d7ad)
+            .setDepth(0.2),
+        );
+      }
     });
   }
 
@@ -130,5 +502,154 @@ export class GameScene extends Phaser.Scene {
       x: this.mapOrigin.x + position.x * GRID_SIZE + GRID_SIZE / 2,
       y: this.mapOrigin.y + position.y * GRID_SIZE + GRID_SIZE / 2,
     };
+  }
+
+  private setGameState(state: GameState): void {
+    this.gameState = state;
+    this.session = updateSessionState(this.session, state);
+  }
+
+  private advanceToNextLevel(): void {
+    const previousIndex = this.session.currentLevelIndex;
+    this.session = advanceGameSession(this.session);
+    this.gameState = this.session.state;
+    if (this.session.completed) {
+      this.startEndingSequence();
+      return;
+    }
+    if (this.session.currentLevelIndex === previousIndex) return;
+
+    this.tweens.killTweensOf(this.player);
+    this.isMoving = false;
+    this.isResetting = false;
+    this.isFinalePlaying = false;
+    this.pendingReset = false;
+    this.pendingDirection = undefined;
+    this.mapGraphics?.destroy();
+    this.player.destroy();
+    this.echoSprites.forEach((echo) => echo.destroy());
+    this.echoSprites = [];
+    this.objectSprites.forEach((object) => object.destroy());
+    this.objectSprites = [];
+
+    const map = currentLevel(this.session).map;
+    this.mapOrigin = {
+      x: Math.floor((this.scale.width - map.width * GRID_SIZE) / 2),
+      y: Math.floor((this.scale.height - map.height * GRID_SIZE) / 2),
+    };
+    this.drawMap();
+    this.createPlayer();
+    this.createObjects();
+    this.updateResetHud();
+    this.phaseHud.setText('');
+    this.feedbackHud.setText('');
+    this.updateClockHud();
+  }
+
+  private lockInputForReset(): void {
+    this.isResetting = true;
+    this.time.delayedCall(RESET_LOCK_MS, () => {
+      this.isResetting = false;
+    });
+  }
+
+  private startEndingSequence(): void {
+    const ending = createEndingSequence(this.gameState.worldMemory);
+    this.endingPages = ending.pages;
+    this.endingPageIndex = 0;
+    this.player.setVisible(false);
+    this.mapGraphics?.setVisible(false);
+    this.objectSprites.forEach((object) => object.destroy());
+    this.objectSprites = [];
+    this.echoSprites.forEach((echo) => echo.destroy());
+    this.echoSprites = [];
+    this.resetHud.setVisible(false);
+    this.feedbackHud.setVisible(false);
+    this.phaseHud.setVisible(false);
+    this.clockHud.setVisible(false);
+    this.cameras.main.fadeOut(450, 8, 7, 12);
+    this.time.delayedCall(480, () => {
+      this.cameras.main.fadeIn(600, 8, 7, 12);
+      this.renderEndingPage();
+    });
+  }
+
+  private advanceEndingPage(): void {
+    if (!this.endingHud.visible || this.endingPageIndex >= this.endingPages.length - 1) return;
+    this.endingPageIndex += 1;
+    this.cameras.main.fadeOut(220, 8, 7, 12);
+    this.time.delayedCall(240, () => {
+      this.renderEndingPage();
+      this.cameras.main.fadeIn(320, 8, 7, 12);
+    });
+  }
+
+  private renderEndingPage(): void {
+    const page = this.endingPages[this.endingPageIndex];
+    if (!page) return;
+    const prompt = this.endingPageIndex < this.endingPages.length - 1 ? '\n\n[ ENTER ]' : '';
+    this.endingHud.setText(`${page.heading}\n\n${page.body}${prompt}`).setVisible(true);
+  }
+
+  private playFinaleSequence(): void {
+    this.isFinalePlaying = true;
+    this.tweens.killTweensOf(this.player);
+    this.isMoving = false;
+    this.renderObjects();
+    this.renderEchoes();
+    this.phaseHud.setText('DONG—\nLET TIME GO');
+    this.cameras.main.shake(260, 0.004);
+    this.cameras.main.flash(350, 225, 216, 180, false);
+
+    this.echoSprites.forEach((echo, index) => {
+      this.tweens.add({
+        targets: echo,
+        alpha: 0,
+        scale: 0.65,
+        duration: 650,
+        delay: index * ECHO_FADE_STAGGER_MS,
+        ease: 'Sine.easeIn',
+      });
+    });
+
+    const duration =
+      FINALE_BASE_DURATION_MS + Math.max(0, this.echoSprites.length - 1) * ECHO_FADE_STAGGER_MS;
+    this.time.delayedCall(duration, () => {
+      this.isFinalePlaying = false;
+      this.setGameState(finishFinale(this.gameState));
+      this.renderEchoes();
+      this.renderObjects();
+      this.updateResetHud();
+      this.phaseHud.setText('');
+      this.feedbackHud.setText('THE DOOR IS OPEN');
+    });
+  }
+
+  private showFeedback(message: string): void {
+    this.feedbackHud.setText(message);
+    this.time.delayedCall(900, () => {
+      if (this.feedbackHud.text === message) this.feedbackHud.setText('');
+    });
+  }
+
+  private updateClockHud(): void {
+    const startSeconds = currentLevel(this.session).finalClockStartSeconds;
+    this.clockHud.setVisible(startSeconds !== undefined);
+    if (startSeconds === undefined) return;
+
+    this.clockHud.setText(formatClockTime(startSeconds, this.gameState.finalClockElapsedMs));
+  }
+
+  private renderLoadError(error: Error): void {
+    this.add
+      .text(this.scale.width / 2, this.scale.height / 2, `LEVEL LOAD FAILED\n\n${error.message}`, {
+        align: 'center',
+        color: '#f0a6a6',
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        lineSpacing: 8,
+        wordWrap: { width: this.scale.width - 120 },
+      })
+      .setOrigin(0.5);
   }
 }
