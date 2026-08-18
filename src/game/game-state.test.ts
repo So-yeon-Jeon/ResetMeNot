@@ -4,6 +4,7 @@ import {
   applyAction,
   createGameState,
   finishFinale,
+  rememberLevelObjects,
   rememberWorldEvent,
   restartChapter,
   unlockReset,
@@ -574,6 +575,35 @@ describe('game state', () => {
       totalResetCount: 0,
       chapterRestartCount: 2,
     });
+  });
+
+  it('stores only configured persistent object fields for the ending', () => {
+    let state = createGameState(
+      { x: 1, y: 1 },
+      {
+        objects: [
+          createBox('memory-box', { x: 2, y: 1 }, true),
+          createBox('ordinary-box', { x: 3, y: 1 }),
+        ],
+      },
+    );
+    state = {
+      ...state,
+      objects: state.objects.map((object) =>
+        object.id === 'memory-box' ? { ...object, position: { x: 4, y: 1 } } : object,
+      ),
+    };
+
+    state = rememberLevelObjects(state, 'chapter-01-room-01');
+
+    expect(state.worldMemory.objectMemories).toEqual([
+      {
+        levelId: 'chapter-01-room-01',
+        objectId: 'memory-box',
+        objectType: 'box',
+        values: { position: { x: 4, y: 1 } },
+      },
+    ]);
   });
 
   it('enters let-time-go when the final clock reaches its target', () => {

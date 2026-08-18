@@ -74,6 +74,8 @@ type EchoState = {
 마지막 레벨 완료 후에는 `WorldMemory`를 `EndingSequence`의 입력으로 전달합니다. 엔딩의 고정 페이지
 순서와 기억된 이벤트 데이터는 `src/game/ending.ts`에서 관리하고, Phaser Scene은 페이지 전환과
 페이드만 담당합니다. 추후 삽화와 최종 카피를 교체해도 게임 규칙에는 영향을 주지 않습니다.
+각 레벨을 완료할 때 `persistentFields`가 지정된 오브젝트의 최종 결과를 구조화된
+`objectMemories`로 저장하며, 엔딩 렌더러는 이 데이터를 삽화 변형에 사용할 수 있습니다.
 
 ## 디렉터리 책임
 

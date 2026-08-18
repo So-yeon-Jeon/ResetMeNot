@@ -41,10 +41,11 @@ type WorldMemory = {
   chapterRestartCount: number;
   pocketWatchCollected: boolean;
   events: readonly string[];
+  objectMemories: readonly RememberedObjectState[];
 };
 ```
 
-`Puzzle State`에는 현재 오브젝트, Echo, RESET 횟수와 열쇠 소유 상태가 포함됩니다. `World Memory`에는 전체 RESET 횟수, Chapter Restart 횟수, 회중시계 획득 여부와 주요 이벤트 ID를 별도로 저장하며 Chapter Restart나 레벨 전환으로 지우지 않습니다.
+`Puzzle State`에는 현재 오브젝트, Echo, RESET 횟수와 열쇠 소유 상태가 포함됩니다. `World Memory`에는 전체 RESET 횟수, Chapter Restart 횟수, 회중시계 획득 여부, 주요 이벤트 ID와 완료된 레벨의 기억 오브젝트 결과를 별도로 저장하며 Chapter Restart나 레벨 전환으로 지우지 않습니다.
 
 실제 TypeScript 구현은 기능을 추가하면서 이 모델을 작은 단위로 확장합니다. 하나의 거대한 상태 객체를 한 번에 만들지 않습니다.
 
@@ -88,6 +89,8 @@ Final 챕터의 시계는 RESET할 때 시작 시각으로 돌아갑니다. 지�
 
 마지막 Exit 도달 후 `WorldMemory`의 RESET·재시작 횟수와 기억 이벤트를 `EndingSequence`에 복사합니다.
 엔딩 화면은 방, 변경된 책 문장, 마지막 페이지, 타이틀 순서로 진행하며 Enter로 다음 페이지를 엽니다.
+레벨 완료 시 `persistentFields`가 있는 Box, Key, Puzzle Object의 최종 필드만 `objectMemories`에
+기록하므로 엔딩 삽화 계층에서 실제 플레이 결과를 재현할 수 있습니다.
 
 ## Chapter Restart
 

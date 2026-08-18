@@ -8,6 +8,14 @@ describe('createEndingSequence', () => {
       chapterRestartCount: 2,
       pocketWatchCollected: true,
       events: ['level-cleared:chapter-01', 'memory:key-position'],
+      objectMemories: [
+        {
+          levelId: 'chapter-01',
+          objectId: 'memory-box',
+          objectType: 'box',
+          values: { position: { x: 4, y: 2 } },
+        },
+      ],
     });
 
     expect(ending.pages.map((page) => page.id)).toEqual(['room', 'book', 'blank-page', 'title']);
@@ -16,5 +24,13 @@ describe('createEndingSequence', () => {
     expect(ending.rememberedEvents).not.toBe(ending.pages);
     expect(ending.totalResetCount).toBe(7);
     expect(ending.chapterRestartCount).toBe(2);
+    expect(ending.rememberedObjects).toEqual([
+      {
+        levelId: 'chapter-01',
+        objectId: 'memory-box',
+        objectType: 'box',
+        values: { position: { x: 4, y: 2 } },
+      },
+    ]);
   });
 });

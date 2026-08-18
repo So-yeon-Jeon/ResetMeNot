@@ -1,4 +1,9 @@
-import { rememberWorldEvent, type GameState, type WorldMemory } from './game-state';
+import {
+  rememberLevelObjects,
+  rememberWorldEvent,
+  type GameState,
+  type WorldMemory,
+} from './game-state';
 import { createLevelGameState, type LevelDefinition } from '../levels/level-definition';
 
 export type GameSession = Readonly<{
@@ -41,7 +46,11 @@ export function advanceGameSession(session: GameSession): GameSession {
   }
 
   const currentLevel = session.levels[session.currentLevelIndex]!;
-  const stateWithClearEvent = rememberWorldEvent(session.state, `level-cleared:${currentLevel.id}`);
+  const stateWithMemories = rememberLevelObjects(session.state, currentLevel.id);
+  const stateWithClearEvent = rememberWorldEvent(
+    stateWithMemories,
+    `level-cleared:${currentLevel.id}`,
+  );
   const nextLevelIndex = session.currentLevelIndex + 1;
   const nextLevel = session.levels[nextLevelIndex];
   if (!nextLevel) {

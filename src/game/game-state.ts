@@ -15,6 +15,19 @@ export type WorldMemory = Readonly<{
   chapterRestartCount: number;
   pocketWatchCollected: boolean;
   events: readonly string[];
+  objectMemories?: readonly RememberedObjectState[];
+}>;
+
+export type RememberedObjectState = Readonly<{
+  levelId: string;
+  objectId: string;
+  objectType: 'box' | 'key' | 'puzzle-object';
+  values: Readonly<{
+    position?: GridPosition;
+    state?: string;
+    broken?: boolean;
+    collected?: boolean;
+  }>;
 }>;
 
 export type GamePhase = 'playing' | 'let-time-go' | 'completed';
@@ -215,6 +228,67 @@ export function rememberWorldEvent(state: GameState, eventId: string): GameState
     worldMemory: {
       ...state.worldMemory,
       events: [...state.worldMemory.events, eventId],
+    },
+  };
+}
+
+export function rememberLevelObjects(state: GameState, levelId: string): GameState {
+  const remembered = state.objects.flatMap((object): RememberedObjectState[] => {
+    if (object.type === 'box' && object.persistentFields.length > 0) {
+      return [
+        {
+          levelId,
+          objectId: object.id,
+          objectType: object.type,
+          values: { position: { ...object.position } },
+        },
+      ];
+    }
+    if (object.type === 'key' && object.persistentFields.length > 0) {
+      return [
+        {
+          levelId,
+          objectId: object.id,
+          objectType: object.type,
+          values: {
+            ...(object.persistentFields.includes('position') && {
+              position: { ...object.position },
+            }),
+            ...(object.persistentFields.includes('collected') && { collected: object.collected }),
+          },
+        },
+      ];
+    }
+    if (object.type === 'puzzle-object' && object.persistentFields.length > 0) {
+      return [
+        {
+          levelId,
+          objectId: object.id,
+          objectType: object.type,
+          values: {
+            ...(object.persistentFields.includes('position') && {
+              position: { ...object.position },
+            }),
+            ...(object.persistentFields.includes('state') && { state: object.state }),
+            ...(object.persistentFields.includes('broken') && { broken: object.broken }),
+            ...(object.persistentFields.includes('collected') && { collected: object.collected }),
+          },
+        },
+      ];
+    }
+    return [];
+  });
+  if (remembered.length === 0) return state;
+
+  const keys = new Set(remembered.map((item) => `${item.levelId}:${item.objectId}`));
+  const previous = (state.worldMemory.objectMemories ?? []).filter(
+    (item) => !keys.has(`${item.levelId}:${item.objectId}`),
+  );
+  return {
+    ...state,
+    worldMemory: {
+      ...state.worldMemory,
+      objectMemories: [...previous, ...remembered],
     },
   };
 }
