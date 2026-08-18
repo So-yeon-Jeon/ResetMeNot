@@ -79,6 +79,9 @@ type EchoState = {
 RESET 실행 시 전체 횟수와 현재 `levelId`별 횟수를 함께 누적합니다. Chapter 4의 이상 현상과
 엔딩 분기는 Phaser 입력 기록이 아니라 이 `WorldMemory.resetCountsByLevel`을 참조합니다.
 
+Final의 핵심 경로는 `src/game/final-flow.test.ts`에서 경계 전체를 검증합니다. 개별 단위 테스트가
+통과하더라도 RESET, 시계, 문, Exit, 세션 완료와 엔딩 메모리 사이의 연결이 끊기면 이 테스트가 실패합니다.
+
 ## 디렉터리 책임
 
 ```text
