@@ -68,7 +68,8 @@ type EchoState = {
 - `interact`: 회중시계, 열쇠, 레버, 문, 조사형 출구 상호작용 구현 완료
 - `reset`: 유효 Run 판정, 고정형 Echo 생성, 기억 상태 복원 구현 완료
 
-레벨 완료와 Final의 `let-time-go` 상태에서는 게임 행동을 받지 않으며, 게임 세션이 다음 레벨의 새 `GameState`를 생성합니다.
+레벨 완료와 Final의 `let-time-go` 연출 중에는 게임 행동을 받지 않습니다. Final 연출이 끝나면
+조작을 돌려주며, Exit 도달로 `completed`가 된 뒤에만 게임 세션이 다음 레벨의 새 `GameState`를 생성합니다.
 
 ## 디렉터리 책임
 

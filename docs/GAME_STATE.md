@@ -82,6 +82,8 @@ Final 챕터의 시계는 RESET할 때 시작 시각으로 돌아갑니다. 지�
 화면에서는 Echo가 순차적으로 사라지는 동안 입력을 잠그며 별도 Player 버튼은 없습니다.
 목표 시각 3초 전에는 `finalClockWarning`이 활성화되고 Echo의 방향 표시가 Player를 향하며
 시계 HUD가 점멸합니다. RESET하면 경고 상태도 함께 초기화됩니다.
+종 연출이 끝나면 `finalResolved`를 기록하고 조작을 돌려줍니다. 마지막 문은 scripted 상태로
+계속 열린 채 유지되며, Player가 문 뒤의 Exit까지 직접 이동해야 챕터가 완료됩니다.
 
 ## Chapter Restart
 

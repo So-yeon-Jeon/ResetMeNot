@@ -81,13 +81,21 @@ describe('game session', () => {
     let session = createGameSession([level('final', 'final')]);
     session = updateSessionState(session, {
       ...session.state,
-      phase: 'let-time-go',
+      phase: 'completed',
     });
     session = advanceGameSession(session);
 
     expect(session.completed).toBe(true);
     expect(session.state.worldMemory.events).toContain('level-cleared:final');
     expect(advanceGameSession(session)).toBe(session);
+  });
+
+  it('does not finish the session during the Final bell sequence', () => {
+    let session = createGameSession([level('final', 'final')]);
+    session = updateSessionState(session, { ...session.state, phase: 'let-time-go' });
+
+    expect(advanceGameSession(session)).toBe(session);
+    expect(session.completed).toBe(false);
   });
 
   it('ignores state updates after the session is complete', () => {

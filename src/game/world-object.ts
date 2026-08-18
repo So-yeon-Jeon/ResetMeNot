@@ -63,6 +63,7 @@ export type DoorState = Readonly<{
   keyId?: string;
   consumesKey: boolean;
   unlocked: boolean;
+  scriptedOpen: boolean;
 }>;
 
 export type ExitState = Readonly<{
@@ -177,6 +178,7 @@ export function createDoor(
     keyId: options.keyId,
     consumesKey: options.consumesKey ?? false,
     unlocked: options.keyId === undefined,
+    scriptedOpen: false,
   };
 }
 

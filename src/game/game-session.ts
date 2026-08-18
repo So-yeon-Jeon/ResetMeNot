@@ -36,7 +36,7 @@ export function updateSessionState(session: GameSession, state: GameState): Game
 
 export function advanceGameSession(session: GameSession): GameSession {
   if (session.completed) return session;
-  if (session.state.phase !== 'completed' && session.state.phase !== 'let-time-go') {
+  if (session.state.phase !== 'completed') {
     return session;
   }
 

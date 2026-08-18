@@ -44,6 +44,7 @@ export type GameState = Readonly<{
   finalDoorId?: string;
   finalClockElapsedMs: number;
   finalClockWarning: boolean;
+  finalResolved: boolean;
 }>;
 
 export type GameStateOptions = Readonly<{
@@ -109,6 +110,7 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
     finalDoorId: options.finalDoorId,
     finalClockElapsedMs: 0,
     finalClockWarning: false,
+    finalResolved: false,
   };
 }
 
@@ -122,6 +124,7 @@ export function advanceTime(state: GameState, deltaMs: number): GameState {
     throw new Error('게임 경과 시간 증가량은 0 이상이어야 합니다.');
   }
   if (state.phase !== 'playing') return state;
+  if (state.finalResolved) return { ...state, elapsedMs: state.elapsedMs + deltaMs };
 
   const finalClockElapsedMs = state.finalClockElapsedMs + deltaMs;
   const reachedFinalClock =
@@ -154,6 +157,21 @@ export function advanceTime(state: GameState, deltaMs: number): GameState {
   };
 }
 
+export function finishFinale(state: GameState): GameState {
+  if (state.phase !== 'let-time-go') return state;
+  return {
+    ...state,
+    phase: 'playing',
+    finalResolved: true,
+    echoes: [],
+    objects: state.objects.map((object) =>
+      object.type === 'door' && object.id === state.finalDoorId
+        ? { ...object, open: true, scriptedOpen: true }
+        : object,
+    ),
+  };
+}
+
 export function applyAction(state: GameState, action: GameAction, map: GridMap): ActionResult {
   if (state.phase !== 'playing') return result(state, false);
   if (action.type === 'reset') return applyReset(state);
@@ -181,6 +199,7 @@ export function restartChapter(state: GameState): GameState {
     phase: 'playing',
     finalClockElapsedMs: 0,
     finalClockWarning: false,
+    finalResolved: false,
     worldMemory: {
       ...state.worldMemory,
       chapterRestartCount: state.worldMemory.chapterRestartCount + 1,
@@ -398,6 +417,7 @@ function applyReset(state: GameState): ActionResult {
         .map((object) => object.id),
       finalClockElapsedMs: 0,
       finalClockWarning: false,
+      finalResolved: false,
       worldMemory: {
         ...state.worldMemory,
         totalResetCount: state.worldMemory.totalResetCount + 1,
@@ -468,7 +488,11 @@ function recalculateDerivedObjects(
     const keyOpen = object.keyId !== undefined && object.unlocked;
     return {
       ...object,
-      open: keyOpen || (object.unlocked && controllersActive) || keepOpenWhileOccupied,
+      open:
+        object.scriptedOpen ||
+        keyOpen ||
+        (object.unlocked && controllersActive) ||
+        keepOpenWhileOccupied,
     };
   });
 }

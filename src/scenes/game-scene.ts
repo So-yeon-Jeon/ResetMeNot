@@ -9,7 +9,13 @@ import {
   updateSessionState,
   type GameSession,
 } from '../game/game-session';
-import { advanceTime, applyAction, restartChapter, type GameState } from '../game/game-state';
+import {
+  advanceTime,
+  applyAction,
+  finishFinale,
+  restartChapter,
+  type GameState,
+} from '../game/game-state';
 import type { Direction, GridPosition } from '../game/grid';
 import { GAME_LEVELS_LOAD_RESULT } from '../levels/level-catalog';
 
@@ -122,7 +128,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (
-      this.gameState.phase !== 'playing' &&
+      this.gameState.phase === 'completed' &&
       !this.isFinalePlaying &&
       Phaser.Input.Keyboard.JustDown(this.continueKey)
     ) {
@@ -544,7 +550,11 @@ export class GameScene extends Phaser.Scene {
       FINALE_BASE_DURATION_MS + Math.max(0, this.echoSprites.length - 1) * ECHO_FADE_STAGGER_MS;
     this.time.delayedCall(duration, () => {
       this.isFinalePlaying = false;
-      this.feedbackHud.setText('THE DOOR REMEMBERS · ENTER');
+      this.setGameState(finishFinale(this.gameState));
+      this.renderEchoes();
+      this.renderObjects();
+      this.phaseHud.setText('');
+      this.feedbackHud.setText('THE DOOR IS OPEN');
     });
   }
 

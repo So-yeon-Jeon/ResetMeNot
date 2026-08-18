@@ -3,6 +3,7 @@ import {
   advanceTime,
   applyAction,
   createGameState,
+  finishFinale,
   rememberWorldEvent,
   restartChapter,
   unlockReset,
@@ -613,6 +614,33 @@ describe('game state', () => {
     expect(state.finalClockWarning).toBe(true);
     expect(state.echoes[0]?.facing).toBe('right');
     expect(state.phase).toBe('playing');
+  });
+
+  it('returns control after the bell while keeping the final door open', () => {
+    let state = createGameState(
+      { x: 1, y: 1 },
+      {
+        finalClockDurationMs: 30_000,
+        finalDoorId: 'final-door',
+        objects: [createDoor('final-door', { x: 3, y: 1 })],
+      },
+    );
+    state = { ...state, echoes: [{ id: 1, position: { x: 2, y: 1 }, facing: 'left' }] };
+    state = finishFinale(advanceTime(state, 30_000));
+
+    expect(state.phase).toBe('playing');
+    expect(state.finalResolved).toBe(true);
+    expect(state.echoes).toHaveLength(0);
+    expect(state.objects.find((object) => object.id === 'final-door')).toMatchObject({
+      open: true,
+      scriptedOpen: true,
+    });
+
+    state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    expect(state.objects.find((object) => object.id === 'final-door')).toMatchObject({
+      open: true,
+    });
+    expect(advanceTime(state, 30_000).phase).toBe('playing');
   });
 
   it.each(['completed', 'let-time-go'] as const)(
