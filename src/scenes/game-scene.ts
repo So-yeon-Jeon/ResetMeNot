@@ -114,7 +114,11 @@ export class GameScene extends Phaser.Scene {
     if (this.session.completed) return;
     if (this.isResetting) return;
 
-    if (this.gameState.phase === 'playing' && Phaser.Input.Keyboard.JustDown(this.restartKey)) {
+    if (
+      this.gameState.phase === 'playing' &&
+      !this.gameState.finalResolved &&
+      Phaser.Input.Keyboard.JustDown(this.restartKey)
+    ) {
       this.tweens.killTweensOf(this.player);
       this.isMoving = false;
       this.pendingReset = false;
@@ -342,6 +346,11 @@ export class GameScene extends Phaser.Scene {
     this.resetHud.setVisible(this.gameState.resetUnlocked);
     if (!this.gameState.resetUnlocked) return;
 
+    if (this.gameState.finalResolved) {
+      this.resetHud.setText('TIME RELEASED');
+      return;
+    }
+
     if (this.gameState.resetPolicy === 'unlimited') {
       this.resetHud.setText(
         `RESET ∞ · ECHO ${this.gameState.echoes.length} / ${this.gameState.echoLimit}`,
@@ -553,6 +562,7 @@ export class GameScene extends Phaser.Scene {
       this.setGameState(finishFinale(this.gameState));
       this.renderEchoes();
       this.renderObjects();
+      this.updateResetHud();
       this.phaseHud.setText('');
       this.feedbackHud.setText('THE DOOR IS OPEN');
     });

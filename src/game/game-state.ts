@@ -180,6 +180,7 @@ export function applyAction(state: GameState, action: GameAction, map: GridMap):
 }
 
 export function restartChapter(state: GameState): GameState {
+  if (state.finalResolved) return state;
   const objects = restoreWorldObjects(state.initialObjects, state.initialObjects).map((object) => {
     if (object.type !== 'pocket-watch') return object;
     const currentWatch = state.objects.find((candidate) => candidate.id === object.id);
@@ -367,7 +368,7 @@ function changedInteraction(
 
 function applyReset(state: GameState): ActionResult {
   const resetLimitReached = state.resetPolicy === 'disable' && state.resetCount >= state.resetLimit;
-  if (!state.resetUnlocked || !state.hasAction || resetLimitReached) {
+  if (state.finalResolved || !state.resetUnlocked || !state.hasAction || resetLimitReached) {
     return result(state, false);
   }
 

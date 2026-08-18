@@ -641,6 +641,11 @@ describe('game state', () => {
       open: true,
     });
     expect(advanceTime(state, 30_000).phase).toBe('playing');
+
+    const resetResult = applyAction(state, { type: 'reset' }, map);
+    expect(resetResult.resetPerformed).toBe(false);
+    expect(resetResult.state).toBe(state);
+    expect(restartChapter(state)).toBe(state);
   });
 
   it.each(['completed', 'let-time-go'] as const)(
