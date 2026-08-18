@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
 import { formatClockTime } from '../game/clock';
+import { createEndingSequence, type EndingPage } from '../game/ending';
 import {
   advanceGameSession,
   createGameSession,
@@ -52,6 +53,7 @@ export class GameScene extends Phaser.Scene {
   private feedbackHud!: Phaser.GameObjects.Text;
   private phaseHud!: Phaser.GameObjects.Text;
   private clockHud!: Phaser.GameObjects.Text;
+  private endingHud!: Phaser.GameObjects.Text;
   private echoSprites: Phaser.GameObjects.Container[] = [];
   private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
@@ -59,6 +61,8 @@ export class GameScene extends Phaser.Scene {
   private isFinalePlaying = false;
   private pendingReset = false;
   private pendingDirection?: Direction;
+  private endingPages: readonly EndingPage[] = [];
+  private endingPageIndex = 0;
   private mapOrigin = { x: 0, y: 0 };
 
   constructor() {
@@ -111,7 +115,10 @@ export class GameScene extends Phaser.Scene {
       this.playFinaleSequence();
     }
 
-    if (this.session.completed) return;
+    if (this.session.completed) {
+      if (Phaser.Input.Keyboard.JustDown(this.continueKey)) this.advanceEndingPage();
+      return;
+    }
     if (this.isResetting) return;
 
     if (
@@ -239,6 +246,18 @@ export class GameScene extends Phaser.Scene {
         letterSpacing: 2,
       })
       .setOrigin(1, 0);
+    this.endingHud = this.add
+      .text(this.scale.width / 2, this.scale.height / 2, '', {
+        align: 'center',
+        color: '#f1ded2',
+        fontFamily: 'serif',
+        fontSize: '24px',
+        lineSpacing: 14,
+        wordWrap: { width: this.scale.width - 180 },
+      })
+      .setOrigin(0.5)
+      .setDepth(10)
+      .setVisible(false);
     this.updateClockHud();
   }
 
@@ -495,7 +514,7 @@ export class GameScene extends Phaser.Scene {
     this.session = advanceGameSession(this.session);
     this.gameState = this.session.state;
     if (this.session.completed) {
-      this.phaseHud.setText('GAME CLEAR');
+      this.startEndingSequence();
       return;
     }
     if (this.session.currentLevelIndex === previousIndex) return;
@@ -532,6 +551,44 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(RESET_LOCK_MS, () => {
       this.isResetting = false;
     });
+  }
+
+  private startEndingSequence(): void {
+    const ending = createEndingSequence(this.gameState.worldMemory);
+    this.endingPages = ending.pages;
+    this.endingPageIndex = 0;
+    this.player.setVisible(false);
+    this.mapGraphics?.setVisible(false);
+    this.objectSprites.forEach((object) => object.destroy());
+    this.objectSprites = [];
+    this.echoSprites.forEach((echo) => echo.destroy());
+    this.echoSprites = [];
+    this.resetHud.setVisible(false);
+    this.feedbackHud.setVisible(false);
+    this.phaseHud.setVisible(false);
+    this.clockHud.setVisible(false);
+    this.cameras.main.fadeOut(450, 8, 7, 12);
+    this.time.delayedCall(480, () => {
+      this.cameras.main.fadeIn(600, 8, 7, 12);
+      this.renderEndingPage();
+    });
+  }
+
+  private advanceEndingPage(): void {
+    if (!this.endingHud.visible || this.endingPageIndex >= this.endingPages.length - 1) return;
+    this.endingPageIndex += 1;
+    this.cameras.main.fadeOut(220, 8, 7, 12);
+    this.time.delayedCall(240, () => {
+      this.renderEndingPage();
+      this.cameras.main.fadeIn(320, 8, 7, 12);
+    });
+  }
+
+  private renderEndingPage(): void {
+    const page = this.endingPages[this.endingPageIndex];
+    if (!page) return;
+    const prompt = this.endingPageIndex < this.endingPages.length - 1 ? '\n\n[ ENTER ]' : '';
+    this.endingHud.setText(`${page.heading}\n\n${page.body}${prompt}`).setVisible(true);
   }
 
   private playFinaleSequence(): void {

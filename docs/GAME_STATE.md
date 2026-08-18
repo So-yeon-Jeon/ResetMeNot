@@ -86,6 +86,9 @@ Final 챕터의 시계는 RESET할 때 시작 시각으로 돌아갑니다. 지�
 계속 열린 채 유지되며, Player가 문 뒤의 Exit까지 직접 이동해야 챕터가 완료됩니다.
 `finalResolved` 이후에는 RESET과 Chapter Restart를 허용하지 않고 이동과 출구 진입만 허용합니다.
 
+마지막 Exit 도달 후 `WorldMemory`의 RESET·재시작 횟수와 기억 이벤트를 `EndingSequence`에 복사합니다.
+엔딩 화면은 방, 변경된 책 문장, 마지막 페이지, 타이틀 순서로 진행하며 Enter로 다음 페이지를 엽니다.
+
 ## Chapter Restart
 
 - Player와 일반 오브젝트를 챕터 초기 상태로 복원합니다.
