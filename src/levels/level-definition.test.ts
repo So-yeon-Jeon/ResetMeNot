@@ -23,6 +23,7 @@ describe('createLevelGameState', () => {
     const state = createLevelGameState(level);
 
     expect(state.player).toEqual({ x: 1, y: 1 });
+    expect(state.levelId).toBe('chapter-01-room-01');
     expect(state.playerFacing).toBe('left');
     expect(state.resetLimit).toBe(4);
     expect(state.resetPolicy).toBe('disable');

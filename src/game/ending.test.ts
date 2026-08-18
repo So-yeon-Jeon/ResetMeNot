@@ -16,6 +16,7 @@ describe('createEndingSequence', () => {
           values: { position: { x: 4, y: 2 } },
         },
       ],
+      resetCountsByLevel: { 'chapter-01': 2, final: 5 },
     });
 
     expect(ending.pages.map((page) => page.id)).toEqual(['room', 'book', 'blank-page', 'title']);
@@ -24,6 +25,7 @@ describe('createEndingSequence', () => {
     expect(ending.rememberedEvents).not.toBe(ending.pages);
     expect(ending.totalResetCount).toBe(7);
     expect(ending.chapterRestartCount).toBe(2);
+    expect(ending.resetCountsByLevel).toEqual({ 'chapter-01': 2, final: 5 });
     expect(ending.rememberedObjects).toEqual([
       {
         levelId: 'chapter-01',

@@ -42,10 +42,11 @@ type WorldMemory = {
   pocketWatchCollected: boolean;
   events: readonly string[];
   objectMemories: readonly RememberedObjectState[];
+  resetCountsByLevel: Readonly<Record<string, number>>;
 };
 ```
 
-`Puzzle State`에는 현재 오브젝트, Echo, RESET 횟수와 열쇠 소유 상태가 포함됩니다. `World Memory`에는 전체 RESET 횟수, Chapter Restart 횟수, 회중시계 획득 여부, 주요 이벤트 ID와 완료된 레벨의 기억 오브젝트 결과를 별도로 저장하며 Chapter Restart나 레벨 전환으로 지우지 않습니다.
+`Puzzle State`에는 현재 오브젝트, Echo, RESET 횟수와 열쇠 소유 상태가 포함됩니다. `World Memory`에는 전체·레벨별 RESET 횟수, Chapter Restart 횟수, 회중시계 획득 여부, 주요 이벤트 ID와 완료된 레벨의 기억 오브젝트 결과를 별도로 저장하며 Chapter Restart나 레벨 전환으로 지우지 않습니다.
 
 실제 TypeScript 구현은 기능을 추가하면서 이 모델을 작은 단위로 확장합니다. 하나의 거대한 상태 객체를 한 번에 만들지 않습니다.
 

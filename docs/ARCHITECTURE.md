@@ -76,6 +76,8 @@ type EchoState = {
 페이드만 담당합니다. 추후 삽화와 최종 카피를 교체해도 게임 규칙에는 영향을 주지 않습니다.
 각 레벨을 완료할 때 `persistentFields`가 지정된 오브젝트의 최종 결과를 구조화된
 `objectMemories`로 저장하며, 엔딩 렌더러는 이 데이터를 삽화 변형에 사용할 수 있습니다.
+RESET 실행 시 전체 횟수와 현재 `levelId`별 횟수를 함께 누적합니다. Chapter 4의 이상 현상과
+엔딩 분기는 Phaser 입력 기록이 아니라 이 `WorldMemory.resetCountsByLevel`을 참조합니다.
 
 ## 디렉터리 책임
 

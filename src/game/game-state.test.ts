@@ -731,6 +731,17 @@ describe('game state', () => {
     expect(secondReset.state.finalClockElapsedMs).toBe(0);
   });
 
+  it('tracks RESET counts separately for each level', () => {
+    let state = unlockReset(
+      createGameState({ x: 1, y: 1 }, { levelId: 'chapter-04-room-02', resetLimit: 2 }),
+    );
+    state = applyAction(state, { type: 'move', direction: 'right' }, map).state;
+    state = applyAction(state, { type: 'reset' }, map).state;
+
+    expect(state.worldMemory.totalResetCount).toBe(1);
+    expect(state.worldMemory.resetCountsByLevel).toEqual({ 'chapter-04-room-02': 1 });
+  });
+
   it('rejects a negative time delta', () => {
     const state = advanceTime(createGameState({ x: 1, y: 1 }), 100);
     expect(() => advanceTime(state, -1)).toThrow('게임 경과 시간 증가량은 0 이상이어야 합니다.');

@@ -16,6 +16,7 @@ export type WorldMemory = Readonly<{
   pocketWatchCollected: boolean;
   events: readonly string[];
   objectMemories?: readonly RememberedObjectState[];
+  resetCountsByLevel?: Readonly<Record<string, number>>;
 }>;
 
 export type RememberedObjectState = Readonly<{
@@ -58,6 +59,7 @@ export type GameState = Readonly<{
   finalClockElapsedMs: number;
   finalClockWarning: boolean;
   finalResolved: boolean;
+  levelId?: string;
 }>;
 
 export type GameStateOptions = Readonly<{
@@ -70,6 +72,7 @@ export type GameStateOptions = Readonly<{
   worldMemory?: WorldMemory;
   finalClockDurationMs?: number;
   finalDoorId?: string;
+  levelId?: string;
 }>;
 
 export type ActionResult = Readonly<{
@@ -124,6 +127,7 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
     finalClockElapsedMs: 0,
     finalClockWarning: false,
     finalResolved: false,
+    levelId: options.levelId,
   };
 }
 
@@ -496,6 +500,12 @@ function applyReset(state: GameState): ActionResult {
       worldMemory: {
         ...state.worldMemory,
         totalResetCount: state.worldMemory.totalResetCount + 1,
+        resetCountsByLevel: state.levelId
+          ? {
+              ...state.worldMemory.resetCountsByLevel,
+              [state.levelId]: (state.worldMemory.resetCountsByLevel?.[state.levelId] ?? 0) + 1,
+            }
+          : state.worldMemory.resetCountsByLevel,
       },
     },
     changed: true,

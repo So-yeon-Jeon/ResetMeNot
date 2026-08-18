@@ -12,6 +12,7 @@ export type EndingSequence = Readonly<{
   rememberedObjects: readonly RememberedObjectState[];
   totalResetCount: number;
   chapterRestartCount: number;
+  resetCountsByLevel: Readonly<Record<string, number>>;
 }>;
 
 export function createEndingSequence(worldMemory: WorldMemory): EndingSequence {
@@ -48,5 +49,6 @@ export function createEndingSequence(worldMemory: WorldMemory): EndingSequence {
     })),
     totalResetCount: worldMemory.totalResetCount,
     chapterRestartCount: worldMemory.chapterRestartCount,
+    resetCountsByLevel: { ...worldMemory.resetCountsByLevel },
   };
 }

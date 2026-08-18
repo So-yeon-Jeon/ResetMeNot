@@ -25,6 +25,7 @@ export type LevelDefinition = Readonly<{
 
 export function createLevelGameState(level: LevelDefinition, worldMemory?: WorldMemory): GameState {
   return createGameState(level.playerStart, {
+    levelId: level.id,
     facing: level.playerFacing,
     resetLimit: level.resetLimit,
     resetPolicy: level.resetPolicy,
