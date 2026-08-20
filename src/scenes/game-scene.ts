@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { CHAPTER1_ASSET_MANIFEST } from '../assets/chapter1/manifest';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
 import { formatClockTime } from '../game/clock';
@@ -24,12 +25,30 @@ const MOVE_DURATION_MS = 110;
 const RESET_LOCK_MS = 100;
 const FINALE_BASE_DURATION_MS = 900;
 const ECHO_FADE_STAGGER_MS = 220;
-const FLOOR_COLOR = 0x24212e;
-const WALL_COLOR = 0x51485d;
-const WALL_EDGE_COLOR = 0x766981;
 const PLAYER_COLOR = 0xd9b6a3;
 const ECHO_COLOR = 0x73c8df;
-const POCKET_WATCH_COLOR = 0xd8b65a;
+const WALL_DEPTH = 0.1;
+const WALL_OPENING_DEPTH = 0.12;
+const WALL_DECORATION_DEPTH = 0.18;
+const WALL_TOP_DISPLAY_SIZE = { width: 32, height: 64 };
+const WALL_SIDE_DISPLAY_SIZE = { width: 28, height: 32 };
+const WALL_SIDE_ALPHA = 0.78;
+const WALL_TOP_CORNER_DISPLAY_SIZE = { width: 32, height: 40 };
+const WALL_BOTTOM_ALPHA = 0.8;
+const WALL_BOTTOM_CORNER_DISPLAY_SIZE = { width: 40, height: 16 };
+const WALL_BOTTOM_DISPLAY_SIZE = { width: 32, height: 16 };
+const WALL_BOTTOM_DOORWAY_DISPLAY_SIZE = { width: 96, height: 16 };
+const WINDOW_DISPLAY_SIZE = { width: 48, height: 32 };
+const WINDOW_OFFSET = { x: 4, y: 8 };
+const BED_VISUAL_OFFSET = { x: 0, y: 8 };
+const NIGHTSTAND_VISUAL_OFFSET = { x: 0, y: 8 };
+const GRANDFATHER_CLOCK_DISPLAY_SIZE = { width: 58, height: 88 };
+const GRANDFATHER_CLOCK_VISUAL_OFFSET = { x: 0, y: -32 };
+const BOOKSHELF_DISPLAY_SIZE = { width: 116, height: 88 };
+const BOOKSHELF_VISUAL_OFFSET = { x: -16, y: -32 };
+const KEY_DISPLAY_SIZE = { width: 24, height: 24 };
+const DOOR_DISPLAY_SIZE = { width: 80, height: 80 };
+const DOOR_VISUAL_OFFSET = { x: 8, y: -16 };
 
 type MovementKeys = Readonly<{
   up: Phaser.Input.Keyboard.Key[];
@@ -43,7 +62,7 @@ export class GameScene extends Phaser.Scene {
   private session!: GameSession;
   private gameState!: GameState;
   private loadError?: Error;
-  private mapGraphics?: Phaser.GameObjects.Graphics;
+  private mapTiles: Phaser.GameObjects.Image[] = [];
   private movementKeys!: MovementKeys;
   private resetKey!: Phaser.Input.Keyboard.Key;
   private interactKey!: Phaser.Input.Keyboard.Key;
@@ -73,6 +92,20 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.loadError = GAME_LEVELS_LOAD_RESULT.error;
     }
+  }
+
+  preload(): void {
+    Object.entries(CHAPTER1_ASSET_MANIFEST).forEach(([assetKey, asset]) => {
+      if (!asset.sourceAvailable) return;
+      if (assetKey === 'chapter1-floor-tileset' || assetKey === 'chapter1-wall-tileset') {
+        this.load.spritesheet(assetKey, asset.path, {
+          frameWidth: GRID_SIZE,
+          frameHeight: GRID_SIZE,
+        });
+        return;
+      }
+      this.load.image(assetKey, asset.path);
+    });
   }
 
   create(): void {
@@ -173,21 +206,138 @@ export class GameScene extends Phaser.Scene {
 
   private drawMap(): void {
     const map = currentLevel(this.session).map;
-    const graphics = this.add.graphics();
-    this.mapGraphics = graphics;
+    this.mapTiles.forEach((tile) => tile.destroy());
+    this.mapTiles = [];
 
     for (let y = 0; y < map.height; y += 1) {
       for (let x = 0; x < map.width; x += 1) {
-        const isWall = map.walls.has(`${x},${y}`);
         const pixelX = this.mapOrigin.x + x * GRID_SIZE;
         const pixelY = this.mapOrigin.y + y * GRID_SIZE;
 
-        graphics.fillStyle(isWall ? WALL_COLOR : FLOOR_COLOR);
-        graphics.fillRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
-        graphics.lineStyle(1, isWall ? WALL_EDGE_COLOR : 0x302b3b, 0.75);
-        graphics.strokeRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
+        this.mapTiles.push(
+          this.add
+            .image(pixelX, pixelY, 'chapter1-floor-tileset', (x + y * 3) % 8)
+            .setOrigin(0, 0)
+            .setDepth(0),
+        );
       }
     }
+
+    this.drawWallKit(map);
+  }
+
+  private drawWallKit(map: Readonly<{ width: number; height: number }>): void {
+    const doorObject = this.gameState.objects.find((object) => object.id === 'chapter1-door');
+    const doorwayStartX = this.validSectionStart(doorObject?.position.x, map.width);
+
+    this.renderWallAsset(
+      'chapter1-wall-corner-tl',
+      0,
+      0,
+      WALL_DEPTH,
+      WALL_TOP_CORNER_DISPLAY_SIZE,
+      0.9,
+    );
+    this.renderWallAsset(
+      'chapter1-wall-corner-tr',
+      map.width - 1,
+      0,
+      WALL_DEPTH,
+      WALL_TOP_CORNER_DISPLAY_SIZE,
+      0.9,
+    );
+    this.renderWallAsset(
+      'chapter1-wall-corner-bl',
+      0,
+      map.height - 1,
+      WALL_DEPTH,
+      WALL_BOTTOM_CORNER_DISPLAY_SIZE,
+      WALL_BOTTOM_ALPHA,
+    );
+    this.renderWallAsset(
+      'chapter1-wall-corner-br',
+      map.width - 1,
+      map.height - 1,
+      WALL_DEPTH,
+      WALL_BOTTOM_CORNER_DISPLAY_SIZE,
+      WALL_BOTTOM_ALPHA,
+    );
+
+    for (let x = 1; x < map.width - 1; x += 1) {
+      this.renderWallAsset('chapter1-wall-top', x, 0, WALL_DEPTH, WALL_TOP_DISPLAY_SIZE);
+    }
+
+    for (let y = 1; y < map.height - 1; y += 1) {
+      this.renderWallAsset(
+        'chapter1-wall-left',
+        0,
+        y,
+        WALL_DEPTH,
+        WALL_SIDE_DISPLAY_SIZE,
+        WALL_SIDE_ALPHA,
+      );
+      this.renderWallAsset(
+        'chapter1-wall-right',
+        map.width - 1,
+        y,
+        WALL_DEPTH,
+        WALL_SIDE_DISPLAY_SIZE,
+        WALL_SIDE_ALPHA,
+      );
+    }
+
+    for (let x = 1; x < map.width - 1; x += 1) {
+      if (doorwayStartX !== undefined && x === doorwayStartX) {
+        this.renderWallAsset(
+          'chapter1-wall-bottom-doorway',
+          x,
+          map.height - 1,
+          WALL_OPENING_DEPTH,
+          WALL_BOTTOM_DOORWAY_DISPLAY_SIZE,
+          WALL_BOTTOM_ALPHA,
+        );
+        x += 2;
+      } else {
+        this.renderWallAsset(
+          'chapter1-wall-bottom',
+          x,
+          map.height - 1,
+          WALL_DEPTH,
+          WALL_BOTTOM_DISPLAY_SIZE,
+          WALL_BOTTOM_ALPHA,
+        );
+      }
+    }
+  }
+
+  private validSectionStart(start: number | undefined, mapWidth: number): number | undefined {
+    if (start === undefined || start < 1 || start + 2 > mapWidth - 2) return undefined;
+    return start;
+  }
+
+  private renderWallAsset(
+    assetKey: string,
+    positionX: number,
+    positionY: number,
+    depth: number,
+    displaySize: Readonly<{ width: number; height: number }>,
+    alpha = 1,
+  ): void {
+    const manifestEntry = CHAPTER1_ASSET_MANIFEST[assetKey];
+    if (!manifestEntry || !this.textures.exists(assetKey)) return;
+
+    this.mapTiles.push(
+      this.add
+        .image(
+          this.mapOrigin.x + positionX * GRID_SIZE,
+          this.mapOrigin.y + positionY * GRID_SIZE,
+          assetKey,
+        )
+        .setOrigin(0, 0)
+        .setDisplaySize(displaySize.width, displaySize.height)
+        .setAlpha(alpha)
+        .setDepth(depth),
+    );
   }
 
   private createPlayer(): void {
@@ -415,13 +565,54 @@ export class GameScene extends Phaser.Scene {
 
     this.gameState.objects.forEach((object) => {
       const pixel = this.gridToPixel(object.position);
-      if (object.type === 'pocket-watch' && !object.collected) {
+      if (object.type === 'prop') {
+        const propPosition =
+          object.id === 'chapter1-window' ? { x: object.position.x, y: 0 } : object.position;
+        const propOffset =
+          object.id === 'chapter1-window'
+            ? WINDOW_OFFSET
+            : object.id === 'chapter1-grandfather-clock'
+              ? GRANDFATHER_CLOCK_VISUAL_OFFSET
+              : object.id === 'chapter1-bed'
+                ? BED_VISUAL_OFFSET
+                : object.id === 'chapter1-nightstand'
+                  ? NIGHTSTAND_VISUAL_OFFSET
+                  : undefined;
+        const propDepth = object.id === 'chapter1-chair' ? 0.5 : 0.35;
         this.objectSprites.push(
-          this.add
-            .circle(pixel.x, pixel.y, GRID_SIZE / 4, POCKET_WATCH_COLOR)
-            .setStrokeStyle(2, 0xffe6a3)
-            .setDepth(0.75),
+          ...this.renderAssetObject(
+            object.assetKey,
+            propPosition,
+            object.id === 'chapter1-window' ? WALL_DECORATION_DEPTH : propDepth,
+            propOffset,
+            object.id === 'chapter1-window'
+              ? WINDOW_DISPLAY_SIZE
+              : object.id === 'chapter1-grandfather-clock'
+                ? GRANDFATHER_CLOCK_DISPLAY_SIZE
+                : undefined,
+          ),
         );
+      }
+      if (object.type === 'puzzle-object') {
+        const stateDefinition = object.states[object.state];
+        const puzzleOffset =
+          object.id === 'chapter1-bookshelf' ? BOOKSHELF_VISUAL_OFFSET : { x: 0, y: 0 };
+        this.objectSprites.push(
+          ...this.renderAssetObject(
+            stateDefinition?.assetKey ?? object.assetKey,
+            object.position,
+            0.6,
+            puzzleOffset,
+            object.id === 'chapter1-bookshelf' ? BOOKSHELF_DISPLAY_SIZE : undefined,
+          ),
+        );
+      }
+      if (object.type === 'pocket-watch' && !object.collected) {
+        if (object.visible) {
+          this.objectSprites.push(
+            ...this.renderAssetObject('chapter1-pocket-watch', object.position, 0.75),
+          );
+        }
       }
       if (object.type === 'pressure-switch') {
         this.objectSprites.push(
@@ -438,18 +629,15 @@ export class GameScene extends Phaser.Scene {
         );
       }
       if (object.type === 'door') {
+        const assetKey = object.assetKeys?.[object.open ? 'open' : 'closed'];
         this.objectSprites.push(
-          this.add
-            .rectangle(
-              pixel.x,
-              pixel.y,
-              GRID_SIZE - 4,
-              GRID_SIZE - 4,
-              object.open ? 0x355b55 : 0x8a644d,
-              object.open ? 0.35 : 1,
-            )
-            .setStrokeStyle(2, object.open ? 0x73c8df : 0xc69a6b)
-            .setDepth(0.7),
+          ...this.renderAssetObject(
+            assetKey,
+            object.position,
+            0.7,
+            DOOR_VISUAL_OFFSET,
+            DOOR_DISPLAY_SIZE,
+          ),
         );
       }
       if (object.type === 'box') {
@@ -478,12 +666,17 @@ export class GameScene extends Phaser.Scene {
             .setDepth(0.65),
         );
       }
-      if (object.type === 'key' && !object.collected) {
+      if (object.type === 'key' && object.visible && !object.collected) {
+        const keyOffset =
+          object.id === 'chapter1-key' && object.position.y === 1 ? { x: 0, y: -32 } : undefined;
         this.objectSprites.push(
-          this.add
-            .star(pixel.x, pixel.y, 4, 4, GRID_SIZE / 4, 0xe5c86c)
-            .setStrokeStyle(2, 0xffe6a3)
-            .setDepth(0.65),
+          ...this.renderAssetObject(
+            object.assetKey,
+            object.position,
+            0.8,
+            keyOffset,
+            KEY_DISPLAY_SIZE,
+          ),
         );
       }
       if (object.type === 'exit') {
@@ -495,6 +688,29 @@ export class GameScene extends Phaser.Scene {
         );
       }
     });
+  }
+
+  private renderAssetObject(
+    assetKey: string | undefined,
+    position: GridPosition,
+    depth: number,
+    offset: GridPosition = { x: 0, y: 0 },
+    displaySize?: Readonly<{ width: number; height: number }>,
+  ): Phaser.GameObjects.GameObject[] {
+    const manifestEntry = assetKey === undefined ? undefined : CHAPTER1_ASSET_MANIFEST[assetKey];
+    if (assetKey !== undefined && manifestEntry && this.textures.exists(assetKey)) {
+      const sprite = this.add
+        .image(
+          this.mapOrigin.x + position.x * GRID_SIZE + offset.x,
+          this.mapOrigin.y + position.y * GRID_SIZE + offset.y,
+          assetKey,
+        )
+        .setOrigin(0, 0);
+      if (displaySize) sprite.setDisplaySize(displaySize.width, displaySize.height);
+      return [sprite.setDepth(depth)];
+    }
+
+    return [];
   }
 
   private gridToPixel(position: GridPosition): GridPosition {
@@ -525,7 +741,8 @@ export class GameScene extends Phaser.Scene {
     this.isFinalePlaying = false;
     this.pendingReset = false;
     this.pendingDirection = undefined;
-    this.mapGraphics?.destroy();
+    this.mapTiles.forEach((tile) => tile.destroy());
+    this.mapTiles = [];
     this.player.destroy();
     this.echoSprites.forEach((echo) => echo.destroy());
     this.echoSprites = [];
@@ -558,7 +775,7 @@ export class GameScene extends Phaser.Scene {
     this.endingPages = ending.pages;
     this.endingPageIndex = 0;
     this.player.setVisible(false);
-    this.mapGraphics?.setVisible(false);
+    this.mapTiles.forEach((tile) => tile.setVisible(false));
     this.objectSprites.forEach((object) => object.destroy());
     this.objectSprites = [];
     this.echoSprites.forEach((echo) => echo.destroy());

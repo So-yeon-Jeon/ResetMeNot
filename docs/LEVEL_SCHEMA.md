@@ -43,6 +43,7 @@ Tiled 편집 → JSON export → 런타임 검증 → 도메인 레벨 변환 �
 | `resetLimit`       | int    | 예     | `3`                  | 허용 RESET 횟수            |
 | `echoLimit`        | int    | 예     | `3`                  | 동시에 유지할 Echo 최대 수 |
 | `resetPolicy`      | string | 예     | `disable`            | `disable` 또는 `unlimited` |
+| `echoUnlocked`     | bool   | 아니오 | `false`              | RESET과 Echo 해금 분리     |
 | `finalClockStart`  | string | 조건부 | `11:59:30`           | Final 시계 시작 시각       |
 | `finalClockTarget` | string | 조건부 | `12:00:00`           | 종과 해결 연출의 목표 시각 |
 | `finalDoorId`      | string | 조건부 | `final-door`         | 종이 울릴 때 열릴 Door ID  |
@@ -58,13 +59,13 @@ Tiled Object의 위치는 픽셀 좌표이지만 로더에서 32로 나눠 그�
 
 ### 공통 필드
 
-| 필드               | 필수   | 규칙                              |
-| ------------------ | ------ | --------------------------------- |
-| Name               | 예     | 챕터 안에서 유일한 ID, kebab-case |
-| Type/Class         | 예     | 아래 허용 타입 중 하나            |
-| X/Y                | 예     | 32px 배수                         |
-| Width/Height       | 예     | 기본 32×32                        |
-| `persistentFields` | 아니오 | 기억할 속성의 쉼표 구분 목록      |
+| 필드               | 필수   | 규칙                                                                     |
+| ------------------ | ------ | ------------------------------------------------------------------------ |
+| Name               | 예     | 챕터 안에서 유일한 ID, kebab-case                                        |
+| Type/Class         | 예     | 아래 허용 타입 중 하나                                                   |
+| X/Y                | 예     | 32px 배수                                                                |
+| Width/Height       | 예     | 기본 32×32                                                               |
+| `persistentFields` | 아니오 | `position`, `state`, `broken`, `collectible`, `collected` 중 기억할 속성 |
 
 ### 허용 타입
 
@@ -77,6 +78,15 @@ Tiled Object의 위치는 픽셀 좌표이지만 로더에서 32로 나눠 그�
 
 - 위치 상태를 가짐
 - `persistentFields`에 `position`이 있으면 RESET 후 위치 유지
+
+#### Prop
+
+가구와 장식처럼 게임 규칙 상태는 없지만 렌더링 또는 이동 충돌이 필요한 오브젝트입니다.
+
+| Property         | 타입   | 필수   | 설명                        |
+| ---------------- | ------ | ------ | --------------------------- |
+| `assetKey`       | string | 예     | 렌더링할 manifest 키        |
+| `collisionCells` | string | 아니오 | anchor 기준 상대 좌표, `0,0 | 1,0` 형식 |
 
 #### Lever
 
@@ -102,16 +112,33 @@ Switch Class는 점유 중에만 활성화되는 압력 스위치입니다. Z �
 | `activationMode` | string | 아니오 | `all`(AND, 기본값) 또는 `any`(OR) |
 | `keyId`          | string | 아니오 | 잠금 해제에 필요한 Key ID         |
 | `consumesKey`    | bool   | 아니오 | 사용 시 열쇠 소모 여부            |
+| `clearOnOpen`    | bool   | 아니오 | 열릴 때 챕터 완료                 |
+| `closedAssetKey` | string | 아니오 | 닫힌 상태의 manifest 키           |
+| `openAssetKey`   | string | 아니오 | 열린 상태의 manifest 키           |
 
 문 상태는 연결된 Switch와 Lever의 활성 상태에서 파생합니다. 기본 `all`은 모든 장치가 활성화되어야 하며, `any`는 하나 이상 활성화되면 열립니다.
 
 #### Key
 
-| Property           | 타입   | 필수   | 설명                              |
-| ------------------ | ------ | ------ | --------------------------------- |
-| `persistentFields` | string | 아니오 | `position`, `collected` 쉼표 목록 |
+| Property           | 타입   | 필수   | 설명                                             |
+| ------------------ | ------ | ------ | ------------------------------------------------ |
+| `persistentFields` | string | 아니오 | `position`, `collectible`, `collected` 쉼표 목록 |
+| `collectible`      | bool   | 아니오 | 현재 상태에서 획득 가능한지 여부                 |
+| `assetKey`         | string | 아니오 | 렌더링할 manifest 키                             |
 
-Chapter 1의 열쇠는 `persistentFields: position`으로 떨어진 위치만 기억합니다. `collected`는 기본 기억 속성이 아니며 레벨에서 명시적으로 허용할 때만 사용합니다.
+Chapter 1의 열쇠는 `persistentFields: position,collectible`로 떨어진 위치와 획득 가능 상태만 기억합니다. `collected`는 기본 기억 속성이 아니며 레벨에서 명시적으로 허용할 때만 사용합니다.
+
+#### PocketWatch
+
+`visible`, `interactable`, `blocksMovement`를 선택적으로 지정할 수 있습니다. Chapter 1에서는 PocketWatch를 숨기고 Nightstand의 PuzzleObject effect로 획득합니다.
+
+#### PuzzleObject
+
+`initialState`, `stateAssets`, `stateCollision`, `onInteractState`, `onInteractEffects`를 사용해 상태별 렌더링·충돌과 data-driven effect를 정의합니다.
+
+- `stateAssets`: `standing=asset-a,fallen=asset-b`
+- `stateCollision`: `standing=0,0|1,0;fallen=0,0|1,0|0,1|1,1`
+- `onInteractEffects`: `set-position:object-id:8,3;set-collectible:key-id:true`
 
 #### Exit
 

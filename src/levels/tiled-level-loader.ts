@@ -6,10 +6,13 @@ import {
   createKey,
   createLever,
   createPocketWatch,
+  createProp,
   createPressureSwitch,
   createPuzzleObject,
   type AcceptedActor,
+  type ObjectEffect,
   type PersistentField,
+  type PuzzleStateDefinition,
   type WorldObjectState,
 } from '../game/world-object';
 import type { LevelDefinition } from './level-definition';
@@ -49,6 +52,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
       'resetLimit',
       'echoLimit',
       'resetPolicy',
+      'echoUnlocked',
       'finalClockStart',
       'finalClockTarget',
       'finalDoorId',
@@ -65,6 +69,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     ['disable', 'unlimited'],
     'resetPolicy',
   ) as ResetPolicy;
+  const echoUnlocked = boolean(properties.echoUnlocked, true, 'echoUnlocked');
   if (resetPolicy === 'disable' && echoLimit > resetLimit) {
     fail('disable 정책에서는 echoLimit이 resetLimit보다 클 수 없습니다.');
   }
@@ -136,6 +141,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     playerFacing,
     resetLimit,
     resetPolicy,
+    echoUnlocked,
     echoLimit,
     objects,
     finalClockStartSeconds: finalClock?.startSeconds,
@@ -148,30 +154,21 @@ function validateInitialOccupancy(
   objects: readonly WorldObjectState[],
   playerStart: GridPosition,
 ): void {
-  const solidTypes = new Set<WorldObjectState['type']>(['box', 'door', 'key']);
   const solidByPosition = new Map<string, WorldObjectState>();
-  const interactionTypes = new Set<WorldObjectState['type']>([
-    'pocket-watch',
-    'puzzle-object',
-    'lever',
-    'key',
-    'door',
-  ]);
   const interactionByPosition = new Map<string, WorldObjectState>();
 
   for (const item of objects) {
-    const key = positionKey(item.position);
-    const blocksPlayerStart =
-      item.type === 'box' ||
-      item.type === 'door' ||
-      item.type === 'pocket-watch' ||
-      item.type === 'puzzle-object' ||
-      item.type === 'lever' ||
-      item.type === 'key';
-    if (blocksPlayerStart && samePosition(item.position, playerStart)) {
-      fail(`PlayerSpawn과 ${item.id}이(가) 초기 위치 ${key}에서 겹칩니다.`);
-    }
-    if (solidTypes.has(item.type)) {
+    const collisionCells = initialCollisionCells(item);
+    const validatesSolidOverlap = item.type !== 'pocket-watch' && item.type !== 'lever';
+    for (const cell of validatesSolidOverlap ? collisionCells : []) {
+      const occupiedPosition = {
+        x: item.position.x + cell.x,
+        y: item.position.y + cell.y,
+      };
+      const key = positionKey(occupiedPosition);
+      if (samePosition(occupiedPosition, playerStart)) {
+        fail(`PlayerSpawn과 ${item.id}이(가) 초기 위치 ${key}에서 겹칩니다.`);
+      }
       const occupied = solidByPosition.get(key);
       if (occupied) {
         fail(`초기 위치 ${key}에 ${occupied.id}과(와) ${item.id}이(가) 함께 배치되었습니다.`);
@@ -179,15 +176,43 @@ function validateInitialOccupancy(
       solidByPosition.set(key, item);
     }
 
-    const isInteractionTarget =
-      interactionTypes.has(item.type) || (item.type === 'exit' && item.mode === 'interact');
-    if (!isInteractionTarget) continue;
+    if (!isInteractionTarget(item)) continue;
+    const key = positionKey(item.position);
     const occupied = interactionByPosition.get(key);
     if (occupied) {
       fail(`상호작용 위치 ${key}에 ${occupied.id}과(와) ${item.id}이(가) 중복되었습니다.`);
     }
     interactionByPosition.set(key, item);
   }
+}
+
+function initialCollisionCells(object: WorldObjectState): readonly GridPosition[] {
+  if (object.type === 'prop') return object.collisionCells;
+  if (object.type === 'puzzle-object') {
+    return object.states[object.state]?.collisionCells ?? [{ x: 0, y: 0 }];
+  }
+  if (object.type === 'pocket-watch') {
+    return object.blocksMovement && object.interactable && !object.collected
+      ? [{ x: 0, y: 0 }]
+      : [];
+  }
+  if (object.type === 'key') {
+    return object.collectible && !object.collected ? [{ x: 0, y: 0 }] : [];
+  }
+  if (object.type === 'door') return object.open ? [] : [{ x: 0, y: 0 }];
+  if (object.type === 'box' || object.type === 'lever') return [{ x: 0, y: 0 }];
+  return [];
+}
+
+function isInteractionTarget(object: WorldObjectState): boolean {
+  return (
+    (object.type === 'pocket-watch' && object.interactable) ||
+    (object.type === 'key' && object.collectible) ||
+    object.type === 'lever' ||
+    (object.type === 'door' && !object.unlocked && object.keyId !== undefined) ||
+    (object.type === 'exit' && object.mode === 'interact') ||
+    (object.type === 'puzzle-object' && object.onInteract !== undefined)
+  );
 }
 
 function samePosition(left: GridPosition, right: GridPosition): boolean {
@@ -201,14 +226,32 @@ function createLevelObject(
   props: JsonObject,
 ): WorldObjectState {
   const allowedProperties: Readonly<Record<string, readonly string[]>> = {
-    PocketWatch: [],
+    PocketWatch: ['visible', 'interactable', 'blocksMovement'],
     Box: ['persistentFields'],
+    Prop: ['assetKey', 'collisionCells'],
     Switch: ['acceptedActors'],
     Lever: ['mode', 'acceptedActors'],
-    Key: ['persistentFields'],
-    Door: ['switchIds', 'leverIds', 'activationMode', 'keyId', 'consumesKey'],
+    Key: ['persistentFields', 'collectible', 'visible', 'assetKey'],
+    Door: [
+      'switchIds',
+      'leverIds',
+      'activationMode',
+      'keyId',
+      'consumesKey',
+      'clearOnOpen',
+      'closedAssetKey',
+      'openAssetKey',
+    ],
     Exit: ['mode'],
-    PuzzleObject: ['persistentFields'],
+    PuzzleObject: [
+      'persistentFields',
+      'initialState',
+      'assetKey',
+      'stateAssets',
+      'stateCollision',
+      'onInteractState',
+      'onInteractEffects',
+    ],
   };
   const allowed = allowedProperties[type];
   if (!allowed) return fail(`지원하지 않는 Object Class입니다: ${type}`);
@@ -216,9 +259,20 @@ function createLevelObject(
 
   switch (type) {
     case 'PocketWatch':
-      return createPocketWatch(id, position);
+      return createPocketWatch(id, position, {
+        visible: boolean(props.visible, true, `${id}.visible`),
+        interactable: boolean(props.interactable, true, `${id}.interactable`),
+        blocksMovement: boolean(props.blocksMovement, true, `${id}.blocksMovement`),
+      });
     case 'Box':
       return createBox(id, position, csv(props.persistentFields).includes('position'));
+    case 'Prop':
+      return createProp(
+        id,
+        position,
+        text(props.assetKey, `${id}.assetKey`),
+        parseCollisionCells(props.collisionCells, `${id}.collisionCells`),
+      );
     case 'Switch':
       return createPressureSwitch(id, position, actors(props.acceptedActors));
     case 'Lever':
@@ -233,8 +287,15 @@ function createLevelObject(
         id,
         position,
         persistent(props.persistentFields).filter(
-          (field): field is 'position' | 'collected' =>
-            field === 'position' || field === 'collected',
+          (field): field is 'position' | 'collectible' | 'collected' =>
+            field === 'position' || field === 'collectible' || field === 'collected',
+        ),
+        boolean(props.collectible, true, `${id}.collectible`),
+        optionalText(props.assetKey),
+        boolean(
+          props.visible,
+          boolean(props.collectible, true, `${id}.collectible`),
+          `${id}.visible`,
         ),
       );
     case 'Door':
@@ -246,7 +307,12 @@ function createLevelObject(
         oneOf(props.mode ?? 'enter', ['enter', 'interact'] as const, `${id}.mode`),
       );
     case 'PuzzleObject':
-      return createPuzzleObject(id, position, persistent(props.persistentFields));
+      return createPuzzleObject(id, position, persistent(props.persistentFields), {
+        state: optionalText(props.initialState) ?? 'default',
+        assetKey: optionalText(props.assetKey),
+        states: parsePuzzleStates(props, id),
+        onInteract: parsePuzzleInteraction(props, id),
+      });
     default:
       return fail(`지원하지 않는 Object Class입니다: ${type}`);
   }
@@ -261,6 +327,12 @@ function createDoorFromProperties(
   const leverIds = uniqueCsv(props.leverIds, `${id}.leverIds`);
   const keyId = optionalText(props.keyId);
   const consumesKey = boolean(props.consumesKey, false, `${id}.consumesKey`);
+  const clearOnOpen = boolean(props.clearOnOpen, false, `${id}.clearOnOpen`);
+  const closedAssetKey = optionalText(props.closedAssetKey);
+  const openAssetKey = optionalText(props.openAssetKey);
+  if ((closedAssetKey === undefined) !== (openAssetKey === undefined)) {
+    fail(`${id}의 closedAssetKey와 openAssetKey는 함께 지정해야 합니다.`);
+  }
   if (consumesKey && !keyId) fail(`${id}.consumesKey는 keyId가 있을 때만 사용할 수 있습니다.`);
   if (keyId && (switchIds.length > 0 || leverIds.length > 0)) {
     fail(`${id}은(는) 열쇠 조건과 Switch/Lever 조건을 함께 사용할 수 없습니다.`);
@@ -274,21 +346,174 @@ function createDoorFromProperties(
     ),
     keyId,
     consumesKey,
+    clearOnOpen,
+    assetKeys:
+      closedAssetKey && openAssetKey ? { closed: closedAssetKey, open: openAssetKey } : undefined,
   });
+}
+
+function parsePuzzleStates(
+  props: JsonObject,
+  id: string,
+): Readonly<Record<string, PuzzleStateDefinition>> {
+  const initialState = optionalText(props.initialState) ?? 'default';
+  const assets = parseStateMap(props.stateAssets, `${id}.stateAssets`);
+  const collisions = parseStateCollisionMap(props.stateCollision, `${id}.stateCollision`);
+  const stateNames = new Set([initialState, ...Object.keys(assets), ...Object.keys(collisions)]);
+  return Object.fromEntries(
+    [...stateNames].map((state) => [
+      state,
+      {
+        assetKey:
+          assets[state] ?? (state === initialState ? optionalText(props.assetKey) : undefined),
+        collisionCells: collisions[state] ?? [{ x: 0, y: 0 }],
+      },
+    ]),
+  );
+}
+
+function parsePuzzleInteraction(
+  props: JsonObject,
+  id: string,
+): Readonly<{ nextState?: string; effects: readonly ObjectEffect[] }> | undefined {
+  const nextState = optionalText(props.onInteractState);
+  const effects = parseObjectEffects(props.onInteractEffects, `${id}.onInteractEffects`);
+  if (nextState === undefined && effects.length === 0) return undefined;
+  return { nextState, effects };
+}
+
+function parseStateMap(value: unknown, label: string): Readonly<Record<string, string>> {
+  if (value === undefined || value === '') return {};
+  const result: Record<string, string> = {};
+  text(value, label)
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .forEach((entry) => {
+      const [state, assetKey] = entry.split('=').map((part) => part?.trim());
+      if (!state || !assetKey) return fail(`${label}의 state=asset 형식이 올바르지 않습니다.`);
+      if (Object.hasOwn(result, state)) return fail(`${label}에 중복 state가 있습니다: ${state}`);
+      result[state] = assetKey;
+    });
+  return result;
+}
+
+function parseStateCollisionMap(
+  value: unknown,
+  label: string,
+): Readonly<Record<string, readonly GridPosition[]>> {
+  if (value === undefined || value === '') return {};
+  const result: Record<string, readonly GridPosition[]> = {};
+  text(value, label)
+    .split(';')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .forEach((entry) => {
+      const separator = entry.indexOf('=');
+      if (separator <= 0) return fail(`${label}의 state=cell 형식이 올바르지 않습니다.`);
+      const state = entry.slice(0, separator).trim();
+      const cells = entry.slice(separator + 1).trim();
+      if (Object.hasOwn(result, state)) return fail(`${label}에 중복 state가 있습니다: ${state}`);
+      result[state] = parseCollisionCells(cells, `${label}.${state}`);
+    });
+  return result;
+}
+
+function parseCollisionCells(value: unknown, label: string): readonly GridPosition[] {
+  if (value === undefined || value === '') return [];
+  return text(value, label)
+    .split('|')
+    .map((cell) => {
+      const [xText, yText] = cell.split(',').map((part) => part?.trim());
+      const x = Number(xText);
+      const y = Number(yText);
+      if (!Number.isInteger(x) || !Number.isInteger(y)) {
+        return fail(`${label}의 collision cell은 x,y 정수여야 합니다.`);
+      }
+      return { x, y };
+    });
+}
+
+function parseObjectEffects(value: unknown, label: string): readonly ObjectEffect[] {
+  if (value === undefined || value === '') return [];
+  return text(value, label)
+    .split(';')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [type, objectId, payload] = entry.split(':').map((part) => part?.trim());
+      if (!type || !objectId || payload === undefined)
+        return fail(`${label}의 effect 형식이 올바르지 않습니다.`);
+      if (type === 'set-position') {
+        return {
+          type: 'set-position' as const,
+          objectId,
+          position: parseGridPosition(payload, `${label}.${objectId}`),
+        };
+      }
+      if (type === 'set-state') return { type: 'set-state' as const, objectId, state: payload };
+      if (type === 'set-collectible') {
+        return {
+          type: 'set-collectible' as const,
+          objectId,
+          collectible:
+            oneOf(payload, ['true', 'false'] as const, `${label}.${objectId}`) === 'true',
+        };
+      }
+      if (type === 'set-collected') {
+        return {
+          type: 'set-collected' as const,
+          objectId,
+          collected: oneOf(payload, ['true', 'false'] as const, `${label}.${objectId}`) === 'true',
+        };
+      }
+      return fail(`${label}의 지원하지 않는 effect입니다: ${type}`);
+    });
+}
+
+function parseGridPosition(value: string, label: string): GridPosition {
+  const [xText, yText] = value.split(',').map((part) => part?.trim());
+  const x = Number(xText);
+  const y = Number(yText);
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0) {
+    return fail(`${label}의 좌표가 올바르지 않습니다.`);
+  }
+  return { x, y };
 }
 
 function validateReferences(objects: readonly WorldObjectState[]): void {
   const byId = new Map(objects.map((item) => [item.id, item]));
   for (const item of objects) {
-    if (item.type !== 'door') continue;
-    for (const id of item.switchIds)
-      if (byId.get(id)?.type !== 'pressure-switch')
-        fail(`${item.id}.switchIds가 존재하는 Switch를 가리켜야 합니다: ${id}`);
-    for (const id of item.leverIds)
-      if (byId.get(id)?.type !== 'lever')
-        fail(`${item.id}.leverIds가 존재하는 Lever를 가리켜야 합니다: ${id}`);
-    if (item.keyId && byId.get(item.keyId)?.type !== 'key')
-      fail(`${item.id}.keyId가 존재하는 Key를 가리켜야 합니다: ${item.keyId}`);
+    if (item.type === 'door') {
+      for (const id of item.switchIds)
+        if (byId.get(id)?.type !== 'pressure-switch')
+          fail(`${item.id}.switchIds가 존재하는 Switch를 가리켜야 합니다: ${id}`);
+      for (const id of item.leverIds)
+        if (byId.get(id)?.type !== 'lever')
+          fail(`${item.id}.leverIds가 존재하는 Lever를 가리켜야 합니다: ${id}`);
+      if (item.keyId && byId.get(item.keyId)?.type !== 'key')
+        fail(`${item.id}.keyId가 존재하는 Key를 가리켜야 합니다: ${item.keyId}`);
+    }
+    if (item.type === 'puzzle-object') {
+      for (const effect of item.onInteract?.effects ?? []) {
+        const target = byId.get(effect.objectId);
+        if (!target)
+          fail(`${item.id}의 effect가 존재하지 않는 오브젝트를 가리킵니다: ${effect.objectId}`);
+        if (effect.type === 'set-state' && target.type !== 'puzzle-object') {
+          fail(`${item.id}의 set-state effect 대상은 PuzzleObject여야 합니다: ${effect.objectId}`);
+        }
+        if (effect.type === 'set-collectible' && target.type !== 'key') {
+          fail(`${item.id}의 set-collectible effect 대상은 Key여야 합니다: ${effect.objectId}`);
+        }
+        if (
+          effect.type === 'set-collected' &&
+          target.type !== 'key' &&
+          target.type !== 'pocket-watch'
+        ) {
+          fail(`${item.id}의 set-collected effect 대상이 올바르지 않습니다: ${effect.objectId}`);
+        }
+      }
+    }
   }
 }
 
@@ -377,7 +602,7 @@ function actors(value: unknown): AcceptedActor[] {
 }
 function persistent(value: unknown): PersistentField[] {
   return csv(value).map((field) =>
-    oneOf(field, ['position', 'state', 'broken', 'collected'], 'persistentFields'),
+    oneOf(field, ['position', 'state', 'broken', 'collectible', 'collected'], 'persistentFields'),
   );
 }
 function csv(value: unknown): string[] {

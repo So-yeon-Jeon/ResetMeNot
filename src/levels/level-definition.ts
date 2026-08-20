@@ -16,6 +16,7 @@ export type LevelDefinition = Readonly<{
   playerFacing: Direction;
   resetLimit: number;
   resetPolicy: ResetPolicy;
+  echoUnlocked?: boolean;
   echoLimit: number;
   objects: readonly WorldObjectState[];
   finalClockStartSeconds?: number;
@@ -29,6 +30,7 @@ export function createLevelGameState(level: LevelDefinition, worldMemory?: World
     facing: level.playerFacing,
     resetLimit: level.resetLimit,
     resetPolicy: level.resetPolicy,
+    echoUnlocked: level.echoUnlocked,
     echoLimit: level.echoLimit,
     objects: level.objects,
     finalClockDurationMs: level.finalClockDurationMs,
