@@ -15,6 +15,7 @@ Tiled JSON → Level Loader → LevelDefinition ─┐
                                               ├→ Game Rules → GameState → Phaser Renderer
 Keyboard → Input Adapter → GameAction ───────┘
 RESET → Echo Snapshot Factory ───────────────┘
+Chapter ID → Visual Theme Catalog → Asset Manifest / Floor / Wall / Object Visual
 ```
 
 - `GameAction`: 현재 Player가 실행하는 행동 명령입니다.
@@ -88,6 +89,7 @@ Final의 핵심 경로는 `src/game/final-flow.test.ts`에서 경계 전체를 �
 src/
 ├─ game/       순수 상태, 행동, 퍼즐 규칙, 게임 세션
 ├─ levels/     Tiled JSON, 로더, 검증, LevelDefinition
+├─ themes/     챕터별 에셋·바닥·벽·오브젝트 렌더링 설정
 └─ scenes/     키보드 입력, Phaser 렌더링, 레벨 화면 전환
 ```
 

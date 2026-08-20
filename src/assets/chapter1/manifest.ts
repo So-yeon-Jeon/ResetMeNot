@@ -1,18 +1,15 @@
-export type Chapter1AssetDefinition = Readonly<{
-  path: string;
-  width: number;
-  height: number;
-  placeholderColor: number;
-  sourceAvailable: boolean;
-}>;
+import type { AssetManifest } from '../asset-definition';
 
-export const CHAPTER1_ASSET_MANIFEST: Readonly<Record<string, Chapter1AssetDefinition>> = {
+export const CHAPTER1_ASSET_MANIFEST: AssetManifest = {
   'chapter1-floor-tileset': {
     path: new URL('./tiles/floor_tileset.png', import.meta.url).href,
     width: 256,
     height: 32,
     placeholderColor: 0x5b3826,
     sourceAvailable: true,
+    kind: 'spritesheet',
+    frameWidth: 32,
+    frameHeight: 32,
   },
   'chapter1-wall-tileset': {
     path: new URL('./tiles/wall_tileset_raised.png', import.meta.url).href,
@@ -20,6 +17,9 @@ export const CHAPTER1_ASSET_MANIFEST: Readonly<Record<string, Chapter1AssetDefin
     height: 32,
     placeholderColor: 0x6c5a5a,
     sourceAvailable: true,
+    kind: 'spritesheet',
+    frameWidth: 32,
+    frameHeight: 32,
   },
   'chapter1-wall-top': {
     path: new URL('./tiles/wall-kit-long/wall_top.png', import.meta.url).href,
