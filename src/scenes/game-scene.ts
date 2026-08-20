@@ -30,14 +30,8 @@ const PLAYER_COLOR = 0xd9b6a3;
 const ECHO_COLOR = 0x73c8df;
 const WALL_DEPTH = 0.1;
 const WALL_OPENING_DEPTH = 0.12;
-const WALL_TOP_DISPLAY_SIZE = { width: 32, height: 64 };
-const WALL_SIDE_DISPLAY_SIZE = { width: 28, height: 32 };
 const WALL_SIDE_ALPHA = 0.78;
-const WALL_TOP_CORNER_DISPLAY_SIZE = { width: 32, height: 40 };
 const WALL_BOTTOM_ALPHA = 0.8;
-const WALL_BOTTOM_CORNER_DISPLAY_SIZE = { width: 40, height: 16 };
-const WALL_BOTTOM_DISPLAY_SIZE = { width: 32, height: 16 };
-const WALL_BOTTOM_DOORWAY_DISPLAY_SIZE = { width: 96, height: 16 };
 
 type MovementKeys = Readonly<{
   up: Phaser.Input.Keyboard.Key[];
@@ -51,7 +45,7 @@ export class GameScene extends Phaser.Scene {
   private session!: GameSession;
   private gameState!: GameState;
   private loadError?: Error;
-  private mapTiles: Phaser.GameObjects.Image[] = [];
+  private mapTiles: (Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle)[] = [];
   private movementKeys!: MovementKeys;
   private resetKey!: Phaser.Input.Keyboard.Key;
   private interactKey!: Phaser.Input.Keyboard.Key;
@@ -231,22 +225,19 @@ export class GameScene extends Phaser.Scene {
     const wall = theme.walls;
     const doorObject = this.gameState.objects.find((object) => object.id === wall.doorwayObjectId);
     const doorwayStartX = this.validSectionStart(doorObject?.position.x, map.width);
+    if (wall.perspectiveBoundary) {
+      this.drawPerspectiveWall(map, doorwayStartX);
+      return;
+    }
 
-    this.renderWallAsset(wall.cornerTopLeft, 0, 0, WALL_DEPTH, WALL_TOP_CORNER_DISPLAY_SIZE, 0.9);
-    this.renderWallAsset(
-      wall.cornerTopRight,
-      map.width - 1,
-      0,
-      WALL_DEPTH,
-      WALL_TOP_CORNER_DISPLAY_SIZE,
-      0.9,
-    );
+    this.renderWallAsset(wall.cornerTopLeft, 0, 0, WALL_DEPTH, undefined, 0.9);
+    this.renderWallAsset(wall.cornerTopRight, map.width - 1, 0, WALL_DEPTH, undefined, 0.9);
     this.renderWallAsset(
       wall.cornerBottomLeft,
       0,
       map.height - 1,
       WALL_DEPTH,
-      WALL_BOTTOM_CORNER_DISPLAY_SIZE,
+      undefined,
       WALL_BOTTOM_ALPHA,
     );
     this.renderWallAsset(
@@ -254,24 +245,17 @@ export class GameScene extends Phaser.Scene {
       map.width - 1,
       map.height - 1,
       WALL_DEPTH,
-      WALL_BOTTOM_CORNER_DISPLAY_SIZE,
+      undefined,
       WALL_BOTTOM_ALPHA,
     );
 
     for (let x = 1; x < map.width - 1; x += 1) {
-      this.renderWallAsset(wall.top, x, 0, WALL_DEPTH, WALL_TOP_DISPLAY_SIZE);
+      this.renderWallAsset(wall.top, x, 0, WALL_DEPTH);
     }
 
     for (let y = 1; y < map.height - 1; y += 1) {
-      this.renderWallAsset(wall.left, 0, y, WALL_DEPTH, WALL_SIDE_DISPLAY_SIZE, WALL_SIDE_ALPHA);
-      this.renderWallAsset(
-        wall.right,
-        map.width - 1,
-        y,
-        WALL_DEPTH,
-        WALL_SIDE_DISPLAY_SIZE,
-        WALL_SIDE_ALPHA,
-      );
+      this.renderWallAsset(wall.left, 0, y, WALL_DEPTH, undefined, WALL_SIDE_ALPHA);
+      this.renderWallAsset(wall.right, map.width - 1, y, WALL_DEPTH, undefined, WALL_SIDE_ALPHA);
     }
 
     for (let x = 1; x < map.width - 1; x += 1) {
@@ -281,7 +265,7 @@ export class GameScene extends Phaser.Scene {
           x,
           map.height - 1,
           WALL_OPENING_DEPTH,
-          WALL_BOTTOM_DOORWAY_DISPLAY_SIZE,
+          undefined,
           WALL_BOTTOM_ALPHA,
         );
         x += 2;
@@ -291,11 +275,110 @@ export class GameScene extends Phaser.Scene {
           x,
           map.height - 1,
           WALL_DEPTH,
-          WALL_BOTTOM_DISPLAY_SIZE,
+          undefined,
           WALL_BOTTOM_ALPHA,
         );
       }
     }
+  }
+
+  private drawPerspectiveWall(
+    map: Readonly<{ width: number; height: number }>,
+    doorwayStartX: number | undefined,
+  ): void {
+    const wall = this.currentTheme().walls;
+    this.renderPerspectiveBoundaryAsset(wall.cornerTopLeft, 0, 0);
+    this.renderPerspectiveBoundaryAsset(
+      wall.cornerTopRight,
+      map.width * GRID_SIZE - this.assetWidth(wall.cornerTopRight),
+      0,
+    );
+    for (let x = 1; x < map.width - 1; x += 1) {
+      this.renderPerspectiveBoundaryAsset(wall.top, x * GRID_SIZE, 0);
+    }
+
+    for (let y = 1; y < map.height - 1; y += 1) {
+      this.renderPerspectiveBoundaryAsset(wall.left, 0, y * GRID_SIZE);
+      this.renderPerspectiveBoundaryAsset(
+        wall.right,
+        map.width * GRID_SIZE - this.assetWidth(wall.right),
+        y * GRID_SIZE,
+      );
+    }
+
+    this.renderPerspectiveBoundaryAsset(
+      wall.cornerBottomLeft,
+      0,
+      map.height * GRID_SIZE - this.assetHeight(wall.cornerBottomLeft),
+    );
+    this.renderPerspectiveBoundaryAsset(
+      wall.cornerBottomRight,
+      map.width * GRID_SIZE - this.assetWidth(wall.cornerBottomRight),
+      map.height * GRID_SIZE - this.assetHeight(wall.cornerBottomRight),
+    );
+    if (doorwayStartX !== undefined && wall.bottomDoorway) {
+      this.renderPerspectiveBoundaryAsset(
+        wall.bottomDoorway,
+        doorwayStartX * GRID_SIZE,
+        map.height * GRID_SIZE - this.assetHeight(wall.bottomDoorway),
+        WALL_OPENING_DEPTH,
+      );
+      this.renderDoorwayForeground(wall.bottomDoorway, doorwayStartX, map.height);
+    }
+    for (let x = 1; x < map.width - 1; x += 1) {
+      const isDoorway = doorwayStartX !== undefined && x >= doorwayStartX && x < doorwayStartX + 3;
+      if (!isDoorway) {
+        this.renderPerspectiveBoundaryAsset(
+          wall.bottom,
+          x * GRID_SIZE,
+          map.height * GRID_SIZE - this.assetHeight(wall.bottom),
+        );
+      }
+    }
+  }
+
+  private assetWidth(assetKey: string): number {
+    return this.currentTheme().assets[assetKey]?.width ?? 0;
+  }
+
+  private assetHeight(assetKey: string): number {
+    return this.currentTheme().assets[assetKey]?.height ?? 0;
+  }
+
+  private renderPerspectiveBoundaryAsset(
+    assetKey: string,
+    offsetX: number,
+    offsetY: number,
+    depth = WALL_DEPTH + 0.01,
+  ): void {
+    if (!this.currentTheme().assets[assetKey] || !this.textures.exists(assetKey)) return;
+    this.mapTiles.push(
+      this.add
+        .image(this.mapOrigin.x + offsetX, this.mapOrigin.y + offsetY, assetKey)
+        .setOrigin(0, 0)
+        .setDepth(depth),
+    );
+  }
+
+  private renderDoorwayForeground(
+    assetKey: string,
+    doorwayStartX: number,
+    mapHeight: number,
+  ): void {
+    const asset = this.currentTheme().assets[assetKey];
+    if (!asset || !this.textures.exists(assetKey)) return;
+
+    const foregroundHeight = 4;
+    const foreground = this.add
+      .image(
+        this.mapOrigin.x + doorwayStartX * GRID_SIZE,
+        this.mapOrigin.y + mapHeight * GRID_SIZE - asset.height,
+        assetKey,
+      )
+      .setOrigin(0, 0)
+      .setCrop(0, asset.height - foregroundHeight, asset.width, foregroundHeight)
+      .setDepth(1.2);
+    this.mapTiles.push(foreground);
   }
 
   private validSectionStart(start: number | undefined, mapWidth: number): number | undefined {
@@ -308,24 +391,23 @@ export class GameScene extends Phaser.Scene {
     positionX: number,
     positionY: number,
     depth: number,
-    displaySize: Readonly<{ width: number; height: number }>,
+    displaySize?: Readonly<{ width: number; height: number }>,
     alpha = 1,
   ): void {
     const manifestEntry = this.currentTheme().assets[assetKey];
     if (!manifestEntry || !this.textures.exists(assetKey)) return;
 
-    this.mapTiles.push(
-      this.add
-        .image(
-          this.mapOrigin.x + positionX * GRID_SIZE,
-          this.mapOrigin.y + positionY * GRID_SIZE,
-          assetKey,
-        )
-        .setOrigin(0, 0)
-        .setDisplaySize(displaySize.width, displaySize.height)
-        .setAlpha(alpha)
-        .setDepth(depth),
-    );
+    const image = this.add
+      .image(
+        this.mapOrigin.x + positionX * GRID_SIZE,
+        this.mapOrigin.y + positionY * GRID_SIZE,
+        assetKey,
+      )
+      .setOrigin(0, 0)
+      .setAlpha(alpha)
+      .setDepth(depth);
+    if (displaySize) image.setDisplaySize(displaySize.width, displaySize.height);
+    this.mapTiles.push(image);
   }
 
   private createPlayer(): void {

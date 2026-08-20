@@ -54,6 +54,20 @@ describe('Chapter 1 room 1', () => {
     ).state;
     expect(blockedByClock.player).toEqual({ x: 6, y: 3 });
 
+    const blockedByWindow = applyAction(
+      at(state, { x: 4, y: 2 }, 'up'),
+      { type: 'move', direction: 'up' },
+      level.map,
+    ).state;
+    expect(blockedByWindow.player).toEqual({ x: 4, y: 2 });
+
+    const blockedByPlant = applyAction(
+      at(state, { x: 2, y: 4 }, 'left'),
+      { type: 'move', direction: 'left' },
+      level.map,
+    ).state;
+    expect(blockedByPlant.player).toEqual({ x: 2, y: 4 });
+
     const aboveChair = applyAction(
       at(state, { x: 7, y: 4 }, 'right'),
       { type: 'move', direction: 'right' },
