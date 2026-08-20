@@ -205,8 +205,23 @@ Tiled의 GID, 레이어 인덱스, 픽셀 좌표는 변환 이후 게임 규칙�
 3. 점유 장치는 Switch, Z 상호작용 장치는 Lever로 만듭니다.
 4. `persistentFields`에는 RESET 후 유지할 필드만 명시합니다.
 5. JSON을 `src/levels/level-catalog.ts`의 `LEVEL_SOURCES`에 진행 순서대로 등록합니다.
-6. JSON을 추가한 뒤 `npm run validate:levels`로 레벨 검증을 실행합니다.
-7. PR 전에는 `npm run check`로 전체 품질 검사를 실행합니다.
+6. 새 챕터라면 `src/themes/`에 `ChapterVisualTheme`을 만들고
+   `src/themes/theme-catalog.ts`에 `chapterId` 기준으로 등록합니다.
+
+## 챕터 비주얼 테마
+
+게임 규칙과 렌더링 에셋은 분리합니다. `LevelDefinition.chapterId`로 테마를 선택하며,
+`GameScene`은 특정 챕터의 에셋 이름을 직접 참조하지 않습니다.
+
+테마에는 다음 항목을 정의합니다.
+
+- 챕터의 `AssetManifest`
+- 바닥 spritesheet와 프레임 수
+- 상·하·좌·우 벽과 모서리, 출입구 에셋
+- 오브젝트 ID 또는 타입별 표시 크기, 깊이, 위치 보정
+
+따라서 Chapter 2를 추가할 때는 에셋 manifest와 테마를 등록하고 레벨 JSON의
+`chapterId`를 연결하면 됩니다. 기존 `GameScene` 수정은 필요하지 않습니다. 6. JSON을 추가한 뒤 `npm run validate:levels`로 레벨 검증을 실행합니다. 7. PR 전에는 `npm run check`로 전체 품질 검사를 실행합니다.
 
 ## 레벨 검증 명령
 

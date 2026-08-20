@@ -116,7 +116,7 @@
           "height": 32,
           "properties": [
             { "name": "assetKey", "type": "string", "value": "chapter1-window" },
-            { "name": "collisionCells", "type": "string", "value": "" }
+            { "name": "collisionCells", "type": "string", "value": "0,0" }
           ]
         },
         {
@@ -209,7 +209,7 @@
           "height": 32,
           "properties": [
             { "name": "assetKey", "type": "string", "value": "chapter1-potted-plant" },
-            { "name": "collisionCells", "type": "string", "value": "" }
+            { "name": "collisionCells", "type": "string", "value": "0,0" }
           ]
         },
         {
