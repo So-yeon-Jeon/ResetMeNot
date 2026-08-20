@@ -1,7 +1,12 @@
 import type { GameAction } from './action';
 import type { Direction, GridMap, GridPosition } from './grid';
 import { positionInDirection, positionKey, tryMove } from './grid';
-import { cloneWorldObject, restoreWorldObjects, type WorldObjectState } from './world-object';
+import {
+  cloneWorldObject,
+  restoreWorldObjects,
+  type ObjectEffect,
+  type WorldObjectState,
+} from './world-object';
 
 export type EchoState = Readonly<{
   id: number;
@@ -27,6 +32,7 @@ export type RememberedObjectState = Readonly<{
     position?: GridPosition;
     state?: string;
     broken?: boolean;
+    collectible?: boolean;
     collected?: boolean;
   }>;
 }>;
@@ -44,6 +50,7 @@ export type GameState = Readonly<{
   hasAction: boolean;
   heldInteractionId?: string;
   resetUnlocked: boolean;
+  echoUnlocked: boolean;
   resetCount: number;
   resetLimit: number;
   resetPolicy: ResetPolicy;
@@ -65,6 +72,7 @@ export type GameState = Readonly<{
 export type GameStateOptions = Readonly<{
   facing?: Direction;
   resetUnlocked?: boolean;
+  echoUnlocked?: boolean;
   resetLimit?: number;
   resetPolicy?: ResetPolicy;
   echoLimit?: number;
@@ -97,6 +105,7 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
   }
 
   const facing = options.facing ?? 'down';
+  const resetUnlocked = options.resetUnlocked ?? options.worldMemory?.pocketWatchCollected ?? false;
   const initialObjects = (options.objects ?? []).map(cloneWorldObject);
   const objects = recalculateDerivedObjects(initialObjects, player, [], undefined, undefined);
   return {
@@ -106,7 +115,8 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
     playerStartFacing: facing,
     elapsedMs: 0,
     hasAction: false,
-    resetUnlocked: options.resetUnlocked ?? options.worldMemory?.pocketWatchCollected ?? false,
+    resetUnlocked,
+    echoUnlocked: options.echoUnlocked ?? resetUnlocked,
     resetCount: 0,
     resetLimit,
     resetPolicy,
@@ -133,7 +143,7 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
 
 export function unlockReset(state: GameState): GameState {
   if (state.resetUnlocked) return state;
-  return { ...state, resetUnlocked: true };
+  return { ...state, resetUnlocked: true, echoUnlocked: true };
 }
 
 export function advanceTime(state: GameState, deltaMs: number): GameState {
@@ -258,6 +268,9 @@ export function rememberLevelObjects(state: GameState, levelId: string): GameSta
             ...(object.persistentFields.includes('position') && {
               position: { ...object.position },
             }),
+            ...(object.persistentFields.includes('collectible') && {
+              collectible: object.collectible,
+            }),
             ...(object.persistentFields.includes('collected') && { collected: object.collected }),
           },
         },
@@ -301,35 +314,20 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
   const candidate = tryMove(state.player, direction, map);
   if (candidate === state.player) return facingResult(state, direction);
 
-  const closedDoor = findObjectAt(state.objects, candidate, 'door');
-  if (closedDoor?.type === 'door' && !closedDoor.open) return facingResult(state, direction);
-
-  const blockingInteractionObject = state.objects.some(
-    (object) =>
-      samePosition(object.position, candidate) &&
-      ((object.type === 'pocket-watch' && !object.collected) ||
-        (object.type === 'key' && !object.collected) ||
-        object.type === 'lever' ||
-        object.type === 'puzzle-object'),
-  );
-  if (blockingInteractionObject) return facingResult(state, direction);
-
   let objects = state.objects;
   const box = findObjectAt(objects, candidate, 'box');
+  const blockedByObject = objects.some(
+    (object) => object.id !== box?.id && blocksPosition(object, candidate),
+  );
+  if (blockedByObject) return facingResult(state, direction);
+
   if (box?.type === 'box') {
     const boxDestination = tryMove(box.position, direction, map);
     const boxBlocked =
       boxDestination === box.position ||
       objects.some(
         (object) =>
-          (object.type === 'box' ||
-            (object.type === 'door' && !object.open) ||
-            (object.type === 'pocket-watch' && !object.collected) ||
-            (object.type === 'key' && !object.collected) ||
-            object.type === 'lever' ||
-            object.type === 'puzzle-object') &&
-          object.id !== box.id &&
-          positionKey(object.position) === positionKey(boxDestination),
+          object.id !== box.id && (object.type === 'box' || blocksPosition(object, boxDestination)),
       );
     if (boxBlocked) return facingResult(state, direction);
     objects = objects.map((object) =>
@@ -361,15 +359,19 @@ function applyInteract(state: GameState): ActionResult {
   const object = state.objects.find((candidate) => {
     if (positionKey(candidate.position) !== positionKey(target)) return false;
     return (
-      (candidate.type === 'pocket-watch' && !candidate.collected) ||
-      (candidate.type === 'key' && !candidate.collected) ||
+      (candidate.type === 'pocket-watch' && !candidate.collected && candidate.interactable) ||
+      (candidate.type === 'key' && !candidate.collected && candidate.collectible) ||
       candidate.type === 'lever' ||
       (candidate.type === 'door' && !candidate.unlocked && candidate.keyId !== undefined) ||
       (candidate.type === 'exit' && candidate.mode === 'interact') ||
-      candidate.type === 'puzzle-object'
+      (candidate.type === 'puzzle-object' && candidate.onInteract !== undefined)
     );
   });
   if (!object) return result(state, false);
+
+  if (object.type === 'key' && isBlockedByOtherObject(state.objects, target, object.id)) {
+    return result(state, false);
+  }
 
   if (object.type === 'pocket-watch' && !object.collected) {
     return changedInteraction(
@@ -421,7 +423,19 @@ function applyInteract(state: GameState): ActionResult {
     const objects = state.objects.map((candidate) =>
       candidate.id === object.id ? { ...object, unlocked: true, open: true } : candidate,
     );
-    return result({ ...state, objects, inventoryKeys, hasAction: true }, true);
+    return {
+      ...result(
+        {
+          ...state,
+          objects,
+          inventoryKeys,
+          hasAction: true,
+          phase: object.clearOnOpen ? 'completed' : state.phase,
+        },
+        true,
+      ),
+      chapterCompleted: object.clearOnOpen,
+    };
   }
   if (object.type === 'exit' && object.mode === 'interact') {
     return {
@@ -429,7 +443,76 @@ function applyInteract(state: GameState): ActionResult {
       chapterCompleted: true,
     };
   }
+  if (object.type === 'puzzle-object' && object.onInteract) {
+    return applyPuzzleInteraction(state, object);
+  }
   return result(state, false);
+}
+
+function applyPuzzleInteraction(
+  state: GameState,
+  object: Extract<WorldObjectState, { type: 'puzzle-object' }>,
+): ActionResult {
+  const interaction = object.onInteract;
+  if (!interaction) return result(state, false);
+
+  let objects = state.objects;
+  const nextState = interaction.nextState;
+  if (nextState !== undefined) {
+    if (!object.states[nextState]) return result(state, false);
+    objects = objects.map((candidate) =>
+      candidate.id === object.id ? { ...object, state: nextState } : candidate,
+    );
+  }
+
+  for (const effect of interaction.effects) {
+    const nextObjects = applyObjectEffect(objects, effect);
+    if (!nextObjects) return result(state, false);
+    objects = nextObjects;
+  }
+
+  const watchCollected = objects.some(
+    (candidate) => candidate.type === 'pocket-watch' && candidate.collected,
+  );
+  const watchMemory = watchCollected
+    ? { ...state.worldMemory, pocketWatchCollected: true }
+    : state.worldMemory;
+  return result(
+    {
+      ...state,
+      objects,
+      hasAction: true,
+      resetUnlocked: state.resetUnlocked || watchCollected,
+      worldMemory: watchMemory,
+    },
+    true,
+  );
+}
+
+function applyObjectEffect(
+  objects: readonly WorldObjectState[],
+  effect: ObjectEffect,
+): readonly WorldObjectState[] | undefined {
+  const target = objects.find((object) => object.id === effect.objectId);
+  if (!target) return undefined;
+
+  return objects.map((object) => {
+    if (object.id !== effect.objectId) return object;
+    if (effect.type === 'set-position') return { ...object, position: { ...effect.position } };
+    if (effect.type === 'set-state' && object.type === 'puzzle-object') {
+      return object.states[effect.state] ? { ...object, state: effect.state } : object;
+    }
+    if (effect.type === 'set-collectible' && object.type === 'key') {
+      return { ...object, collectible: effect.collectible };
+    }
+    if (
+      effect.type === 'set-collected' &&
+      (object.type === 'key' || object.type === 'pocket-watch')
+    ) {
+      return { ...object, collected: effect.collected };
+    }
+    return object;
+  });
 }
 
 function changedInteraction(
@@ -454,12 +537,14 @@ function applyReset(state: GameState): ActionResult {
     samePosition(echo.position, state.player),
   );
   const echoLimitReached = state.echoes.length >= state.echoLimit;
-  const canCreateEcho = !echoLimitReached && !echoAlreadyAtPlayer;
-  const echoCreationBlocked = echoAlreadyAtPlayer
-    ? 'occupied'
-    : echoLimitReached
-      ? 'limit'
-      : undefined;
+  const canCreateEcho = state.echoUnlocked && !echoLimitReached && !echoAlreadyAtPlayer;
+  const echoCreationBlocked = !state.echoUnlocked
+    ? undefined
+    : echoAlreadyAtPlayer
+      ? 'occupied'
+      : echoLimitReached
+        ? 'limit'
+        : undefined;
   const echoes: readonly EchoState[] = canCreateEcho
     ? [
         ...state.echoes,
@@ -580,6 +665,51 @@ function recalculateDerivedObjects(
         keepOpenWhileOccupied,
     };
   });
+}
+
+function blocksPosition(object: WorldObjectState, position: GridPosition): boolean {
+  if (object.type === 'door') return !object.open && samePosition(object.position, position);
+  if (object.type === 'box') return samePosition(object.position, position);
+  if (object.type === 'key')
+    return !object.collected && object.collectible && samePosition(object.position, position);
+  if (object.type === 'pocket-watch') {
+    return (
+      !object.collected &&
+      object.interactable &&
+      object.blocksMovement &&
+      samePosition(object.position, position)
+    );
+  }
+  if (object.type === 'lever') return samePosition(object.position, position);
+  if (object.type === 'prop')
+    return relativeCellsContain(object.position, object.collisionCells, position);
+  if (object.type === 'puzzle-object') {
+    const definition = object.states[object.state];
+    return relativeCellsContain(
+      object.position,
+      definition?.collisionCells ?? [{ x: 0, y: 0 }],
+      position,
+    );
+  }
+  return false;
+}
+
+function isBlockedByOtherObject(
+  objects: readonly WorldObjectState[],
+  position: GridPosition,
+  ignoredObjectId: string,
+): boolean {
+  return objects.some(
+    (object) => object.id !== ignoredObjectId && blocksPosition(object, position),
+  );
+}
+
+function relativeCellsContain(
+  origin: GridPosition,
+  cells: readonly GridPosition[],
+  position: GridPosition,
+): boolean {
+  return cells.some((cell) => origin.x + cell.x === position.x && origin.y + cell.y === position.y);
 }
 
 function findObjectAt(
