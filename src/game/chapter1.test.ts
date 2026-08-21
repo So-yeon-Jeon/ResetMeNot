@@ -145,9 +145,10 @@ describe('Chapter 1 room 1', () => {
     expect(object(result.state, 'chapter1-pocket-watch')).toMatchObject({ collected: true });
   });
 
-  it('turns the bookshelf fallen and drops an initially unavailable key', () => {
+  it('turns the bookshelf fallen and leaves the key trapped until RESET', () => {
     const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
-    const fallen = interact(acquired, { x: 7, y: 1 }, 'right');
+    const fallen = interact(acquired, { x: 9, y: 2 }, 'up');
+    const blocked = applyAction(at(fallen, { x: 9, y: 4 }, 'up'), { type: 'interact' }, level.map);
 
     expect(object(fallen, 'chapter1-bookshelf')).toMatchObject({
       position: { x: 8, y: 1 },
@@ -158,25 +159,72 @@ describe('Chapter 1 room 1', () => {
       collectible: true,
       collected: false,
     });
+    expect(blocked.changed).toBe(false);
+    expect(object(blocked.state, 'chapter1-key')).toMatchObject({ collected: false });
   });
 
-  it('blocks the dropped key while the bookshelf is fallen', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
-    const fallen = interact(acquired, { x: 7, y: 1 }, 'right');
-    const blocked = applyAction(
-      at(fallen, { x: 9, y: 4 }, 'up'),
-      { type: 'interact' },
+  it('allows the player to stand in front of the standing bookshelf', () => {
+    const state = createLevelGameState(level);
+    const front = applyAction(
+      at(state, { x: 9, y: 3 }, 'up'),
+      { type: 'move', direction: 'up' },
+      level.map,
+    ).state;
+    const behind = applyAction(
+      at(front, { x: 9, y: 2 }, 'up'),
+      { type: 'move', direction: 'up' },
       level.map,
     ).state;
 
-    expect(blocked.player).toEqual({ x: 9, y: 4 });
-    expect(blocked.hasAction).toBe(false);
-    expect(object(blocked, 'chapter1-key')).toMatchObject({ collected: false });
+    expect(front.player).toEqual({ x: 9, y: 2 });
+    expect(behind.player).toEqual({ x: 9, y: 2 });
+  });
+
+  it('allows interaction only from the center front tile of the standing bookshelf', () => {
+    const left = interact(createLevelGameState(level), { x: 8, y: 2 }, 'up');
+    const center = interact(createLevelGameState(level), { x: 9, y: 2 }, 'up');
+    const right = interact(createLevelGameState(level), { x: 10, y: 2 }, 'up');
+
+    expect(object(left, 'chapter1-bookshelf')).toMatchObject({ state: 'standing' });
+    expect(object(center, 'chapter1-bookshelf')).toMatchObject({ state: 'fallen' });
+    expect(object(right, 'chapter1-bookshelf')).toMatchObject({ state: 'standing' });
+  });
+
+  it('does not allow side access to the key while the bookshelf is fallen', () => {
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const fallen = interact(acquired, { x: 9, y: 2 }, 'up');
+    const blocked = applyAction(
+      at(fallen, { x: 8, y: 3 }, 'right'),
+      { type: 'interact' },
+      level.map,
+    );
+
+    expect(blocked.changed).toBe(false);
+    expect(object(blocked.state, 'chapter1-key')).toMatchObject({ collected: false });
+  });
+
+  it('lets the player escape after falling the bookshelf while keeping the key blocked', () => {
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const fallen = interact(acquired, { x: 9, y: 2 }, 'up');
+    const movedLeft = applyAction(
+      at(fallen, { x: 9, y: 3 }, 'left'),
+      { type: 'move', direction: 'left' },
+      level.map,
+    ).state;
+    const escaped = applyAction(
+      at(movedLeft, { x: 8, y: 3 }, 'down'),
+      { type: 'move', direction: 'down' },
+      level.map,
+    ).state;
+
+    expect(movedLeft.player).toEqual({ x: 8, y: 3 });
+    expect(escaped.player).toEqual({ x: 8, y: 4 });
+    expect(object(escaped, 'chapter1-key')).toMatchObject({ collected: false });
   });
 
   it('restores the bookshelf but preserves the dropped key position and collectible state', () => {
     const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
-    const fallen = interact(acquired, { x: 7, y: 1 }, 'right');
+    const fallen = interact(acquired, { x: 9, y: 2 }, 'up');
     const reset = resetAfterAction(fallen);
 
     expect(object(reset, 'chapter1-bookshelf')).toMatchObject({
@@ -191,10 +239,19 @@ describe('Chapter 1 room 1', () => {
     expect(reset.player).toEqual({ x: 5, y: 8 });
   });
 
-  it('allows the player to collect the dropped key after RESET', () => {
+  it('still allows the player to collect the dropped key after RESET', () => {
     const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
-    const reset = resetAfterAction(interact(acquired, { x: 7, y: 1 }, 'right'));
+    const reset = resetAfterAction(interact(acquired, { x: 9, y: 2 }, 'up'));
     const collected = interact(reset, { x: 9, y: 4 }, 'up');
+
+    expect(object(collected, 'chapter1-key')).toMatchObject({ collected: true });
+    expect(collected.inventoryKeys).toEqual(['chapter1-key']);
+  });
+
+  it('allows collecting the dropped key while standing on its tile', () => {
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const reset = resetAfterAction(interact(acquired, { x: 9, y: 2 }, 'up'));
+    const collected = interact(reset, { x: 9, y: 3 }, 'left');
 
     expect(object(collected, 'chapter1-key')).toMatchObject({ collected: true });
     expect(collected.inventoryKeys).toEqual(['chapter1-key']);
@@ -209,7 +266,7 @@ describe('Chapter 1 room 1', () => {
 
   it('opens the door and clears Chapter 1 after the key is collected', () => {
     const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
-    const reset = resetAfterAction(interact(acquired, { x: 7, y: 1 }, 'right'));
+    const reset = resetAfterAction(interact(acquired, { x: 9, y: 2 }, 'up'));
     const withKey = interact(reset, { x: 9, y: 4 }, 'up');
     const result = applyAction(
       at(withKey, { x: 1, y: 7 }, 'down'),
@@ -222,9 +279,22 @@ describe('Chapter 1 room 1', () => {
     expect(object(result.state, 'chapter1-door')).toMatchObject({ open: true, unlocked: true });
   });
 
+  it('opens the visual three-tile door from any front tile', () => {
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const reset = resetAfterAction(interact(acquired, { x: 9, y: 2 }, 'up'));
+    const withKey = interact(reset, { x: 9, y: 4 }, 'up');
+
+    for (const x of [1, 2, 3]) {
+      const result = applyAction(at(withKey, { x, y: 7 }, 'down'), { type: 'interact' }, level.map);
+
+      expect(result.chapterCompleted).toBe(true);
+      expect(object(result.state, 'chapter1-door')).toMatchObject({ open: true, unlocked: true });
+    }
+  });
+
   it('restarts the Chapter 1 puzzle state from its initial data', () => {
     const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
-    const fallen = interact(acquired, { x: 7, y: 1 }, 'right');
+    const fallen = interact(acquired, { x: 9, y: 2 }, 'up');
     const restarted = restartChapter(fallen);
 
     expect(restarted.player).toEqual({ x: 5, y: 8 });

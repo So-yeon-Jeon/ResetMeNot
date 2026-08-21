@@ -231,11 +231,19 @@ function createLevelObject(
     Prop: ['assetKey', 'collisionCells'],
     Switch: ['acceptedActors'],
     Lever: ['mode', 'acceptedActors'],
-    Key: ['persistentFields', 'collectible', 'visible', 'assetKey'],
+    Key: [
+      'persistentFields',
+      'collectible',
+      'visible',
+      'blocksMovement',
+      'requiresReset',
+      'assetKey',
+    ],
     Door: [
       'switchIds',
       'leverIds',
       'activationMode',
+      'interactionCells',
       'keyId',
       'consumesKey',
       'clearOnOpen',
@@ -249,6 +257,7 @@ function createLevelObject(
       'assetKey',
       'stateAssets',
       'stateCollision',
+      'stateInteraction',
       'onInteractState',
       'onInteractEffects',
     ],
@@ -297,6 +306,8 @@ function createLevelObject(
           boolean(props.collectible, true, `${id}.collectible`),
           `${id}.visible`,
         ),
+        boolean(props.blocksMovement, true, `${id}.blocksMovement`),
+        boolean(props.requiresReset, false, `${id}.requiresReset`),
       );
     case 'Door':
       return createDoorFromProperties(id, position, props);
@@ -325,6 +336,10 @@ function createDoorFromProperties(
 ): WorldObjectState {
   const switchIds = uniqueCsv(props.switchIds, `${id}.switchIds`);
   const leverIds = uniqueCsv(props.leverIds, `${id}.leverIds`);
+  const interactionCells =
+    props.interactionCells === undefined
+      ? undefined
+      : parseCollisionCells(props.interactionCells, `${id}.interactionCells`);
   const keyId = optionalText(props.keyId);
   const consumesKey = boolean(props.consumesKey, false, `${id}.consumesKey`);
   const clearOnOpen = boolean(props.clearOnOpen, false, `${id}.clearOnOpen`);
@@ -344,6 +359,7 @@ function createDoorFromProperties(
       ['all', 'any'] as const,
       `${id}.activationMode`,
     ),
+    interactionCells,
     keyId,
     consumesKey,
     clearOnOpen,
@@ -359,7 +375,13 @@ function parsePuzzleStates(
   const initialState = optionalText(props.initialState) ?? 'default';
   const assets = parseStateMap(props.stateAssets, `${id}.stateAssets`);
   const collisions = parseStateCollisionMap(props.stateCollision, `${id}.stateCollision`);
-  const stateNames = new Set([initialState, ...Object.keys(assets), ...Object.keys(collisions)]);
+  const interactions = parseStateCollisionMap(props.stateInteraction, `${id}.stateInteraction`);
+  const stateNames = new Set([
+    initialState,
+    ...Object.keys(assets),
+    ...Object.keys(collisions),
+    ...Object.keys(interactions),
+  ]);
   return Object.fromEntries(
     [...stateNames].map((state) => [
       state,
@@ -367,6 +389,7 @@ function parsePuzzleStates(
         assetKey:
           assets[state] ?? (state === initialState ? optionalText(props.assetKey) : undefined),
         collisionCells: collisions[state] ?? [{ x: 0, y: 0 }],
+        interactionCells: interactions[state],
       },
     ]),
   );

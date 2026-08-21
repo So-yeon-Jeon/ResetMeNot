@@ -357,10 +357,25 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
 function applyInteract(state: GameState): ActionResult {
   const target = positionInDirection(state.player, state.playerFacing);
   const object = state.objects.find((candidate) => {
-    if (positionKey(candidate.position) !== positionKey(target)) return false;
+    const isPuzzleObject = candidate.type === 'puzzle-object' && candidate.onInteract !== undefined;
+    const isKeyOnPlayer =
+      candidate.type === 'key' && samePosition(candidate.position, state.player);
+    if (isPuzzleObject && !puzzleObjectOccupies(candidate, target)) return false;
+    if (
+      !isPuzzleObject &&
+      !isKeyOnPlayer &&
+      (candidate.type === 'door'
+        ? !relativeCellsContain(candidate.position, candidate.interactionCells, target)
+        : positionKey(candidate.position) !== positionKey(target))
+    ) {
+      return false;
+    }
     return (
       (candidate.type === 'pocket-watch' && !candidate.collected && candidate.interactable) ||
-      (candidate.type === 'key' && !candidate.collected && candidate.collectible) ||
+      (candidate.type === 'key' &&
+        !candidate.collected &&
+        candidate.collectible &&
+        (!candidate.requiresReset || state.resetCount > 0)) ||
       candidate.type === 'lever' ||
       (candidate.type === 'door' && !candidate.unlocked && candidate.keyId !== undefined) ||
       (candidate.type === 'exit' && candidate.mode === 'interact') ||
@@ -369,7 +384,11 @@ function applyInteract(state: GameState): ActionResult {
   });
   if (!object) return result(state, false);
 
-  if (object.type === 'key' && isBlockedByOtherObject(state.objects, target, object.id)) {
+  if (
+    object.type === 'key' &&
+    !samePosition(object.position, state.player) &&
+    isBlockedByOtherObject(state.objects, target, object.id)
+  ) {
     return result(state, false);
   }
 
@@ -449,6 +468,20 @@ function applyInteract(state: GameState): ActionResult {
   return result(state, false);
 }
 
+function puzzleObjectOccupies(
+  object: Extract<WorldObjectState, { type: 'puzzle-object' }>,
+  position: GridPosition,
+): boolean {
+  const interactionCells = object.states[object.state]?.interactionCells ?? [{ x: 0, y: 0 }];
+  return interactionCells.some(
+    (cell) =>
+      positionKey({
+        x: object.position.x + cell.x,
+        y: object.position.y + cell.y,
+      }) === positionKey(position),
+  );
+}
+
 function applyPuzzleInteraction(
   state: GameState,
   object: Extract<WorldObjectState, { type: 'puzzle-object' }>,
@@ -458,6 +491,7 @@ function applyPuzzleInteraction(
 
   let objects = state.objects;
   const nextState = interaction.nextState;
+  if (nextState === object.state) return result(state, false);
   if (nextState !== undefined) {
     if (!object.states[nextState]) return result(state, false);
     objects = objects.map((candidate) =>
@@ -671,7 +705,12 @@ function blocksPosition(object: WorldObjectState, position: GridPosition): boole
   if (object.type === 'door') return !object.open && samePosition(object.position, position);
   if (object.type === 'box') return samePosition(object.position, position);
   if (object.type === 'key')
-    return !object.collected && object.collectible && samePosition(object.position, position);
+    return (
+      object.blocksMovement &&
+      !object.collected &&
+      object.collectible &&
+      samePosition(object.position, position)
+    );
   if (object.type === 'pocket-watch') {
     return (
       !object.collected &&

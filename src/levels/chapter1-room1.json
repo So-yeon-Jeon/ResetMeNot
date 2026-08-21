@@ -136,7 +136,12 @@
             {
               "name": "stateCollision",
               "type": "string",
-              "value": "standing=0,0|1,0|2,0|0,1|1,1|2,1;fallen=0,0|1,0|2,0|0,1|1,1|2,1|0,2|1,2|2,2"
+              "value": "standing=0,0|1,0|2,0;fallen=0,0|1,0|2,0|0,1|1,1|2,1"
+            },
+            {
+              "name": "stateInteraction",
+              "type": "string",
+              "value": "standing=1,0;fallen="
             },
             { "name": "onInteractState", "type": "string", "value": "fallen" },
             {
@@ -156,6 +161,8 @@
           "properties": [
             { "name": "collectible", "type": "bool", "value": false },
             { "name": "visible", "type": "bool", "value": true },
+            { "name": "blocksMovement", "type": "bool", "value": false },
+            { "name": "requiresReset", "type": "bool", "value": true },
             { "name": "assetKey", "type": "string", "value": "chapter1-key" },
             {
               "name": "persistentFields",
@@ -247,6 +254,7 @@
             { "name": "keyId", "type": "string", "value": "chapter1-key" },
             { "name": "consumesKey", "type": "bool", "value": false },
             { "name": "clearOnOpen", "type": "bool", "value": true },
+            { "name": "interactionCells", "type": "string", "value": "0,0|1,0|2,0" },
             {
               "name": "closedAssetKey",
               "type": "string",
