@@ -154,6 +154,8 @@ describe('Chapter 1 room 1', () => {
       position: { x: 8, y: 1 },
       state: 'fallen',
     });
+    expect(fallen.player).toEqual({ x: 9, y: 3 });
+    expect(fallen.playerFacing).toBe('down');
     expect(object(fallen, 'chapter1-key')).toMatchObject({
       position: { x: 9, y: 3 },
       collectible: true,

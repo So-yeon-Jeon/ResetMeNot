@@ -40,6 +40,18 @@
       ]
     },
     {
+      "name": "movement-blockers",
+      "type": "tilelayer",
+      "width": 12,
+      "height": 10,
+      "data": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      ]
+    },
+    {
       "name": "objects",
       "type": "objectgroup",
       "objects": [
@@ -144,6 +156,7 @@
               "value": "standing=1,0;fallen="
             },
             { "name": "onInteractState", "type": "string", "value": "fallen" },
+            { "name": "onInteractPlayerRetreat", "type": "string", "value": "down" },
             {
               "name": "onInteractEffects",
               "type": "string",

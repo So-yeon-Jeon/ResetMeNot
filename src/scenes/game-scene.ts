@@ -18,9 +18,14 @@ import {
   restartChapter,
   type GameState,
 } from '../game/game-state';
-import { positionKey, type Direction, type GridMap, type GridPosition } from '../game/grid';
+import type { Direction, GridPosition } from '../game/grid';
+import type { PuzzleObjectState } from '../game/world-object';
 import { GAME_LEVELS_LOAD_RESULT } from '../levels/level-catalog';
-import type { ChapterVisualTheme, ObjectVisual } from '../themes/chapter-visual-theme';
+import type {
+  ChapterVisualTheme,
+  ObjectVisual,
+  StateTransitionVisual,
+} from '../themes/chapter-visual-theme';
 import { CHAPTER_VISUAL_THEMES, getChapterVisualTheme } from '../themes/theme-catalog';
 
 const MOVE_DURATION_MS = 110;
@@ -34,18 +39,10 @@ const PLAYER_CHARACTER_ORIGIN_Y = 0.95;
 const CHARACTER_FOOT_OFFSET_Y = GRID_SIZE / 2;
 const PLAYER_CHARACTER_DEPTH = 1.2;
 const ECHO_CHARACTER_DEPTH = 1.15;
-const CHAPTER1_TOP_WALL_BUFFER_ROW = 1;
-const CHAPTER1_TOP_WALL_BUFFER_GAP = positionKey({ x: 7, y: CHAPTER1_TOP_WALL_BUFFER_ROW });
 const WALL_DEPTH = 0.1;
 const WALL_OPENING_DEPTH = 0.12;
 const WALL_SIDE_ALPHA = 0.78;
 const WALL_BOTTOM_ALPHA = 0.8;
-const BOOKSHELF_DISPLAY_SIZE = { width: 112, height: 84 };
-const BOOKSHELF_VISUAL_OFFSET = { x: -4, y: -32 };
-const BOOKSHELF_FALLEN_OFFSET_Y = 32;
-const BOOKSHELF_FALL_DURATION_MS = 460;
-const BOOKSHELF_FALL_DEPTH = 1.3;
-const DOOR_FOREGROUND_CROP = { y: 70, height: 26, depth: PLAYER_CHARACTER_DEPTH + 0.1 };
 const FOREGROUND_DEPTH_OFFSET = 0.03;
 
 type MovementKeys = Readonly<{
@@ -92,7 +89,7 @@ export class GameScene extends Phaser.Scene {
   private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
   private isResetting = false;
-  private isBookshelfFalling = false;
+  private isObjectTransitioning = false;
   private isFinalePlaying = false;
   private pendingReset = false;
   private pendingDirection?: Direction;
@@ -180,7 +177,14 @@ export class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.continueKey)) this.advanceEndingPage();
       return;
     }
-    if (this.isResetting || this.isBookshelfFalling) return;
+    if (this.isResetting) return;
+    if (this.isObjectTransitioning) {
+      if (Phaser.Input.Keyboard.JustDown(this.resetKey)) {
+        this.pendingReset = true;
+        this.pendingDirection = undefined;
+      }
+      return;
+    }
 
     if (
       this.gameState.phase === 'playing' &&
@@ -564,24 +568,10 @@ export class GameScene extends Phaser.Scene {
 
   private dispatch(action: GameAction): void {
     const previousPlayer = this.gameState.player;
-    const previousBookshelf = this.gameState.objects.find(
-      (object) => object.id === 'chapter1-bookshelf',
-    );
-    const result = applyAction(this.gameState, action, this.movementMap());
-    const bookshelfFell =
-      action.type === 'interact' &&
-      previousBookshelf?.type === 'puzzle-object' &&
-      previousBookshelf.state === 'standing' &&
-      result.state.objects.some(
-        (object) =>
-          object.id === 'chapter1-bookshelf' &&
-          object.type === 'puzzle-object' &&
-          object.state === 'fallen',
-      );
-    const nextState = bookshelfFell
-      ? this.retreatPlayerAfterBookshelfFall(result.state)
-      : result.state;
-    this.setGameState(nextState);
+    const previousState = this.gameState;
+    const result = applyAction(this.gameState, action, currentLevel(this.session).map);
+    const stateTransition = this.findStateTransition(previousState, result.state);
+    this.setGameState(result.state);
     if (action.type === 'move') {
       this.setPlayerFrame('idle');
       this.updatePlayerDepth();
@@ -602,9 +592,16 @@ export class GameScene extends Phaser.Scene {
     if (!result.changed) return;
 
     this.renderObjects();
-    if (bookshelfFell) {
-      this.playBookshelfFallAnimation();
-      this.showFeedback('BOOKSHELF FALLS · KEY EXPOSED');
+    if (stateTransition) {
+      this.playStateTransitionAnimation(
+        stateTransition.object,
+        stateTransition.previousState,
+        stateTransition.visual,
+        stateTransition.transition,
+      );
+      if (stateTransition.transition.feedback) {
+        this.showFeedback(stateTransition.transition.feedback);
+      }
     }
 
     if (
@@ -642,7 +639,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderResetState(): void {
-    this.isBookshelfFalling = false;
+    this.isObjectTransitioning = false;
     const playerPixel = this.characterToPixel(this.gameState.player);
     this.player.setPosition(playerPixel.x, playerPixel.y);
     this.setPlayerFrame('idle');
@@ -653,18 +650,6 @@ export class GameScene extends Phaser.Scene {
     this.renderObjects();
     this.updateResetHud();
     this.cameras.main.flash(90, 115, 200, 223, false);
-  }
-
-  private retreatPlayerAfterBookshelfFall(state: GameState): GameState {
-    const retreatPosition = { x: state.player.x, y: state.player.y + 1 };
-    const map = currentLevel(this.session).map;
-    if (retreatPosition.y >= map.height) return state;
-
-    return {
-      ...state,
-      player: retreatPosition,
-      playerFacing: 'down',
-    };
   }
 
   private updateResetHud(): void {
@@ -717,37 +702,83 @@ export class GameScene extends Phaser.Scene {
     this.renderObjects();
   }
 
-  private playBookshelfFallAnimation(): void {
-    const bookshelf = this.gameState.objects.find(
-      (object) => object.id === 'chapter1-bookshelf' && object.type === 'puzzle-object',
-    );
-    if (!bookshelf || !this.textures.exists('chapter1-bookshelf-standing')) return;
+  private findStateTransition(
+    previous: GameState,
+    next: GameState,
+  ):
+    | Readonly<{
+        object: PuzzleObjectState;
+        previousState: string;
+        visual: ObjectVisual;
+        transition: StateTransitionVisual;
+      }>
+    | undefined {
+    for (const previousObject of previous.objects) {
+      if (previousObject.type !== 'puzzle-object') continue;
+      const nextObject = next.objects.find(
+        (candidate): candidate is PuzzleObjectState =>
+          candidate.id === previousObject.id && candidate.type === 'puzzle-object',
+      );
+      if (!nextObject || nextObject.state === previousObject.state) continue;
 
-    const x = this.mapOrigin.x + bookshelf.position.x * GRID_SIZE + BOOKSHELF_VISUAL_OFFSET.x;
-    const y = this.mapOrigin.y + bookshelf.position.y * GRID_SIZE + BOOKSHELF_VISUAL_OFFSET.y;
+      const visual = this.objectVisual(
+        previousObject.id,
+        previousObject.type,
+        previousObject.position,
+        previousObject.state,
+      );
+      const transition = visual.stateTransition;
+      if (
+        transition &&
+        transition.from === previousObject.state &&
+        transition.to === nextObject.state
+      ) {
+        return { object: nextObject, previousState: previousObject.state, visual, transition };
+      }
+    }
+    return undefined;
+  }
+
+  private playStateTransitionAnimation(
+    object: PuzzleObjectState,
+    previousState: string,
+    visual: ObjectVisual,
+    transition: StateTransitionVisual,
+  ): void {
+    const assetKey = object.states[previousState]?.assetKey ?? object.assetKey;
+    if (!assetKey || !this.textures.exists(assetKey) || transition.kind !== 'fall') return;
+
+    const offset = visual.offset ?? { x: 0, y: 0 };
+    const manifestEntry = this.currentTheme().assets[assetKey];
+    const displaySize = visual.displaySize ?? manifestEntry;
+    if (!displaySize) return;
+    const x = this.mapOrigin.x + object.position.x * GRID_SIZE + offset.x;
+    const y = this.mapOrigin.y + object.position.y * GRID_SIZE + offset.y;
     const fallingSprite = this.add
-      .image(
-        x + BOOKSHELF_DISPLAY_SIZE.width / 2,
-        y + BOOKSHELF_DISPLAY_SIZE.height,
-        'chapter1-bookshelf-standing',
-      )
+      .image(x + displaySize.width / 2, y + displaySize.height, assetKey)
       .setOrigin(0.5, 1)
-      .setDisplaySize(BOOKSHELF_DISPLAY_SIZE.width, BOOKSHELF_DISPLAY_SIZE.height)
-      .setDepth(BOOKSHELF_FALL_DEPTH);
+      .setDisplaySize(displaySize.width, displaySize.height)
+      .setDepth(transition.depth);
 
     this.objectSprites.push(fallingSprite);
-    this.isBookshelfFalling = true;
-    this.cameras.main.shake(180, 0.004);
+    this.isObjectTransitioning = true;
+    if (transition.shakeDurationMs && transition.shakeIntensity) {
+      this.cameras.main.shake(transition.shakeDurationMs, transition.shakeIntensity);
+    }
     this.tweens.add({
       targets: fallingSprite,
-      angle: -78,
-      y: fallingSprite.y + 14,
+      angle: transition.angle,
+      y: fallingSprite.y + transition.travelY,
       alpha: 0,
-      duration: BOOKSHELF_FALL_DURATION_MS,
+      duration: transition.durationMs,
       ease: 'Cubic.easeIn',
       onComplete: () => {
         fallingSprite.destroy();
-        this.isBookshelfFalling = false;
+        this.isObjectTransitioning = false;
+        if (this.pendingReset) {
+          this.pendingReset = false;
+          this.dispatch({ type: 'reset' });
+        }
       },
     });
   }
@@ -755,29 +786,19 @@ export class GameScene extends Phaser.Scene {
   private renderObjects(): void {
     this.objectSprites.forEach((object) => object.destroy());
     this.objectSprites = [];
-    const bookshelfIsFallen = this.gameState.objects.some(
-      (object) =>
-        object.id === 'chapter1-bookshelf' &&
-        object.type === 'puzzle-object' &&
-        object.state === 'fallen',
-    );
-
     this.gameState.objects.forEach((object) => {
       const pixel = this.gridToPixel(object.position);
-      const visual = this.objectVisual(object.id, object.type, object.position);
+      const visual = this.objectVisual(
+        object.id,
+        object.type,
+        object.position,
+        object.type === 'puzzle-object' ? object.state : undefined,
+      );
       const visualPosition = {
         x: visual.positionOverride?.x ?? object.position.x,
         y: visual.positionOverride?.y ?? object.position.y,
       };
-      const visualOffset =
-        object.id === 'chapter1-bookshelf' &&
-        object.type === 'puzzle-object' &&
-        object.state === 'fallen'
-          ? {
-              x: visual.offset?.x ?? 0,
-              y: (visual.offset?.y ?? 0) + BOOKSHELF_FALLEN_OFFSET_Y,
-            }
-          : visual.offset;
+      const visualOffset = visual.offset;
       if (object.type === 'prop') {
         this.objectSprites.push(
           ...this.renderAssetObject(
@@ -837,7 +858,7 @@ export class GameScene extends Phaser.Scene {
             visual.depth ?? 0.7,
             visualOffset,
             visual.displaySize,
-            DOOR_FOREGROUND_CROP,
+            visual.foregroundCrop,
           ),
         );
       }
@@ -871,7 +892,7 @@ export class GameScene extends Phaser.Scene {
         object.type === 'key' &&
         object.visible &&
         !object.collected &&
-        !(bookshelfIsFallen && object.id === 'chapter1-key')
+        this.shouldRenderKey(object)
       ) {
         this.objectSprites.push(
           ...this.renderAssetObject(
@@ -935,19 +956,37 @@ export class GameScene extends Phaser.Scene {
     return [];
   }
 
+  private shouldRenderKey(key: Extract<GameState['objects'][number], { type: 'key' }>): boolean {
+    if (!key.requiresReset || this.gameState.resetCount > 0) return true;
+    const initialKey = this.gameState.initialObjects.find(
+      (object) => object.id === key.id && object.type === 'key',
+    );
+    return (
+      initialKey?.type === 'key' &&
+      initialKey.position.x === key.position.x &&
+      initialKey.position.y === key.position.y
+    );
+  }
+
   private currentTheme(): ChapterVisualTheme {
     return getChapterVisualTheme(currentLevel(this.session).chapterId);
   }
 
-  private objectVisual(id: string, type: string, position: GridPosition): ObjectVisual {
+  private objectVisual(
+    id: string,
+    type: string,
+    position: GridPosition,
+    state?: string,
+  ): ObjectVisual {
     const theme = this.currentTheme();
     const typeVisual = theme.typeVisuals?.[type] ?? {};
     const objectVisual = theme.objectVisuals?.[id] ?? {};
     const positionOffset = objectVisual.offsetsByPosition?.[`${position.x},${position.y}`];
+    const stateOffset = state ? objectVisual.offsetsByState?.[state] : undefined;
     return {
       ...typeVisual,
       ...objectVisual,
-      offset: positionOffset ?? objectVisual.offset ?? typeVisual.offset,
+      offset: stateOffset ?? positionOffset ?? objectVisual.offset ?? typeVisual.offset,
     };
   }
 
@@ -956,19 +995,6 @@ export class GameScene extends Phaser.Scene {
       x: this.mapOrigin.x + position.x * GRID_SIZE + GRID_SIZE / 2,
       y: this.mapOrigin.y + position.y * GRID_SIZE + GRID_SIZE / 2,
     };
-  }
-
-  private movementMap(): GridMap {
-    const level = currentLevel(this.session);
-    if (level.id !== 'chapter-01-room-01') return level.map;
-
-    const walls = new Set(level.map.walls);
-    for (let x = 1; x < level.map.width - 1; x += 1) {
-      const key = positionKey({ x, y: CHAPTER1_TOP_WALL_BUFFER_ROW });
-      if (key !== CHAPTER1_TOP_WALL_BUFFER_GAP) walls.add(key);
-    }
-
-    return { ...level.map, walls };
   }
 
   private characterToPixel(position: GridPosition): GridPosition {

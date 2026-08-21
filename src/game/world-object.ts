@@ -1,4 +1,4 @@
-import type { GridPosition } from './grid';
+import type { Direction, GridPosition } from './grid';
 
 export type PersistentField = 'position' | 'state' | 'broken' | 'collectible' | 'collected';
 export type AcceptedActor = 'player' | 'echo' | 'box';
@@ -18,6 +18,7 @@ export type PuzzleStateDefinition = Readonly<{
 export type PuzzleInteraction = Readonly<{
   nextState?: string;
   effects: readonly ObjectEffect[];
+  playerRetreat?: Direction;
 }>;
 
 export type PocketWatchState = Readonly<{

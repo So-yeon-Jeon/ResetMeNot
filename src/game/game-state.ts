@@ -202,7 +202,7 @@ export function finishFinale(state: GameState): GameState {
 export function applyAction(state: GameState, action: GameAction, map: GridMap): ActionResult {
   if (state.phase !== 'playing') return result(state, false);
   if (action.type === 'reset') return applyReset(state);
-  if (action.type === 'interact') return applyInteract(state);
+  if (action.type === 'interact') return applyInteract(state, map);
   return applyMove(state, action.direction, map);
 }
 
@@ -354,7 +354,7 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
   return { ...result(nextState, true), chapterCompleted: completed };
 }
 
-function applyInteract(state: GameState): ActionResult {
+function applyInteract(state: GameState, map: GridMap): ActionResult {
   const target = positionInDirection(state.player, state.playerFacing);
   const object = state.objects.find((candidate) => {
     const isPuzzleObject = candidate.type === 'puzzle-object' && candidate.onInteract !== undefined;
@@ -463,7 +463,7 @@ function applyInteract(state: GameState): ActionResult {
     };
   }
   if (object.type === 'puzzle-object' && object.onInteract) {
-    return applyPuzzleInteraction(state, object);
+    return applyPuzzleInteraction(state, object, map);
   }
   return result(state, false);
 }
@@ -485,6 +485,7 @@ function puzzleObjectOccupies(
 function applyPuzzleInteraction(
   state: GameState,
   object: Extract<WorldObjectState, { type: 'puzzle-object' }>,
+  map: GridMap,
 ): ActionResult {
   const interaction = object.onInteract;
   if (!interaction) return result(state, false);
@@ -511,9 +512,23 @@ function applyPuzzleInteraction(
   const watchMemory = watchCollected
     ? { ...state.worldMemory, pocketWatchCollected: true }
     : state.worldMemory;
+  const retreatDirection = interaction.playerRetreat;
+  const retreatPosition = retreatDirection
+    ? tryMove(state.player, retreatDirection, map)
+    : state.player;
+  const canRetreat =
+    retreatDirection !== undefined &&
+    retreatPosition !== state.player &&
+    !objects.some((candidate) => blocksPosition(candidate, retreatPosition));
+  if (retreatDirection !== undefined && !canRetreat) return result(state, false);
+  const player = canRetreat ? retreatPosition : state.player;
+  const playerFacing = canRetreat && retreatDirection ? retreatDirection : state.playerFacing;
+  objects = recalculateDerivedObjects(objects, player, state.echoes, state.objects, undefined);
   return result(
     {
       ...state,
+      player,
+      playerFacing,
       objects,
       hasAction: true,
       resetUnlocked: state.resetUnlocked || watchCollected,
