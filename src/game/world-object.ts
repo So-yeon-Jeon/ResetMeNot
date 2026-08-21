@@ -1,4 +1,4 @@
-import type { GridPosition } from './grid';
+import type { Direction, GridPosition } from './grid';
 
 export type PersistentField = 'position' | 'state' | 'broken' | 'collectible' | 'collected';
 export type AcceptedActor = 'player' | 'echo' | 'box';
@@ -12,11 +12,13 @@ export type ObjectEffect =
 export type PuzzleStateDefinition = Readonly<{
   assetKey?: string;
   collisionCells: readonly GridPosition[];
+  interactionCells?: readonly GridPosition[];
 }>;
 
 export type PuzzleInteraction = Readonly<{
   nextState?: string;
   effects: readonly ObjectEffect[];
+  playerRetreat?: Direction;
 }>;
 
 export type PocketWatchState = Readonly<{
@@ -81,6 +83,8 @@ export type KeyState = Readonly<{
   collected: boolean;
   collectible: boolean;
   visible: boolean;
+  blocksMovement: boolean;
+  requiresReset: boolean;
   persistentFields: readonly ('position' | 'collectible' | 'collected')[];
   assetKey?: string;
 }>;
@@ -89,6 +93,7 @@ export type DoorState = Readonly<{
   id: string;
   type: 'door';
   position: GridPosition;
+  interactionCells: readonly GridPosition[];
   open: boolean;
   switchIds: readonly string[];
   leverIds: readonly string[];
@@ -226,6 +231,8 @@ export function createKey(
   collectible = true,
   assetKey?: string,
   visible = collectible,
+  blocksMovement = true,
+  requiresReset = false,
 ): KeyState {
   return {
     id,
@@ -234,6 +241,8 @@ export function createKey(
     collected: false,
     collectible,
     visible,
+    blocksMovement,
+    requiresReset,
     persistentFields: [...persistentFields],
     assetKey,
   };
@@ -246,6 +255,7 @@ export function createDoor(
   options: Readonly<{
     leverIds?: readonly string[];
     activationMode?: 'all' | 'any';
+    interactionCells?: readonly GridPosition[];
     keyId?: string;
     consumesKey?: boolean;
     clearOnOpen?: boolean;
@@ -256,6 +266,7 @@ export function createDoor(
     id,
     type: 'door',
     position: { ...position },
+    interactionCells: [...(options.interactionCells ?? [{ x: 0, y: 0 }])],
     open: false,
     switchIds: [...switchIds],
     leverIds: [...(options.leverIds ?? [])],
@@ -342,6 +353,7 @@ export function cloneWorldObject(object: WorldObjectState): WorldObjectState {
     return {
       ...object,
       position: { ...object.position },
+      interactionCells: object.interactionCells.map((cell) => ({ ...cell })),
       switchIds: [...object.switchIds],
       leverIds: [...object.leverIds],
       assetKeys: object.assetKeys ? { ...object.assetKeys } : undefined,
@@ -379,6 +391,7 @@ export function cloneWorldObject(object: WorldObjectState): WorldObjectState {
           {
             ...definition,
             collisionCells: definition.collisionCells.map((cell) => ({ ...cell })),
+            interactionCells: definition.interactionCells?.map((cell) => ({ ...cell })),
           },
         ]),
       ),

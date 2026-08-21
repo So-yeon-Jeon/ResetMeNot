@@ -74,6 +74,21 @@ describe('loadTiledLevel', () => {
     });
   });
 
+  it('시각적 벽과 별개인 이동 차단 레이어를 맵 충돌에 포함한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    layers.splice(2, 0, {
+      name: 'movement-blockers',
+      type: 'tilelayer',
+      data: [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    });
+
+    const level = loadTiledLevel(map);
+
+    expect(level.map.walls.has('2,1')).toBe(true);
+    expect(level.objects.find((object) => object.id === 'switch-a')).toBeDefined();
+  });
+
   it('존재하지 않는 오브젝트 참조를 거부한다', () => {
     const map = validMap();
     const layers = map.layers as Array<Record<string, unknown>>;

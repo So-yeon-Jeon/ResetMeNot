@@ -18,6 +18,7 @@ import {
   createLever,
   createPocketWatch,
   createPressureSwitch,
+  createPuzzleObject,
 } from './world-object';
 
 describe('game state', () => {
@@ -44,6 +45,24 @@ describe('game state', () => {
     expect(result.state.hasAction).toBe(true);
     expect(previous.player).toEqual({ x: 1, y: 1 });
     expect(previous.hasAction).toBe(false);
+  });
+
+  it('후퇴 위치가 막힌 퍼즐 상호작용은 상태 변경 없이 취소한다', () => {
+    const retreatMap = createGridMap(['#####', '#...#', '#...#', '#####']);
+    const puzzle = createPuzzleObject('falling-object', { x: 2, y: 1 }, [], {
+      state: 'standing',
+      states: {
+        standing: { collisionCells: [{ x: 0, y: 0 }] },
+        fallen: { collisionCells: [{ x: 0, y: 0 }] },
+      },
+      onInteract: { nextState: 'fallen', effects: [], playerRetreat: 'down' },
+    });
+    const state = createGameState({ x: 2, y: 2 }, { facing: 'up', objects: [puzzle] });
+
+    const result = applyAction(state, { type: 'interact' }, retreatMap);
+
+    expect(result.changed).toBe(false);
+    expect(result.state).toBe(state);
   });
 
   it('changes facing without making a blocked move a valid action', () => {

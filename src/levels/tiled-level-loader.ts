@@ -79,13 +79,23 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   );
   const floorLayer = requireLayer(layers, 'floor', 'tilelayer');
   const wallLayer = requireLayer(layers, 'walls', 'tilelayer');
+  const movementBlockerLayer = optionalLayer(layers, 'movement-blockers', 'tilelayer');
   const objectLayer = requireLayer(layers, 'objects', 'objectgroup');
   readTileLayerData(floorLayer, 'floor', width, height);
   const wallData = readTileLayerData(wallLayer, 'walls', width, height);
-  const walls = new Set<string>();
+  const structuralWalls = new Set<string>();
   wallData.forEach((gid, index) => {
-    if (gid !== 0) walls.add(positionKey({ x: index % width, y: Math.floor(index / width) }));
+    if (gid !== 0) {
+      structuralWalls.add(positionKey({ x: index % width, y: Math.floor(index / width) }));
+    }
   });
+  const walls = new Set(structuralWalls);
+  if (movementBlockerLayer) {
+    const blockerData = readTileLayerData(movementBlockerLayer, 'movement-blockers', width, height);
+    blockerData.forEach((gid, index) => {
+      if (gid !== 0) walls.add(positionKey({ x: index % width, y: Math.floor(index / width) }));
+    });
+  }
   const gridMap: GridMap = { width, height, walls };
 
   const tiledObjects = array(objectLayer.objects, 'objects.objects').map((value, index) =>
@@ -103,7 +113,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     ids.add(name);
     const type = text(item.class ?? item.type, `${label}.class`);
     const position = readPosition(item, label, width, height);
-    if (walls.has(positionKey(position))) fail(`${name}이(가) 벽 위에 있습니다.`);
+    if (structuralWalls.has(positionKey(position))) fail(`${name}이(가) 벽 위에 있습니다.`);
     const props = readProperties(item.properties, `${label}.properties`);
 
     if (type === 'PlayerSpawn') {
@@ -231,11 +241,19 @@ function createLevelObject(
     Prop: ['assetKey', 'collisionCells'],
     Switch: ['acceptedActors'],
     Lever: ['mode', 'acceptedActors'],
-    Key: ['persistentFields', 'collectible', 'visible', 'assetKey'],
+    Key: [
+      'persistentFields',
+      'collectible',
+      'visible',
+      'blocksMovement',
+      'requiresReset',
+      'assetKey',
+    ],
     Door: [
       'switchIds',
       'leverIds',
       'activationMode',
+      'interactionCells',
       'keyId',
       'consumesKey',
       'clearOnOpen',
@@ -249,8 +267,10 @@ function createLevelObject(
       'assetKey',
       'stateAssets',
       'stateCollision',
+      'stateInteraction',
       'onInteractState',
       'onInteractEffects',
+      'onInteractPlayerRetreat',
     ],
   };
   const allowed = allowedProperties[type];
@@ -297,6 +317,8 @@ function createLevelObject(
           boolean(props.collectible, true, `${id}.collectible`),
           `${id}.visible`,
         ),
+        boolean(props.blocksMovement, true, `${id}.blocksMovement`),
+        boolean(props.requiresReset, false, `${id}.requiresReset`),
       );
     case 'Door':
       return createDoorFromProperties(id, position, props);
@@ -325,6 +347,10 @@ function createDoorFromProperties(
 ): WorldObjectState {
   const switchIds = uniqueCsv(props.switchIds, `${id}.switchIds`);
   const leverIds = uniqueCsv(props.leverIds, `${id}.leverIds`);
+  const interactionCells =
+    props.interactionCells === undefined
+      ? undefined
+      : parseCollisionCells(props.interactionCells, `${id}.interactionCells`);
   const keyId = optionalText(props.keyId);
   const consumesKey = boolean(props.consumesKey, false, `${id}.consumesKey`);
   const clearOnOpen = boolean(props.clearOnOpen, false, `${id}.clearOnOpen`);
@@ -344,6 +370,7 @@ function createDoorFromProperties(
       ['all', 'any'] as const,
       `${id}.activationMode`,
     ),
+    interactionCells,
     keyId,
     consumesKey,
     clearOnOpen,
@@ -359,7 +386,13 @@ function parsePuzzleStates(
   const initialState = optionalText(props.initialState) ?? 'default';
   const assets = parseStateMap(props.stateAssets, `${id}.stateAssets`);
   const collisions = parseStateCollisionMap(props.stateCollision, `${id}.stateCollision`);
-  const stateNames = new Set([initialState, ...Object.keys(assets), ...Object.keys(collisions)]);
+  const interactions = parseStateCollisionMap(props.stateInteraction, `${id}.stateInteraction`);
+  const stateNames = new Set([
+    initialState,
+    ...Object.keys(assets),
+    ...Object.keys(collisions),
+    ...Object.keys(interactions),
+  ]);
   return Object.fromEntries(
     [...stateNames].map((state) => [
       state,
@@ -367,6 +400,7 @@ function parsePuzzleStates(
         assetKey:
           assets[state] ?? (state === initialState ? optionalText(props.assetKey) : undefined),
         collisionCells: collisions[state] ?? [{ x: 0, y: 0 }],
+        interactionCells: interactions[state],
       },
     ]),
   );
@@ -375,11 +409,27 @@ function parsePuzzleStates(
 function parsePuzzleInteraction(
   props: JsonObject,
   id: string,
-): Readonly<{ nextState?: string; effects: readonly ObjectEffect[] }> | undefined {
+):
+  | Readonly<{
+      nextState?: string;
+      effects: readonly ObjectEffect[];
+      playerRetreat?: Direction;
+    }>
+  | undefined {
   const nextState = optionalText(props.onInteractState);
   const effects = parseObjectEffects(props.onInteractEffects, `${id}.onInteractEffects`);
-  if (nextState === undefined && effects.length === 0) return undefined;
-  return { nextState, effects };
+  const playerRetreat =
+    props.onInteractPlayerRetreat === undefined
+      ? undefined
+      : oneOf(
+          text(props.onInteractPlayerRetreat, `${id}.onInteractPlayerRetreat`),
+          ['up', 'down', 'left', 'right'] as const,
+          `${id}.onInteractPlayerRetreat`,
+        );
+  if (nextState === undefined && effects.length === 0 && playerRetreat === undefined) {
+    return undefined;
+  }
+  return { nextState, effects, playerRetreat };
 }
 
 function parseStateMap(value: unknown, label: string): Readonly<Record<string, string>> {
@@ -561,6 +611,12 @@ function requireLayer(layers: JsonObject[], name: string, type: string): JsonObj
   const found = layers.filter((layer) => layer.name === name && layer.type === type);
   if (found.length !== 1) return fail(`${name} ${type} 레이어가 정확히 하나 필요합니다.`);
   return found[0]!;
+}
+
+function optionalLayer(layers: JsonObject[], name: string, type: string): JsonObject | undefined {
+  const found = layers.filter((layer) => layer.name === name && layer.type === type);
+  if (found.length > 1) fail(`${name} ${type} 레이어는 하나만 존재해야 합니다.`);
+  return found[0];
 }
 function readTileLayerData(
   layer: JsonObject,

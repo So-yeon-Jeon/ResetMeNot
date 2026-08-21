@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { ECHO_CHARACTER_ASSET, PLAYER_CHARACTER_ASSET } from '../assets/characters/manifest';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
 import { formatClockTime } from '../game/clock';
@@ -18,20 +19,31 @@ import {
   type GameState,
 } from '../game/game-state';
 import type { Direction, GridPosition } from '../game/grid';
+import type { PuzzleObjectState } from '../game/world-object';
 import { GAME_LEVELS_LOAD_RESULT } from '../levels/level-catalog';
-import type { ChapterVisualTheme, ObjectVisual } from '../themes/chapter-visual-theme';
+import type {
+  ChapterVisualTheme,
+  ObjectVisual,
+  StateTransitionVisual,
+} from '../themes/chapter-visual-theme';
 import { CHAPTER_VISUAL_THEMES, getChapterVisualTheme } from '../themes/theme-catalog';
 
 const MOVE_DURATION_MS = 110;
 const RESET_LOCK_MS = 100;
 const FINALE_BASE_DURATION_MS = 900;
 const ECHO_FADE_STAGGER_MS = 220;
-const PLAYER_COLOR = 0xd9b6a3;
-const ECHO_COLOR = 0x73c8df;
+const PLAYER_CHARACTER_TEXTURE = 'player-character';
+const ECHO_CHARACTER_TEXTURE = 'echo-character';
+const PLAYER_CHARACTER_SCALE = 0.3;
+const PLAYER_CHARACTER_ORIGIN_Y = 0.95;
+const CHARACTER_FOOT_OFFSET_Y = GRID_SIZE / 2;
+const PLAYER_CHARACTER_DEPTH = 1.2;
+const ECHO_CHARACTER_DEPTH = 1.15;
 const WALL_DEPTH = 0.1;
 const WALL_OPENING_DEPTH = 0.12;
 const WALL_SIDE_ALPHA = 0.78;
 const WALL_BOTTOM_ALPHA = 0.8;
+const FOREGROUND_DEPTH_OFFSET = 0.03;
 
 type MovementKeys = Readonly<{
   up: Phaser.Input.Keyboard.Key[];
@@ -40,8 +52,25 @@ type MovementKeys = Readonly<{
   right: Phaser.Input.Keyboard.Key[];
 }>;
 
+type CharacterPose = 'idle' | 'walk';
+
+const CHARACTER_DIRECTION_COLUMN: Readonly<Record<Direction, number>> = {
+  down: 0,
+  right: 1,
+  left: 2,
+  up: 3,
+};
+
+function characterFrame(
+  asset: typeof PLAYER_CHARACTER_ASSET | typeof ECHO_CHARACTER_ASSET,
+  pose: CharacterPose,
+  direction: Direction,
+): number {
+  return asset.animations[pose].start + CHARACTER_DIRECTION_COLUMN[direction];
+}
+
 export class GameScene extends Phaser.Scene {
-  private player!: Phaser.GameObjects.Rectangle;
+  private player!: Phaser.GameObjects.Sprite;
   private session!: GameSession;
   private gameState!: GameState;
   private loadError?: Error;
@@ -56,10 +85,11 @@ export class GameScene extends Phaser.Scene {
   private phaseHud!: Phaser.GameObjects.Text;
   private clockHud!: Phaser.GameObjects.Text;
   private endingHud!: Phaser.GameObjects.Text;
-  private echoSprites: Phaser.GameObjects.Container[] = [];
+  private echoSprites: Phaser.GameObjects.Sprite[] = [];
   private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
   private isResetting = false;
+  private isObjectTransitioning = false;
   private isFinalePlaying = false;
   private pendingReset = false;
   private pendingDirection?: Direction;
@@ -78,6 +108,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
+    this.load.spritesheet(PLAYER_CHARACTER_TEXTURE, PLAYER_CHARACTER_ASSET.path, {
+      frameWidth: PLAYER_CHARACTER_ASSET.frameWidth,
+      frameHeight: PLAYER_CHARACTER_ASSET.frameHeight,
+    });
+    this.load.spritesheet(ECHO_CHARACTER_TEXTURE, ECHO_CHARACTER_ASSET.path, {
+      frameWidth: ECHO_CHARACTER_ASSET.frameWidth,
+      frameHeight: ECHO_CHARACTER_ASSET.frameHeight,
+    });
+
     const assets = new Map(
       Object.values(CHAPTER_VISUAL_THEMES).flatMap((theme) => Object.entries(theme.assets)),
     );
@@ -139,6 +178,13 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     if (this.isResetting) return;
+    if (this.isObjectTransitioning) {
+      if (Phaser.Input.Keyboard.JustDown(this.resetKey)) {
+        this.pendingReset = true;
+        this.pendingDirection = undefined;
+      }
+      return;
+    }
 
     if (
       this.gameState.phase === 'playing' &&
@@ -411,11 +457,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createPlayer(): void {
-    const pixel = this.gridToPixel(this.gameState.player);
+    const pixel = this.characterToPixel(this.gameState.player);
     this.player = this.add
-      .rectangle(pixel.x, pixel.y, GRID_SIZE - 10, GRID_SIZE - 10, PLAYER_COLOR)
-      .setStrokeStyle(2, 0xf1ded2)
-      .setDepth(1);
+      .sprite(
+        pixel.x,
+        pixel.y,
+        PLAYER_CHARACTER_TEXTURE,
+        characterFrame(PLAYER_CHARACTER_ASSET, 'idle', this.gameState.playerFacing),
+      )
+      .setOrigin(0.5, PLAYER_CHARACTER_ORIGIN_Y)
+      .setScale(PLAYER_CHARACTER_SCALE)
+      .setDepth(PLAYER_CHARACTER_DEPTH);
   }
 
   private createInstructions(): void {
@@ -516,14 +568,15 @@ export class GameScene extends Phaser.Scene {
 
   private dispatch(action: GameAction): void {
     const previousPlayer = this.gameState.player;
+    const previousState = this.gameState;
     const result = applyAction(this.gameState, action, currentLevel(this.session).map);
+    const stateTransition = this.findStateTransition(previousState, result.state);
     this.setGameState(result.state);
-    if (result.chapterCompleted) this.phaseHud.setText('CHAPTER CLEAR');
-
-    if (action.type === 'interact' && result.changed) {
-      this.renderObjects();
-      this.updateResetHud();
+    if (action.type === 'move') {
+      this.setPlayerFrame('idle');
+      this.updatePlayerDepth();
     }
+    if (result.chapterCompleted) this.phaseHud.setText('CHAPTER CLEAR');
 
     if (result.resetPerformed) {
       if (result.echoCreationBlocked === 'occupied') {
@@ -539,6 +592,17 @@ export class GameScene extends Phaser.Scene {
     if (!result.changed) return;
 
     this.renderObjects();
+    if (stateTransition) {
+      this.playStateTransitionAnimation(
+        stateTransition.object,
+        stateTransition.previousState,
+        stateTransition.visual,
+        stateTransition.transition,
+      );
+      if (stateTransition.transition.feedback) {
+        this.showFeedback(stateTransition.transition.feedback);
+      }
+    }
 
     if (
       previousPlayer.x === this.gameState.player.x &&
@@ -547,7 +611,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const pixel = this.gridToPixel(this.gameState.player);
+    const pixel = this.characterToPixel(this.gameState.player);
+    this.setPlayerFrame('walk');
     this.isMoving = true;
 
     this.tweens.add({
@@ -556,8 +621,11 @@ export class GameScene extends Phaser.Scene {
       y: pixel.y,
       duration: MOVE_DURATION_MS,
       ease: 'Sine.easeInOut',
+      onUpdate: () => this.updatePlayerDepth(),
       onComplete: () => {
         this.isMoving = false;
+        this.setPlayerFrame('idle');
+        this.updatePlayerDepth();
         if (this.pendingReset) {
           this.pendingReset = false;
           this.dispatch({ type: 'reset' });
@@ -571,8 +639,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderResetState(): void {
-    const playerPixel = this.gridToPixel(this.gameState.player);
+    this.isObjectTransitioning = false;
+    const playerPixel = this.characterToPixel(this.gameState.player);
     this.player.setPosition(playerPixel.x, playerPixel.y);
+    this.setPlayerFrame('idle');
+    this.updatePlayerDepth();
 
     this.renderEchoes();
 
@@ -608,45 +679,133 @@ export class GameScene extends Phaser.Scene {
   private renderEchoes(): void {
     this.echoSprites.forEach((echo) => echo.destroy());
     this.echoSprites = this.gameState.echoes.map((echo) => {
-      const pixel = this.gridToPixel(echo.position);
-      const facingOffset = this.facingOffset(echo.facing, GRID_SIZE / 4);
-      const body = this.add
-        .rectangle(0, 0, GRID_SIZE - 10, GRID_SIZE - 10, ECHO_COLOR, 0.42)
-        .setStrokeStyle(2, 0xb9efff, 0.7);
-      const gaze = this.add.circle(facingOffset.x, facingOffset.y, 3, 0xe8fbff, 0.95);
-      return this.add.container(pixel.x, pixel.y, [body, gaze]).setDepth(0.5);
+      const pixel = this.characterToPixel(echo.position);
+      return this.add
+        .sprite(
+          pixel.x,
+          pixel.y,
+          ECHO_CHARACTER_TEXTURE,
+          characterFrame(ECHO_CHARACTER_ASSET, 'idle', echo.facing),
+        )
+        .setOrigin(0.5, PLAYER_CHARACTER_ORIGIN_Y)
+        .setScale(PLAYER_CHARACTER_SCALE)
+        .setAlpha(0.78)
+        .setDepth(ECHO_CHARACTER_DEPTH);
     });
   }
 
-  private facingOffset(direction: Direction, distance: number): GridPosition {
-    if (direction === 'up') return { x: 0, y: -distance };
-    if (direction === 'down') return { x: 0, y: distance };
-    if (direction === 'left') return { x: -distance, y: 0 };
-    return { x: distance, y: 0 };
+  private setPlayerFrame(pose: CharacterPose): void {
+    this.player.setFrame(characterFrame(PLAYER_CHARACTER_ASSET, pose, this.gameState.playerFacing));
   }
 
   private createObjects(): void {
     this.renderObjects();
   }
 
+  private findStateTransition(
+    previous: GameState,
+    next: GameState,
+  ):
+    | Readonly<{
+        object: PuzzleObjectState;
+        previousState: string;
+        visual: ObjectVisual;
+        transition: StateTransitionVisual;
+      }>
+    | undefined {
+    for (const previousObject of previous.objects) {
+      if (previousObject.type !== 'puzzle-object') continue;
+      const nextObject = next.objects.find(
+        (candidate): candidate is PuzzleObjectState =>
+          candidate.id === previousObject.id && candidate.type === 'puzzle-object',
+      );
+      if (!nextObject || nextObject.state === previousObject.state) continue;
+
+      const visual = this.objectVisual(
+        previousObject.id,
+        previousObject.type,
+        previousObject.position,
+        previousObject.state,
+      );
+      const transition = visual.stateTransition;
+      if (
+        transition &&
+        transition.from === previousObject.state &&
+        transition.to === nextObject.state
+      ) {
+        return { object: nextObject, previousState: previousObject.state, visual, transition };
+      }
+    }
+    return undefined;
+  }
+
+  private playStateTransitionAnimation(
+    object: PuzzleObjectState,
+    previousState: string,
+    visual: ObjectVisual,
+    transition: StateTransitionVisual,
+  ): void {
+    const assetKey = object.states[previousState]?.assetKey ?? object.assetKey;
+    if (!assetKey || !this.textures.exists(assetKey) || transition.kind !== 'fall') return;
+
+    const offset = visual.offset ?? { x: 0, y: 0 };
+    const manifestEntry = this.currentTheme().assets[assetKey];
+    const displaySize = visual.displaySize ?? manifestEntry;
+    if (!displaySize) return;
+    const x = this.mapOrigin.x + object.position.x * GRID_SIZE + offset.x;
+    const y = this.mapOrigin.y + object.position.y * GRID_SIZE + offset.y;
+    const fallingSprite = this.add
+      .image(x + displaySize.width / 2, y + displaySize.height, assetKey)
+      .setOrigin(0.5, 1)
+      .setDisplaySize(displaySize.width, displaySize.height)
+      .setDepth(transition.depth);
+
+    this.objectSprites.push(fallingSprite);
+    this.isObjectTransitioning = true;
+    if (transition.shakeDurationMs && transition.shakeIntensity) {
+      this.cameras.main.shake(transition.shakeDurationMs, transition.shakeIntensity);
+    }
+    this.tweens.add({
+      targets: fallingSprite,
+      angle: transition.angle,
+      y: fallingSprite.y + transition.travelY,
+      alpha: 0,
+      duration: transition.durationMs,
+      ease: 'Cubic.easeIn',
+      onComplete: () => {
+        fallingSprite.destroy();
+        this.isObjectTransitioning = false;
+        if (this.pendingReset) {
+          this.pendingReset = false;
+          this.dispatch({ type: 'reset' });
+        }
+      },
+    });
+  }
+
   private renderObjects(): void {
     this.objectSprites.forEach((object) => object.destroy());
     this.objectSprites = [];
-
     this.gameState.objects.forEach((object) => {
       const pixel = this.gridToPixel(object.position);
-      const visual = this.objectVisual(object.id, object.type, object.position);
+      const visual = this.objectVisual(
+        object.id,
+        object.type,
+        object.position,
+        object.type === 'puzzle-object' ? object.state : undefined,
+      );
       const visualPosition = {
         x: visual.positionOverride?.x ?? object.position.x,
         y: visual.positionOverride?.y ?? object.position.y,
       };
+      const visualOffset = visual.offset;
       if (object.type === 'prop') {
         this.objectSprites.push(
           ...this.renderAssetObject(
             object.assetKey,
             visualPosition,
             visual.depth ?? 0.35,
-            visual.offset,
+            visualOffset,
             visual.displaySize,
           ),
         );
@@ -658,7 +817,7 @@ export class GameScene extends Phaser.Scene {
             stateDefinition?.assetKey ?? object.assetKey,
             visualPosition,
             visual.depth ?? 0.6,
-            visual.offset,
+            visualOffset,
             visual.displaySize,
           ),
         );
@@ -670,7 +829,7 @@ export class GameScene extends Phaser.Scene {
               visual.assetKey,
               visualPosition,
               visual.depth ?? 0.75,
-              visual.offset,
+              visualOffset,
               visual.displaySize,
             ),
           );
@@ -697,8 +856,9 @@ export class GameScene extends Phaser.Scene {
             assetKey,
             visualPosition,
             visual.depth ?? 0.7,
-            visual.offset,
+            visualOffset,
             visual.displaySize,
+            visual.foregroundCrop,
           ),
         );
       }
@@ -728,13 +888,18 @@ export class GameScene extends Phaser.Scene {
             .setDepth(0.65),
         );
       }
-      if (object.type === 'key' && object.visible && !object.collected) {
+      if (
+        object.type === 'key' &&
+        object.visible &&
+        !object.collected &&
+        this.shouldRenderKey(object)
+      ) {
         this.objectSprites.push(
           ...this.renderAssetObject(
             object.assetKey,
             visualPosition,
             visual.depth ?? 0.8,
-            visual.offset,
+            visualOffset,
             visual.displaySize,
           ),
         );
@@ -756,36 +921,72 @@ export class GameScene extends Phaser.Scene {
     depth: number,
     offset: GridPosition = { x: 0, y: 0 },
     displaySize?: Readonly<{ width: number; height: number }>,
+    foregroundCrop?: Readonly<{ y: number; height: number; depth?: number }>,
   ): Phaser.GameObjects.GameObject[] {
     const manifestEntry = assetKey === undefined ? undefined : this.currentTheme().assets[assetKey];
     if (assetKey !== undefined && manifestEntry && this.textures.exists(assetKey)) {
-      const sprite = this.add
-        .image(
-          this.mapOrigin.x + position.x * GRID_SIZE + offset.x,
-          this.mapOrigin.y + position.y * GRID_SIZE + offset.y,
-          assetKey,
-        )
-        .setOrigin(0, 0);
+      const x = this.mapOrigin.x + position.x * GRID_SIZE + offset.x;
+      const y = this.mapOrigin.y + position.y * GRID_SIZE + offset.y;
+      const sprite = this.add.image(x, y, assetKey).setOrigin(0, 0);
       if (displaySize) sprite.setDisplaySize(displaySize.width, displaySize.height);
-      return [sprite.setDepth(depth)];
+
+      const sprites: Phaser.GameObjects.GameObject[] = [sprite.setDepth(depth)];
+      if (foregroundCrop) {
+        const displayWidth = displaySize?.width ?? manifestEntry.width;
+        const displayHeight = displaySize?.height ?? manifestEntry.height;
+        const cropY = Math.max(0, Math.min(foregroundCrop.y, manifestEntry.height));
+        const cropHeight = Math.max(
+          0,
+          Math.min(foregroundCrop.height, manifestEntry.height - cropY),
+        );
+        if (cropHeight > 0) {
+          sprites.push(
+            this.add
+              .image(x, y + (displayHeight * cropY) / manifestEntry.height, assetKey)
+              .setOrigin(0, 0)
+              .setCrop(0, cropY, manifestEntry.width, cropHeight)
+              .setDisplaySize(displayWidth, (displayHeight * cropHeight) / manifestEntry.height)
+              .setDepth(foregroundCrop.depth ?? depth + FOREGROUND_DEPTH_OFFSET),
+          );
+        }
+      }
+      return sprites;
     }
 
     return [];
+  }
+
+  private shouldRenderKey(key: Extract<GameState['objects'][number], { type: 'key' }>): boolean {
+    if (!key.requiresReset || this.gameState.resetCount > 0) return true;
+    const initialKey = this.gameState.initialObjects.find(
+      (object) => object.id === key.id && object.type === 'key',
+    );
+    return (
+      initialKey?.type === 'key' &&
+      initialKey.position.x === key.position.x &&
+      initialKey.position.y === key.position.y
+    );
   }
 
   private currentTheme(): ChapterVisualTheme {
     return getChapterVisualTheme(currentLevel(this.session).chapterId);
   }
 
-  private objectVisual(id: string, type: string, position: GridPosition): ObjectVisual {
+  private objectVisual(
+    id: string,
+    type: string,
+    position: GridPosition,
+    state?: string,
+  ): ObjectVisual {
     const theme = this.currentTheme();
     const typeVisual = theme.typeVisuals?.[type] ?? {};
     const objectVisual = theme.objectVisuals?.[id] ?? {};
     const positionOffset = objectVisual.offsetsByPosition?.[`${position.x},${position.y}`];
+    const stateOffset = state ? objectVisual.offsetsByState?.[state] : undefined;
     return {
       ...typeVisual,
       ...objectVisual,
-      offset: positionOffset ?? objectVisual.offset ?? typeVisual.offset,
+      offset: stateOffset ?? positionOffset ?? objectVisual.offset ?? typeVisual.offset,
     };
   }
 
@@ -794,6 +995,15 @@ export class GameScene extends Phaser.Scene {
       x: this.mapOrigin.x + position.x * GRID_SIZE + GRID_SIZE / 2,
       y: this.mapOrigin.y + position.y * GRID_SIZE + GRID_SIZE / 2,
     };
+  }
+
+  private characterToPixel(position: GridPosition): GridPosition {
+    const pixel = this.gridToPixel(position);
+    return { x: pixel.x, y: pixel.y + CHARACTER_FOOT_OFFSET_Y };
+  }
+
+  private updatePlayerDepth(): void {
+    this.player.setDepth(PLAYER_CHARACTER_DEPTH);
   }
 
   private setGameState(state: GameState): void {
@@ -898,7 +1108,7 @@ export class GameScene extends Phaser.Scene {
       this.tweens.add({
         targets: echo,
         alpha: 0,
-        scale: 0.65,
+        scale: PLAYER_CHARACTER_SCALE * 0.65,
         duration: 650,
         delay: index * ECHO_FADE_STAGGER_MS,
         ease: 'Sine.easeIn',

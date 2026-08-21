@@ -202,7 +202,7 @@ export function finishFinale(state: GameState): GameState {
 export function applyAction(state: GameState, action: GameAction, map: GridMap): ActionResult {
   if (state.phase !== 'playing') return result(state, false);
   if (action.type === 'reset') return applyReset(state);
-  if (action.type === 'interact') return applyInteract(state);
+  if (action.type === 'interact') return applyInteract(state, map);
   return applyMove(state, action.direction, map);
 }
 
@@ -354,13 +354,28 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
   return { ...result(nextState, true), chapterCompleted: completed };
 }
 
-function applyInteract(state: GameState): ActionResult {
+function applyInteract(state: GameState, map: GridMap): ActionResult {
   const target = positionInDirection(state.player, state.playerFacing);
   const object = state.objects.find((candidate) => {
-    if (positionKey(candidate.position) !== positionKey(target)) return false;
+    const isPuzzleObject = candidate.type === 'puzzle-object' && candidate.onInteract !== undefined;
+    const isKeyOnPlayer =
+      candidate.type === 'key' && samePosition(candidate.position, state.player);
+    if (isPuzzleObject && !puzzleObjectOccupies(candidate, target)) return false;
+    if (
+      !isPuzzleObject &&
+      !isKeyOnPlayer &&
+      (candidate.type === 'door'
+        ? !relativeCellsContain(candidate.position, candidate.interactionCells, target)
+        : positionKey(candidate.position) !== positionKey(target))
+    ) {
+      return false;
+    }
     return (
       (candidate.type === 'pocket-watch' && !candidate.collected && candidate.interactable) ||
-      (candidate.type === 'key' && !candidate.collected && candidate.collectible) ||
+      (candidate.type === 'key' &&
+        !candidate.collected &&
+        candidate.collectible &&
+        (!candidate.requiresReset || state.resetCount > 0)) ||
       candidate.type === 'lever' ||
       (candidate.type === 'door' && !candidate.unlocked && candidate.keyId !== undefined) ||
       (candidate.type === 'exit' && candidate.mode === 'interact') ||
@@ -369,7 +384,11 @@ function applyInteract(state: GameState): ActionResult {
   });
   if (!object) return result(state, false);
 
-  if (object.type === 'key' && isBlockedByOtherObject(state.objects, target, object.id)) {
+  if (
+    object.type === 'key' &&
+    !samePosition(object.position, state.player) &&
+    isBlockedByOtherObject(state.objects, target, object.id)
+  ) {
     return result(state, false);
   }
 
@@ -444,20 +463,36 @@ function applyInteract(state: GameState): ActionResult {
     };
   }
   if (object.type === 'puzzle-object' && object.onInteract) {
-    return applyPuzzleInteraction(state, object);
+    return applyPuzzleInteraction(state, object, map);
   }
   return result(state, false);
+}
+
+function puzzleObjectOccupies(
+  object: Extract<WorldObjectState, { type: 'puzzle-object' }>,
+  position: GridPosition,
+): boolean {
+  const interactionCells = object.states[object.state]?.interactionCells ?? [{ x: 0, y: 0 }];
+  return interactionCells.some(
+    (cell) =>
+      positionKey({
+        x: object.position.x + cell.x,
+        y: object.position.y + cell.y,
+      }) === positionKey(position),
+  );
 }
 
 function applyPuzzleInteraction(
   state: GameState,
   object: Extract<WorldObjectState, { type: 'puzzle-object' }>,
+  map: GridMap,
 ): ActionResult {
   const interaction = object.onInteract;
   if (!interaction) return result(state, false);
 
   let objects = state.objects;
   const nextState = interaction.nextState;
+  if (nextState === object.state) return result(state, false);
   if (nextState !== undefined) {
     if (!object.states[nextState]) return result(state, false);
     objects = objects.map((candidate) =>
@@ -477,9 +512,23 @@ function applyPuzzleInteraction(
   const watchMemory = watchCollected
     ? { ...state.worldMemory, pocketWatchCollected: true }
     : state.worldMemory;
+  const retreatDirection = interaction.playerRetreat;
+  const retreatPosition = retreatDirection
+    ? tryMove(state.player, retreatDirection, map)
+    : state.player;
+  const canRetreat =
+    retreatDirection !== undefined &&
+    retreatPosition !== state.player &&
+    !objects.some((candidate) => blocksPosition(candidate, retreatPosition));
+  if (retreatDirection !== undefined && !canRetreat) return result(state, false);
+  const player = canRetreat ? retreatPosition : state.player;
+  const playerFacing = canRetreat && retreatDirection ? retreatDirection : state.playerFacing;
+  objects = recalculateDerivedObjects(objects, player, state.echoes, state.objects, undefined);
   return result(
     {
       ...state,
+      player,
+      playerFacing,
       objects,
       hasAction: true,
       resetUnlocked: state.resetUnlocked || watchCollected,
@@ -671,7 +720,12 @@ function blocksPosition(object: WorldObjectState, position: GridPosition): boole
   if (object.type === 'door') return !object.open && samePosition(object.position, position);
   if (object.type === 'box') return samePosition(object.position, position);
   if (object.type === 'key')
-    return !object.collected && object.collectible && samePosition(object.position, position);
+    return (
+      object.blocksMovement &&
+      !object.collected &&
+      object.collectible &&
+      samePosition(object.position, position)
+    );
   if (object.type === 'pocket-watch') {
     return (
       !object.collected &&

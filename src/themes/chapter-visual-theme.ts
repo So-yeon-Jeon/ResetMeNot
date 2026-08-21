@@ -3,13 +3,35 @@ import type { GridPosition } from '../game/grid';
 
 export type DisplaySize = Readonly<{ width: number; height: number }>;
 
+export type StateTransitionVisual = Readonly<{
+  from: string;
+  to: string;
+  kind: 'fall';
+  durationMs: number;
+  angle: number;
+  travelY: number;
+  depth: number;
+  feedback?: string;
+  shakeDurationMs?: number;
+  shakeIntensity?: number;
+}>;
+
+export type ForegroundCrop = Readonly<{
+  y: number;
+  height: number;
+  depth?: number;
+}>;
+
 export type ObjectVisual = Readonly<{
   assetKey?: string;
   positionOverride?: Readonly<Partial<GridPosition>>;
   offset?: GridPosition;
   offsetsByPosition?: Readonly<Record<string, GridPosition>>;
+  offsetsByState?: Readonly<Record<string, GridPosition>>;
   displaySize?: DisplaySize;
   depth?: number;
+  foregroundCrop?: ForegroundCrop;
+  stateTransition?: StateTransitionVisual;
 }>;
 
 export type WallVisualTheme = Readonly<{

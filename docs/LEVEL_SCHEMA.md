@@ -31,6 +31,9 @@ Tiled 편집 → JSON export → 런타임 검증 → 도메인 레벨 변환 �
 | `walls`   | Tile Layer   | 벽 표현과 기본 충돌    |
 | `objects` | Object Layer | Player와 퍼즐 오브젝트 |
 
+가구처럼 벽 칸에 배치되지만 Player만 진입하지 못하게 할 영역은 선택 Tile Layer인
+`movement-blockers`에 표시합니다. 이 레이어는 화면에 렌더링하지 않고 이동 판정에만 사용합니다.
+
 장식 전용 Tile Layer는 `decor-*` 이름으로 추가할 수 있으며 게임 규칙에서 무시합니다.
 
 ## Map Custom Properties
@@ -105,16 +108,17 @@ Switch Class는 점유 중에만 활성화되는 압력 스위치입니다. Z �
 
 #### Door
 
-| Property         | 타입   | 필수   | 설명                              |
-| ---------------- | ------ | ------ | --------------------------------- |
-| `switchIds`      | string | 아니오 | 연결할 Switch ID 목록             |
-| `leverIds`       | string | 아니오 | 연결할 Lever ID 목록              |
-| `activationMode` | string | 아니오 | `all`(AND, 기본값) 또는 `any`(OR) |
-| `keyId`          | string | 아니오 | 잠금 해제에 필요한 Key ID         |
-| `consumesKey`    | bool   | 아니오 | 사용 시 열쇠 소모 여부            |
-| `clearOnOpen`    | bool   | 아니오 | 열릴 때 챕터 완료                 |
-| `closedAssetKey` | string | 아니오 | 닫힌 상태의 manifest 키           |
-| `openAssetKey`   | string | 아니오 | 열린 상태의 manifest 키           |
+| Property           | 타입   | 필수   | 설명                                    |
+| ------------------ | ------ | ------ | --------------------------------------- |
+| `switchIds`        | string | 아니오 | 연결할 Switch ID 목록                   |
+| `leverIds`         | string | 아니오 | 연결할 Lever ID 목록                    |
+| `activationMode`   | string | 아니오 | `all`(AND, 기본값) 또는 `any`(OR)       |
+| `keyId`            | string | 아니오 | 잠금 해제에 필요한 Key ID               |
+| `consumesKey`      | bool   | 아니오 | 사용 시 열쇠 소모 여부                  |
+| `clearOnOpen`      | bool   | 아니오 | 열릴 때 챕터 완료                       |
+| `interactionCells` | string | 아니오 | 여러 칸짜리 문이 상호작용되는 상대 좌표 |
+| `closedAssetKey`   | string | 아니오 | 닫힌 상태의 manifest 키                 |
+| `openAssetKey`     | string | 아니오 | 열린 상태의 manifest 키                 |
 
 문 상태는 연결된 Switch와 Lever의 활성 상태에서 파생합니다. 기본 `all`은 모든 장치가 활성화되어야 하며, `any`는 하나 이상 활성화되면 열립니다.
 
@@ -124,6 +128,9 @@ Switch Class는 점유 중에만 활성화되는 압력 스위치입니다. Z �
 | ------------------ | ------ | ------ | ------------------------------------------------ |
 | `persistentFields` | string | 아니오 | `position`, `collectible`, `collected` 쉼표 목록 |
 | `collectible`      | bool   | 아니오 | 현재 상태에서 획득 가능한지 여부                 |
+| `visible`          | bool   | 아니오 | 미획득 상태의 화면 표시 여부                     |
+| `blocksMovement`   | bool   | 아니오 | 열쇠가 위치한 칸의 이동 차단 여부                |
+| `requiresReset`    | bool   | 아니오 | 한 번 이상 RESET한 뒤 획득·표시할지 여부         |
 | `assetKey`         | string | 아니오 | 렌더링할 manifest 키                             |
 
 Chapter 1의 열쇠는 `persistentFields: position,collectible`로 떨어진 위치와 획득 가능 상태만 기억합니다. `collected`는 기본 기억 속성이 아니며 레벨에서 명시적으로 허용할 때만 사용합니다.
@@ -134,11 +141,14 @@ Chapter 1의 열쇠는 `persistentFields: position,collectible`로 떨어진 위
 
 #### PuzzleObject
 
-`initialState`, `stateAssets`, `stateCollision`, `onInteractState`, `onInteractEffects`를 사용해 상태별 렌더링·충돌과 data-driven effect를 정의합니다.
+`initialState`, `stateAssets`, `stateCollision`, `stateInteraction`, `onInteractState`,
+`onInteractEffects`, `onInteractPlayerRetreat`를 사용해 상태별 렌더링·충돌과 data-driven effect를 정의합니다.
 
 - `stateAssets`: `standing=asset-a,fallen=asset-b`
 - `stateCollision`: `standing=0,0|1,0;fallen=0,0|1,0|0,1|1,1`
+- `stateInteraction`: `standing=1,0;fallen=`
 - `onInteractEffects`: `set-position:object-id:8,3;set-collectible:key-id:true`
+- `onInteractPlayerRetreat`: 상호작용 성공 후 안전하게 물러날 방향(`up`, `down`, `left`, `right`)
 
 #### Exit
 
