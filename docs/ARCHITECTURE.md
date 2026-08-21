@@ -71,6 +71,9 @@ type EchoState = {
 
 레벨 완료와 Final의 `let-time-go` 연출 중에는 게임 행동을 받지 않습니다. Final 연출이 끝나면
 조작을 돌려주며, Exit 도달로 `completed`가 된 뒤에만 게임 세션이 다음 레벨의 새 `GameState`를 생성합니다.
+챕터 완료 후 Enter를 누르면 입력을 잠그고 `fade out → 다음 LevelDefinition 로드 → fade in` 순서로
+전환합니다. 새 레벨의 Puzzle State와 Echo는 초기화하지만 `WorldMemory`는 다음 레벨로 전달합니다.
+마지막 레벨이라면 새 레벨을 찾지 않고 같은 페이드 흐름에서 엔딩 시퀀스로 연결합니다.
 
 마지막 레벨 완료 후에는 `WorldMemory`를 `EndingSequence`의 입력으로 전달합니다. 엔딩의 고정 페이지
 순서와 기억된 이벤트 데이터는 `src/game/ending.ts`에서 관리하고, Phaser Scene은 페이지 전환과
