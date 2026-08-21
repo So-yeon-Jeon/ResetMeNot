@@ -165,6 +165,27 @@ describe('Chapter 1 room 1', () => {
     expect(object(blocked.state, 'chapter1-key')).toMatchObject({ collected: false });
   });
 
+  it('requires a new RESET after the bookshelf falls even if RESET was used earlier', () => {
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const resetBeforeShelf = resetAfterAction(acquired);
+    const fallen = interact(resetBeforeShelf, { x: 9, y: 2 }, 'up');
+    const trapped = interact(fallen, { x: 9, y: 4 }, 'up');
+
+    expect(resetBeforeShelf.resetCount).toBe(1);
+    expect(object(fallen, 'chapter1-key')).toMatchObject({
+      collectible: true,
+      collected: false,
+      availableAfterResetCount: 2,
+    });
+    expect(object(trapped, 'chapter1-key')).toMatchObject({ collected: false });
+
+    const resetAfterShelf = resetAfterAction(fallen);
+    const collected = interact(resetAfterShelf, { x: 9, y: 4 }, 'up');
+
+    expect(resetAfterShelf.resetCount).toBe(2);
+    expect(object(collected, 'chapter1-key')).toMatchObject({ collected: true });
+  });
+
   it('allows the player to stand in front of the standing bookshelf', () => {
     const state = createLevelGameState(level);
     const front = applyAction(
@@ -306,6 +327,10 @@ describe('Chapter 1 room 1', () => {
       collectible: false,
       collected: false,
     });
+    expect(
+      (object(restarted, 'chapter1-key') as { availableAfterResetCount?: number })
+        .availableAfterResetCount,
+    ).toBeUndefined();
     expect(object(restarted, 'chapter1-door')).toMatchObject({ open: false, unlocked: false });
   });
 });

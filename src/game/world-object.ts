@@ -85,6 +85,7 @@ export type KeyState = Readonly<{
   visible: boolean;
   blocksMovement: boolean;
   requiresReset: boolean;
+  availableAfterResetCount?: number;
   persistentFields: readonly ('position' | 'collectible' | 'collected')[];
   assetKey?: string;
 }>;
@@ -243,6 +244,7 @@ export function createKey(
     visible,
     blocksMovement,
     requiresReset,
+    availableAfterResetCount: requiresReset && collectible ? 1 : undefined,
     persistentFields: [...persistentFields],
     assetKey,
   };
@@ -319,6 +321,7 @@ export function restoreWorldObjects(
         collected: initial.persistentFields.includes('collected')
           ? current.collected
           : initial.collected,
+        availableAfterResetCount: current.availableAfterResetCount,
         persistentFields: [...initial.persistentFields],
       };
     }

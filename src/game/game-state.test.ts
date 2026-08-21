@@ -80,6 +80,7 @@ describe('game state', () => {
 
     expect(result.state).toBe(state);
     expect(result.resetPerformed).toBe(false);
+    expect(result.resetBlocked).toBe('locked');
   });
 
   it('creates a fixed echo and restores the player on reset', () => {
@@ -104,6 +105,7 @@ describe('game state', () => {
     expect(result.echoCreated).toBe(false);
     expect(result.state.echoes).toEqual([]);
     expect(result.state.resetCount).toBe(0);
+    expect(result.resetBlocked).toBe('empty-run');
   });
 
   it('keeps existing echoes fixed and does not create another on the same tile', () => {
@@ -138,6 +140,7 @@ describe('game state', () => {
     const exhausted = applyAction(state, { type: 'reset' }, map);
 
     expect(exhausted.resetPerformed).toBe(false);
+    expect(exhausted.resetBlocked).toBe('limit');
     expect(exhausted.state).toBe(state);
     expect(exhausted.state.player).toEqual({ x: 1, y: 1 });
     expect(exhausted.state.echoes).toHaveLength(1);
@@ -177,6 +180,7 @@ describe('game state', () => {
     expect(result.state.resetUnlocked).toBe(true);
     expect(result.state.hasAction).toBe(true);
     expect(result.state.objects[0]).toMatchObject({ id: 'watch', collected: true });
+    expect(result.feedbackEvent).toBe('reset-unlocked');
   });
 
   it('keeps the collected pocket watch after reset', () => {
@@ -208,12 +212,32 @@ describe('game state', () => {
       { facing: 'right', objects: [createKey('key', { x: 2, y: 1 })] },
     );
     const moved = applyAction(state, { type: 'move', direction: 'right' }, map).state;
-    const interacted = applyAction(moved, { type: 'interact' }, map).state;
+    const interaction = applyAction(moved, { type: 'interact' }, map);
+    const interacted = interaction.state;
 
     expect(moved.player).toEqual({ x: 1, y: 1 });
     expect(moved.playerFacing).toBe('right');
     expect(moved.hasAction).toBe(false);
     expect(interacted.inventoryKeys).toEqual(['key']);
+    expect(interaction.feedbackEvent).toBe('key-acquired');
+  });
+
+  it('열쇠 없이 잠긴 문을 조사하면 필요한 조건을 반환한다', () => {
+    const state = createGameState(
+      { x: 1, y: 1 },
+      {
+        facing: 'right',
+        objects: [
+          createKey('key', { x: 1, y: 1 }, [], false),
+          createDoor('door', { x: 2, y: 1 }, [], { keyId: 'key' }),
+        ],
+      },
+    );
+
+    const result = applyAction(state, { type: 'interact' }, map);
+
+    expect(result.changed).toBe(false);
+    expect(result.feedbackEvent).toBe('key-required');
   });
 
   it('opens a linked door while the player occupies a pressure switch', () => {

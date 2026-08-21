@@ -124,14 +124,14 @@ Switch Class는 점유 중에만 활성화되는 압력 스위치입니다. Z �
 
 #### Key
 
-| Property           | 타입   | 필수   | 설명                                             |
-| ------------------ | ------ | ------ | ------------------------------------------------ |
-| `persistentFields` | string | 아니오 | `position`, `collectible`, `collected` 쉼표 목록 |
-| `collectible`      | bool   | 아니오 | 현재 상태에서 획득 가능한지 여부                 |
-| `visible`          | bool   | 아니오 | 미획득 상태의 화면 표시 여부                     |
-| `blocksMovement`   | bool   | 아니오 | 열쇠가 위치한 칸의 이동 차단 여부                |
-| `requiresReset`    | bool   | 아니오 | 한 번 이상 RESET한 뒤 획득·표시할지 여부         |
-| `assetKey`         | string | 아니오 | 렌더링할 manifest 키                             |
+| Property           | 타입   | 필수   | 설명                                                     |
+| ------------------ | ------ | ------ | -------------------------------------------------------- |
+| `persistentFields` | string | 아니오 | `position`, `collectible`, `collected` 쉼표 목록         |
+| `collectible`      | bool   | 아니오 | 현재 상태에서 획득 가능한지 여부                         |
+| `visible`          | bool   | 아니오 | 미획득 상태의 화면 표시 여부                             |
+| `blocksMovement`   | bool   | 아니오 | 열쇠가 위치한 칸의 이동 차단 여부                        |
+| `requiresReset`    | bool   | 아니오 | 획득 가능 상태가 된 뒤 다음 RESET부터 획득·표시할지 여부 |
+| `assetKey`         | string | 아니오 | 렌더링할 manifest 키                                     |
 
 Chapter 1의 열쇠는 `persistentFields: position,collectible`로 떨어진 위치와 획득 가능 상태만 기억합니다. `collected`는 기본 기억 속성이 아니며 레벨에서 명시적으로 허용할 때만 사용합니다.
 

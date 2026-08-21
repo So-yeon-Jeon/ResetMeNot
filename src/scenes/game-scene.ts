@@ -27,9 +27,11 @@ import type {
   StateTransitionVisual,
 } from '../themes/chapter-visual-theme';
 import { CHAPTER_VISUAL_THEMES, getChapterVisualTheme } from '../themes/theme-catalog';
+import { actionFeedback, FEEDBACK_MESSAGES, resetBlockedFeedback } from '../ui/feedback-messages';
 
 const MOVE_DURATION_MS = 110;
 const RESET_LOCK_MS = 100;
+const FEEDBACK_DURATION_MS = 1_400;
 const CHAPTER_FADE_OUT_MS = 350;
 const CHAPTER_FADE_IN_MS = 450;
 const FINALE_BASE_DURATION_MS = 900;
@@ -583,13 +585,24 @@ export class GameScene extends Phaser.Scene {
 
     if (result.resetPerformed) {
       if (result.echoCreationBlocked === 'occupied') {
-        this.showFeedback('ECHO SPACE OCCUPIED');
+        this.showFeedback(FEEDBACK_MESSAGES.echoSpaceOccupied);
       } else if (result.echoCreationBlocked === 'limit') {
-        this.showFeedback('ECHO LIMIT REACHED');
+        this.showFeedback(FEEDBACK_MESSAGES.echoLimitReached);
       }
       this.lockInputForReset();
       this.renderResetState();
       return;
+    }
+
+    if (action.type === 'reset' && result.resetBlocked) {
+      const message = resetBlockedFeedback(result.resetBlocked);
+      if (message) this.showFeedback(message);
+      return;
+    }
+
+    if (result.feedbackEvent) {
+      const message = actionFeedback(result.feedbackEvent);
+      if (message) this.showFeedback(message);
     }
 
     if (!result.changed) return;
@@ -960,14 +973,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private shouldRenderKey(key: Extract<GameState['objects'][number], { type: 'key' }>): boolean {
-    if (!key.requiresReset || this.gameState.resetCount > 0) return true;
-    const initialKey = this.gameState.initialObjects.find(
-      (object) => object.id === key.id && object.type === 'key',
-    );
     return (
-      initialKey?.type === 'key' &&
-      initialKey.position.x === key.position.x &&
-      initialKey.position.y === key.position.y
+      !key.requiresReset ||
+      key.availableAfterResetCount === undefined ||
+      this.gameState.resetCount >= key.availableAfterResetCount
     );
   }
 
@@ -1150,13 +1159,13 @@ export class GameScene extends Phaser.Scene {
       this.renderObjects();
       this.updateResetHud();
       this.phaseHud.setText('');
-      this.feedbackHud.setText('THE DOOR IS OPEN');
+      this.feedbackHud.setText(FEEDBACK_MESSAGES.doorOpen);
     });
   }
 
   private showFeedback(message: string): void {
     this.feedbackHud.setText(message);
-    this.time.delayedCall(900, () => {
+    this.time.delayedCall(FEEDBACK_DURATION_MS, () => {
       if (this.feedbackHud.text === message) this.feedbackHud.setText('');
     });
   }
