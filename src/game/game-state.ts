@@ -87,8 +87,10 @@ export type ActionResult = Readonly<{
   state: GameState;
   changed: boolean;
   resetPerformed: boolean;
+  resetBlocked?: 'locked' | 'empty-run' | 'limit';
   echoCreated: boolean;
   echoCreationBlocked?: 'occupied' | 'limit';
+  feedbackEvent?: 'reset-unlocked' | 'key-acquired' | 'key-required';
   chapterCompleted: boolean;
 }>;
 
@@ -375,7 +377,9 @@ function applyInteract(state: GameState, map: GridMap): ActionResult {
       (candidate.type === 'key' &&
         !candidate.collected &&
         candidate.collectible &&
-        (!candidate.requiresReset || state.resetCount > 0)) ||
+        (!candidate.requiresReset ||
+          candidate.availableAfterResetCount === undefined ||
+          state.resetCount >= candidate.availableAfterResetCount)) ||
       candidate.type === 'lever' ||
       (candidate.type === 'door' && !candidate.unlocked && candidate.keyId !== undefined) ||
       (candidate.type === 'exit' && candidate.mode === 'interact') ||
@@ -393,25 +397,31 @@ function applyInteract(state: GameState, map: GridMap): ActionResult {
   }
 
   if (object.type === 'pocket-watch' && !object.collected) {
-    return changedInteraction(
-      state,
-      object.id,
-      { collected: true },
-      {
-        resetUnlocked: true,
-        worldMemory: { ...state.worldMemory, pocketWatchCollected: true },
-      },
-    );
+    return {
+      ...changedInteraction(
+        state,
+        object.id,
+        { collected: true },
+        {
+          resetUnlocked: true,
+          worldMemory: { ...state.worldMemory, pocketWatchCollected: true },
+        },
+      ),
+      feedbackEvent: 'reset-unlocked',
+    };
   }
   if (object.type === 'key' && !object.collected) {
-    return changedInteraction(
-      state,
-      object.id,
-      { collected: true },
-      {
-        inventoryKeys: [...state.inventoryKeys, object.id],
-      },
-    );
+    return {
+      ...changedInteraction(
+        state,
+        object.id,
+        { collected: true },
+        {
+          inventoryKeys: [...state.inventoryKeys, object.id],
+        },
+      ),
+      feedbackEvent: 'key-acquired',
+    };
   }
   if (object.type === 'lever' && object.acceptedActors.includes('player')) {
     const active = object.mode === 'toggle' ? !object.active : true;
@@ -435,7 +445,9 @@ function applyInteract(state: GameState, map: GridMap): ActionResult {
     );
   }
   if (object.type === 'door' && !object.unlocked && object.keyId) {
-    if (!state.inventoryKeys.includes(object.keyId)) return result(state, false);
+    if (!state.inventoryKeys.includes(object.keyId)) {
+      return { ...result(state, false), feedbackEvent: 'key-required' };
+    }
     const inventoryKeys = object.consumesKey
       ? state.inventoryKeys.filter((keyId) => keyId !== object.keyId)
       : state.inventoryKeys;
@@ -501,7 +513,7 @@ function applyPuzzleInteraction(
   }
 
   for (const effect of interaction.effects) {
-    const nextObjects = applyObjectEffect(objects, effect);
+    const nextObjects = applyObjectEffect(objects, effect, state.resetCount);
     if (!nextObjects) return result(state, false);
     objects = nextObjects;
   }
@@ -524,23 +536,27 @@ function applyPuzzleInteraction(
   const player = canRetreat ? retreatPosition : state.player;
   const playerFacing = canRetreat && retreatDirection ? retreatDirection : state.playerFacing;
   objects = recalculateDerivedObjects(objects, player, state.echoes, state.objects, undefined);
-  return result(
-    {
-      ...state,
-      player,
-      playerFacing,
-      objects,
-      hasAction: true,
-      resetUnlocked: state.resetUnlocked || watchCollected,
-      worldMemory: watchMemory,
-    },
-    true,
-  );
+  return {
+    ...result(
+      {
+        ...state,
+        player,
+        playerFacing,
+        objects,
+        hasAction: true,
+        resetUnlocked: state.resetUnlocked || watchCollected,
+        worldMemory: watchMemory,
+      },
+      true,
+    ),
+    feedbackEvent: watchCollected && !state.resetUnlocked ? 'reset-unlocked' : undefined,
+  };
 }
 
 function applyObjectEffect(
   objects: readonly WorldObjectState[],
   effect: ObjectEffect,
+  resetCount: number,
 ): readonly WorldObjectState[] | undefined {
   const target = objects.find((object) => object.id === effect.objectId);
   if (!target) return undefined;
@@ -552,7 +568,15 @@ function applyObjectEffect(
       return object.states[effect.state] ? { ...object, state: effect.state } : object;
     }
     if (effect.type === 'set-collectible' && object.type === 'key') {
-      return { ...object, collectible: effect.collectible };
+      const newlyCollectible = effect.collectible && !object.collectible;
+      return {
+        ...object,
+        collectible: effect.collectible,
+        availableAfterResetCount:
+          newlyCollectible && object.requiresReset
+            ? resetCount + 1
+            : object.availableAfterResetCount,
+      };
     }
     if (
       effect.type === 'set-collected' &&
@@ -578,9 +602,10 @@ function changedInteraction(
 
 function applyReset(state: GameState): ActionResult {
   const resetLimitReached = state.resetPolicy === 'disable' && state.resetCount >= state.resetLimit;
-  if (state.finalResolved || !state.resetUnlocked || !state.hasAction || resetLimitReached) {
-    return result(state, false);
-  }
+  if (state.finalResolved) return result(state, false);
+  if (!state.resetUnlocked) return { ...result(state, false), resetBlocked: 'locked' };
+  if (resetLimitReached) return { ...result(state, false), resetBlocked: 'limit' };
+  if (!state.hasAction) return { ...result(state, false), resetBlocked: 'empty-run' };
 
   const echoAlreadyAtPlayer = state.echoes.some((echo) =>
     samePosition(echo.position, state.player),
