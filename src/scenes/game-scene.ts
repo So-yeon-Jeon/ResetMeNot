@@ -30,6 +30,8 @@ import { CHAPTER_VISUAL_THEMES, getChapterVisualTheme } from '../themes/theme-ca
 
 const MOVE_DURATION_MS = 110;
 const RESET_LOCK_MS = 100;
+const CHAPTER_FADE_OUT_MS = 350;
+const CHAPTER_FADE_IN_MS = 450;
 const FINALE_BASE_DURATION_MS = 900;
 const ECHO_FADE_STAGGER_MS = 220;
 const PLAYER_CHARACTER_TEXTURE = 'player-character';
@@ -90,6 +92,7 @@ export class GameScene extends Phaser.Scene {
   private isMoving = false;
   private isResetting = false;
   private isObjectTransitioning = false;
+  private isChapterTransitioning = false;
   private isFinalePlaying = false;
   private pendingReset = false;
   private pendingDirection?: Direction;
@@ -177,7 +180,7 @@ export class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.continueKey)) this.advanceEndingPage();
       return;
     }
-    if (this.isResetting) return;
+    if (this.isResetting || this.isChapterTransitioning) return;
     if (this.isObjectTransitioning) {
       if (Phaser.Input.Keyboard.JustDown(this.resetKey)) {
         this.pendingReset = true;
@@ -208,7 +211,7 @@ export class GameScene extends Phaser.Scene {
       !this.isFinalePlaying &&
       Phaser.Input.Keyboard.JustDown(this.continueKey)
     ) {
-      this.advanceToNextLevel();
+      this.startChapterTransition();
       return;
     }
 
@@ -1011,15 +1014,28 @@ export class GameScene extends Phaser.Scene {
     this.session = updateSessionState(this.session, state);
   }
 
+  private startChapterTransition(): void {
+    if (this.isChapterTransitioning || this.gameState.phase !== 'completed') return;
+    this.isChapterTransitioning = true;
+    this.pendingReset = false;
+    this.pendingDirection = undefined;
+    this.cameras.main.fadeOut(CHAPTER_FADE_OUT_MS, 8, 7, 12);
+    this.time.delayedCall(CHAPTER_FADE_OUT_MS + 30, () => this.advanceToNextLevel());
+  }
+
   private advanceToNextLevel(): void {
     const previousIndex = this.session.currentLevelIndex;
     this.session = advanceGameSession(this.session);
     this.gameState = this.session.state;
     if (this.session.completed) {
-      this.startEndingSequence();
+      this.startEndingSequence(true);
       return;
     }
-    if (this.session.currentLevelIndex === previousIndex) return;
+    if (this.session.currentLevelIndex === previousIndex) {
+      this.isChapterTransitioning = false;
+      this.cameras.main.fadeIn(CHAPTER_FADE_IN_MS, 8, 7, 12);
+      return;
+    }
 
     this.tweens.killTweensOf(this.player);
     this.isMoving = false;
@@ -1047,6 +1063,10 @@ export class GameScene extends Phaser.Scene {
     this.phaseHud.setText('');
     this.feedbackHud.setText('');
     this.updateClockHud();
+    this.cameras.main.fadeIn(CHAPTER_FADE_IN_MS, 8, 7, 12);
+    this.time.delayedCall(CHAPTER_FADE_IN_MS, () => {
+      this.isChapterTransitioning = false;
+    });
   }
 
   private lockInputForReset(): void {
@@ -1056,7 +1076,7 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private startEndingSequence(): void {
+  private startEndingSequence(cameraAlreadyFaded = false): void {
     const ending = createEndingSequence(this.gameState.worldMemory);
     this.endingPages = ending.pages;
     this.endingPageIndex = 0;
@@ -1070,11 +1090,17 @@ export class GameScene extends Phaser.Scene {
     this.feedbackHud.setVisible(false);
     this.phaseHud.setVisible(false);
     this.clockHud.setVisible(false);
-    this.cameras.main.fadeOut(450, 8, 7, 12);
-    this.time.delayedCall(480, () => {
+    const revealEnding = () => {
       this.cameras.main.fadeIn(600, 8, 7, 12);
       this.renderEndingPage();
-    });
+      this.isChapterTransitioning = false;
+    };
+    if (cameraAlreadyFaded) {
+      revealEnding();
+      return;
+    }
+    this.cameras.main.fadeOut(450, 8, 7, 12);
+    this.time.delayedCall(480, revealEnding);
   }
 
   private advanceEndingPage(): void {
