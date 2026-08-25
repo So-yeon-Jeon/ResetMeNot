@@ -247,6 +247,7 @@ export class GameScene extends Phaser.Scene {
 
     for (let y = 0; y < map.height; y += 1) {
       for (let x = 0; x < map.width; x += 1) {
+        if (map.floorTiles && !map.floorTiles.has(`${x},${y}`)) continue;
         const pixelX = this.mapOrigin.x + x * GRID_SIZE;
         const pixelY = this.mapOrigin.y + y * GRID_SIZE;
 
@@ -298,6 +299,7 @@ export class GameScene extends Phaser.Scene {
     theme: ChapterVisualTheme,
   ): void {
     const wall = theme.walls;
+    if (wall.renderBoundary === false) return;
     const doorObject = this.gameState.objects.find((object) => object.id === wall.doorwayObjectId);
     const doorwayStartX = this.validSectionStart(doorObject?.position.x, map.width);
     if (wall.perspectiveBoundary) {

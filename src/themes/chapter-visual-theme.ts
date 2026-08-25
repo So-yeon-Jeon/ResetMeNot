@@ -37,6 +37,7 @@ export type ObjectVisual = Readonly<{
 export type WallVisualTheme = Readonly<{
   doorwayObjectId?: string;
   perspectiveBoundary?: boolean;
+  renderBoundary?: boolean;
   top: string;
   bottom: string;
   left: string;

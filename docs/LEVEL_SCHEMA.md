@@ -106,6 +106,8 @@ Tiled Object의 위치는 픽셀 좌표이지만 로더에서 32로 나눠 그�
 
 Switch Class는 점유 중에만 활성화되는 압력 스위치입니다. Z 입력 방식은 Lever Class의 `toggle` 또는 `hold`를 사용합니다.
 
+Memory Object 상자는 `persistentFields=position`과 `memorySocketId`를 함께 지정합니다. 해당 ID의 Box 허용 Switch 위에서 RESET한 경우에만 상자 위치가 유지되며, Socket 밖에서 RESET하면 시작 위치로 돌아갑니다.
+
 | Property         | 타입   | 필수   | 설명                                |
 | ---------------- | ------ | ------ | ----------------------------------- |
 | `acceptedActors` | string | 아니오 | 쉼표 구분, 기본값 `player,echo,box` |
