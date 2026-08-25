@@ -96,7 +96,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
       if (gid !== 0) walls.add(positionKey({ x: index % width, y: Math.floor(index / width) }));
     });
   }
-  const gridMap: GridMap = { width, height, walls };
+  const gridMap: GridMap = { width, height, walls, structuralWalls };
 
   const tiledObjects = array(objectLayer.objects, 'objects.objects').map((value, index) =>
     object(value, `objects.objects[${index}]`),

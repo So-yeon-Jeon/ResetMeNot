@@ -9,6 +9,7 @@ export type GridMap = Readonly<{
   width: number;
   height: number;
   walls: ReadonlySet<string>;
+  structuralWalls?: ReadonlySet<string>;
 }>;
 
 const DIRECTION_OFFSETS: Readonly<Record<Direction, GridPosition>> = {
@@ -45,7 +46,7 @@ export function createGridMap(rows: readonly string[]): GridMap {
     });
   });
 
-  return { width, height: rows.length, walls };
+  return { width, height: rows.length, walls, structuralWalls: walls };
 }
 
 export function tryMove(current: GridPosition, direction: Direction, map: GridMap): GridPosition {
