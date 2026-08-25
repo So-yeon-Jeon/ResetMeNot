@@ -476,7 +476,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createInstructions(): void {
-    this.add
+    const instructions = this.add
       .text(
         this.scale.width / 2,
         12,
@@ -489,6 +489,10 @@ export class GameScene extends Phaser.Scene {
         },
       )
       .setOrigin(0.5, 0);
+    const availableWidth = this.scale.width - 32;
+    if (instructions.width > availableWidth) {
+      instructions.setScale(availableWidth / instructions.width);
+    }
 
     this.resetHud = this.add
       .text(this.scale.width / 2, this.scale.height - 18, '', {

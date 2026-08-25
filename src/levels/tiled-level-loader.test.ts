@@ -74,6 +74,28 @@ describe('loadTiledLevel', () => {
     });
   });
 
+  it('챕터마다 서로 다른 맵 크기를 허용한다', () => {
+    const map = validMap();
+    const width = 16;
+    const height = 12;
+    map.width = width;
+    map.height = height;
+    const layers = map.layers as Array<Record<string, unknown>>;
+    layers[0]!.data = Array(width * height).fill(1);
+    layers[1]!.data = Array.from({ length: width * height }, (_, index) => {
+      const x = index % width;
+      const y = Math.floor(index / width);
+      return x === 0 || x === width - 1 || y === 0 || y === height - 1 ? 1 : 0;
+    });
+
+    const level = loadTiledLevel(map);
+
+    expect(level.map.width).toBe(16);
+    expect(level.map.height).toBe(12);
+    expect(level.map.walls.has('15,11')).toBe(true);
+    expect(level.map.walls.has('8,6')).toBe(false);
+  });
+
   it('시각적 벽과 별개인 이동 차단 레이어를 맵 충돌에 포함한다', () => {
     const map = validMap();
     const layers = map.layers as Array<Record<string, unknown>>;

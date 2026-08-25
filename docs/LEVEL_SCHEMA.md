@@ -12,14 +12,14 @@ Tiled 편집 → JSON export → 런타임 검증 → 도메인 레벨 변환 �
 
 ## 맵 규격
 
-| 항목           | 값              |
-| -------------- | --------------- |
-| Orientation    | Orthogonal      |
-| Render order   | Right Down      |
-| Tile size      | 32×32 px        |
-| 전체 크기      | 기본 12×10 타일 |
-| 내부 이동 영역 | 기본 10×8 타일  |
-| Export         | JSON            |
+| 항목           | 값                         |
+| -------------- | -------------------------- |
+| Orientation    | Orthogonal                 |
+| Render order   | Right Down                 |
+| Tile size      | 32×32 px                   |
+| 전체 크기      | 챕터별 가변                |
+| 내부 이동 영역 | 전체 크기에서 외곽 벽 제외 |
+| Export         | JSON                       |
 
 ## 필수 레이어
 
@@ -35,6 +35,10 @@ Tiled 편집 → JSON export → 런타임 검증 → 도메인 레벨 변환 �
 `movement-blockers`에 표시합니다. 이 레이어는 화면에 렌더링하지 않고 이동 판정에만 사용합니다.
 
 장식 전용 Tile Layer는 `decor-*` 이름으로 추가할 수 있으며 게임 규칙에서 무시합니다.
+
+`floor`, `walls`, `movement-blockers`의 데이터 길이는 각각 `width × height`와 정확히
+일치해야 합니다. 런타임은 레벨별 `width`, `height`로 중앙 배치와 충돌 범위를 계산하므로
+Chapter 1의 `12×10` 크기를 다른 챕터에 그대로 적용할 필요는 없습니다.
 
 ## Map Custom Properties
 
