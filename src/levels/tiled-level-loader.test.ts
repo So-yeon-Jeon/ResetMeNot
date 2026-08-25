@@ -93,6 +93,7 @@ describe('loadTiledLevel', () => {
     expect(level.map.width).toBe(16);
     expect(level.map.height).toBe(12);
     expect(level.map.walls.has('15,11')).toBe(true);
+    expect(level.map.structuralWalls?.has('15,11')).toBe(true);
     expect(level.map.walls.has('8,6')).toBe(false);
   });
 

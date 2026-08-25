@@ -264,6 +264,32 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    map.structuralWalls?.forEach((key) => {
+      const [x, y] = key.split(',').map(Number);
+      if (
+        x === undefined ||
+        y === undefined ||
+        x === 0 ||
+        y === 0 ||
+        x === map.width - 1 ||
+        y === map.height - 1
+      ) {
+        return;
+      }
+      this.mapTiles.push(
+        this.add
+          .rectangle(
+            this.mapOrigin.x + x * GRID_SIZE + GRID_SIZE / 2,
+            this.mapOrigin.y + y * GRID_SIZE + GRID_SIZE / 2,
+            GRID_SIZE,
+            GRID_SIZE,
+            0x24212b,
+          )
+          .setStrokeStyle(1, 0x51495d)
+          .setDepth(0.08),
+      );
+    });
+
     this.drawWallKit(map, theme);
   }
 
