@@ -1,23 +1,50 @@
 import { describe, expect, it } from 'vitest';
 import {
   clearChapter4Code,
+  chapter4SceneState,
   createChapter4PuzzleState,
   inputChapter4Digit,
+  inspectChapter4Clue,
   resetChapter4Puzzle,
 } from './chapter4-puzzle';
 
 describe('Chapter 4 puzzle', () => {
-  it('reveals 9, 2, and 4 clues over the first three RESETs', () => {
+  it('changes the room over the first three RESETs without auto-discovering clues', () => {
     let state = createChapter4PuzzleState();
 
     state = resetChapter4Puzzle(state).state;
-    expect(state.clues).toEqual(['portrait-9']);
+    expect(chapter4SceneState(state)).toMatchObject({ portraitChanged: true });
 
     state = resetChapter4Puzzle(state).state;
-    expect(state.clues).toEqual(['portrait-9', 'book-2-left-to-right']);
+    expect(chapter4SceneState(state)).toMatchObject({ bookChanged: true });
 
     state = resetChapter4Puzzle(state).state;
-    expect(state.clues).toEqual(['portrait-9', 'book-2-left-to-right', 'missing-picture-4']);
+    expect(chapter4SceneState(state)).toMatchObject({ pictureMissing: true });
+    expect(state.clues).toEqual([]);
+  });
+
+  it('discovers each clue only after its changed object is inspected', () => {
+    let state = createChapter4PuzzleState();
+    expect(inspectChapter4Clue(state, 'portrait-9').discovered).toBe(false);
+
+    state = resetChapter4Puzzle(state).state;
+    const portrait = inspectChapter4Clue(state, 'portrait-9');
+    expect(portrait.discovered).toBe(true);
+    expect(portrait.feedback).toContain('9시');
+
+    state = resetChapter4Puzzle(portrait.state).state;
+    const book = inspectChapter4Clue(state, 'book-2-left-to-right');
+    expect(book.discovered).toBe(true);
+    expect(book.feedback).toContain('왼쪽부터');
+
+    state = resetChapter4Puzzle(book.state).state;
+    const picture = inspectChapter4Clue(state, 'missing-picture-4');
+    expect(picture.discovered).toBe(true);
+    expect(picture.state.clues).toEqual([
+      'portrait-9',
+      'book-2-left-to-right',
+      'missing-picture-4',
+    ]);
   });
 
   it('does not accept code input before the third clue appears', () => {
