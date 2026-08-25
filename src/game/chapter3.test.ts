@@ -73,11 +73,12 @@ describe('Chapter 3 room 1', () => {
     expect(state.echoLimit).toBe(2);
   });
 
-  it('requires opening the central gate before entering the Memory area', () => {
+  it('allows reaching Memory and Hold first, but gates the final area', () => {
     const gateKey = '9,7';
     expect(reachable(level.playerStart, { x: 13, y: 11 }, gateKey)).toBe(true);
-    expect(reachable(level.playerStart, { x: 3, y: 4 }, gateKey)).toBe(false);
-    expect(reachable(level.playerStart, { x: 3, y: 4 })).toBe(true);
+    expect(reachable(level.playerStart, { x: 3, y: 4 }, gateKey)).toBe(true);
+    expect(reachable(level.playerStart, { x: 14, y: 4 }, gateKey)).toBe(false);
+    expect(reachable(level.playerStart, { x: 14, y: 4 })).toBe(true);
   });
 
   it('restores the Memory Object outside its Socket', () => {
@@ -115,29 +116,39 @@ describe('Chapter 3 room 1', () => {
 
   it('completes the Memory Object, Echo Hold, final lever, and Exit flow', () => {
     let state = createLevelGameState(level, previousMemory);
-    state = applyAction(at(state, { x: 13, y: 11 }, 'up'), { type: 'interact' }, level.map).state;
-    state = applyAction(state, { type: 'reset' }, level.map).state;
     state = withObject(state, 'chapter3-memory-box', { position: { x: 5, y: 3 } });
-    const secondReset = applyAction(
+    const memoryReset = applyAction(
       at(state, { x: 4, y: 3 }, 'right'),
       { type: 'reset' },
       level.map,
     );
 
-    expect(secondReset.echoCreated).toBe(true);
-    expect(secondReset.state.echoes).toHaveLength(2);
-    expect(secondReset.state.echoes[0]).toMatchObject({
+    expect(object(memoryReset.state, 'chapter3-memory-box')).toMatchObject({
+      memoryCommitted: true,
+    });
+    expect(object(memoryReset.state, 'chapter3-central-gate')).toMatchObject({ open: false });
+
+    state = applyAction(
+      at(memoryReset.state, { x: 13, y: 11 }, 'up'),
+      { type: 'interact' },
+      level.map,
+    ).state;
+    const holdReset = applyAction(state, { type: 'reset' }, level.map);
+
+    expect(holdReset.echoCreated).toBe(true);
+    expect(holdReset.state.echoes).toHaveLength(2);
+    expect(holdReset.state.echoes[1]).toMatchObject({
       position: { x: 13, y: 11 },
       heldInteractionId: 'chapter3-hold-lever',
     });
-    expect(object(secondReset.state, 'chapter3-memory-box')).toMatchObject({
+    expect(object(holdReset.state, 'chapter3-memory-box')).toMatchObject({
       memoryCommitted: true,
     });
-    expect(object(secondReset.state, 'chapter3-hold-lever')).toMatchObject({ active: true });
-    expect(object(secondReset.state, 'chapter3-central-gate')).toMatchObject({ open: true });
+    expect(object(holdReset.state, 'chapter3-hold-lever')).toMatchObject({ active: true });
+    expect(object(holdReset.state, 'chapter3-central-gate')).toMatchObject({ open: true });
 
     state = applyAction(
-      at(secondReset.state, { x: 14, y: 4 }, 'up'),
+      at(holdReset.state, { x: 14, y: 4 }, 'up'),
       { type: 'interact' },
       level.map,
     ).state;
@@ -152,6 +163,26 @@ describe('Chapter 3 room 1', () => {
 
     expect(exited.state.player).toEqual({ x: 16, y: 2 });
     expect(exited.chapterCompleted).toBe(true);
+  });
+
+  it('opens the central gate only when Memory and Echo Hold are both active', () => {
+    let memoryOnly = createLevelGameState(level, previousMemory);
+    memoryOnly = withObject(memoryOnly, 'chapter3-memory-box', { position: { x: 5, y: 3 } });
+    memoryOnly = applyAction(
+      at(memoryOnly, { x: 4, y: 3 }, 'right'),
+      { type: 'reset' },
+      level.map,
+    ).state;
+    expect(object(memoryOnly, 'chapter3-central-gate')).toMatchObject({ open: false });
+
+    let holdOnly = createLevelGameState(level, previousMemory);
+    holdOnly = applyAction(
+      at(holdOnly, { x: 13, y: 11 }, 'up'),
+      { type: 'interact' },
+      level.map,
+    ).state;
+    holdOnly = applyAction(holdOnly, { type: 'reset' }, level.map).state;
+    expect(object(holdOnly, 'chapter3-central-gate')).toMatchObject({ open: false });
   });
 
   it('keeps the final Exit locked when any one of the three conditions is missing', () => {
