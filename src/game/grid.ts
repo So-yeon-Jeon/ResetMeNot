@@ -10,6 +10,7 @@ export type GridMap = Readonly<{
   height: number;
   walls: ReadonlySet<string>;
   structuralWalls?: ReadonlySet<string>;
+  floorTiles?: ReadonlySet<string>;
 }>;
 
 const DIRECTION_OFFSETS: Readonly<Record<Direction, GridPosition>> = {

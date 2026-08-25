@@ -693,7 +693,9 @@ function recalculateDerivedObjects(
         object.acceptedActors.includes('box') &&
         objects.some(
           (candidate) =>
-            candidate.type === 'box' && samePosition(candidate.position, object.position),
+            candidate.type === 'box' &&
+            samePosition(candidate.position, object.position) &&
+            (!object.requiresCommittedMemory || candidate.memoryCommitted),
         );
       return { ...object, active: playerActive || echoActive || boxActive };
     }

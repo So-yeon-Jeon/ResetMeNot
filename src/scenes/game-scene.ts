@@ -247,6 +247,7 @@ export class GameScene extends Phaser.Scene {
 
     for (let y = 0; y < map.height; y += 1) {
       for (let x = 0; x < map.width; x += 1) {
+        if (map.floorTiles && !map.floorTiles.has(`${x},${y}`)) continue;
         const pixelX = this.mapOrigin.x + x * GRID_SIZE;
         const pixelY = this.mapOrigin.y + y * GRID_SIZE;
 
@@ -298,6 +299,7 @@ export class GameScene extends Phaser.Scene {
     theme: ChapterVisualTheme,
   ): void {
     const wall = theme.walls;
+    if (wall.renderBoundary === false) return;
     const doorObject = this.gameState.objects.find((object) => object.id === wall.doorwayObjectId);
     const doorwayStartX = this.validSectionStart(doorObject?.position.x, map.width);
     if (wall.perspectiveBoundary) {
@@ -886,16 +888,21 @@ export class GameScene extends Phaser.Scene {
         }
       }
       if (object.type === 'pressure-switch') {
+        const pendingMemory =
+          object.requiresCommittedMemory &&
+          this.gameState.objects.some(
+            (candidate) =>
+              candidate.type === 'box' &&
+              !candidate.memoryCommitted &&
+              candidate.position.x === object.position.x &&
+              candidate.position.y === object.position.y,
+          );
+        const fillColor = object.active ? 0x73c8df : pendingMemory ? 0xb58a45 : 0x625b70;
+        const strokeColor = object.active ? 0xb9efff : pendingMemory ? 0xf2c66d : 0x8e849c;
         this.objectSprites.push(
           this.add
-            .rectangle(
-              pixel.x,
-              pixel.y,
-              GRID_SIZE - 8,
-              GRID_SIZE - 8,
-              object.active ? 0x73c8df : 0x625b70,
-            )
-            .setStrokeStyle(2, object.active ? 0xb9efff : 0x8e849c)
+            .rectangle(pixel.x, pixel.y, GRID_SIZE - 8, GRID_SIZE - 8, fillColor)
+            .setStrokeStyle(2, strokeColor)
             .setDepth(0.25),
         );
       }
