@@ -28,6 +28,7 @@ import type {
 } from '../themes/chapter-visual-theme';
 import { CHAPTER_VISUAL_THEMES, getChapterVisualTheme } from '../themes/theme-catalog';
 import { actionFeedback, FEEDBACK_MESSAGES, resetBlockedFeedback } from '../ui/feedback-messages';
+import { calculateMapCameraLayout } from './map-camera';
 
 const MOVE_DURATION_MS = 110;
 const RESET_LOCK_MS = 100;
@@ -143,14 +144,11 @@ export class GameScene extends Phaser.Scene {
       this.renderLoadError(this.loadError);
       return;
     }
-    const map = currentLevel(this.session).map;
-    this.mapOrigin = {
-      x: Math.floor((this.scale.width - map.width * GRID_SIZE) / 2),
-      y: Math.floor((this.scale.height - map.height * GRID_SIZE) / 2),
-    };
+    this.mapOrigin = this.currentMapCameraLayout().mapOrigin;
 
     this.drawMap();
     this.createPlayer();
+    this.configureMapCamera();
     this.createObjects();
     this.createInstructions();
     this.createKeyboardControls();
@@ -488,7 +486,8 @@ export class GameScene extends Phaser.Scene {
           letterSpacing: 2,
         },
       )
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0);
     const availableWidth = this.scale.width - 32;
     if (instructions.width > availableWidth) {
       instructions.setScale(availableWidth / instructions.width);
@@ -501,7 +500,8 @@ export class GameScene extends Phaser.Scene {
         fontSize: '13px',
         letterSpacing: 1,
       })
-      .setOrigin(0.5, 1);
+      .setOrigin(0.5, 1)
+      .setScrollFactor(0);
     this.updateResetHud();
     this.feedbackHud = this.add
       .text(this.scale.width / 2, this.scale.height - 42, '', {
@@ -510,7 +510,8 @@ export class GameScene extends Phaser.Scene {
         fontSize: '13px',
         letterSpacing: 1,
       })
-      .setOrigin(0.5, 1);
+      .setOrigin(0.5, 1)
+      .setScrollFactor(0);
     this.phaseHud = this.add
       .text(this.scale.width / 2, this.scale.height / 2, '', {
         color: '#f1ded2',
@@ -518,6 +519,7 @@ export class GameScene extends Phaser.Scene {
         fontSize: '32px',
       })
       .setOrigin(0.5)
+      .setScrollFactor(0)
       .setDepth(5);
     this.clockHud = this.add
       .text(this.scale.width - 20, 18, '', {
@@ -526,7 +528,8 @@ export class GameScene extends Phaser.Scene {
         fontSize: '18px',
         letterSpacing: 2,
       })
-      .setOrigin(1, 0);
+      .setOrigin(1, 0)
+      .setScrollFactor(0);
     this.endingHud = this.add
       .text(this.scale.width / 2, this.scale.height / 2, '', {
         align: 'center',
@@ -537,6 +540,7 @@ export class GameScene extends Phaser.Scene {
         wordWrap: { width: this.scale.width - 180 },
       })
       .setOrigin(0.5)
+      .setScrollFactor(0)
       .setDepth(10)
       .setVisible(false);
     this.updateClockHud();
@@ -1064,13 +1068,10 @@ export class GameScene extends Phaser.Scene {
     this.objectSprites.forEach((object) => object.destroy());
     this.objectSprites = [];
 
-    const map = currentLevel(this.session).map;
-    this.mapOrigin = {
-      x: Math.floor((this.scale.width - map.width * GRID_SIZE) / 2),
-      y: Math.floor((this.scale.height - map.height * GRID_SIZE) / 2),
-    };
+    this.mapOrigin = this.currentMapCameraLayout().mapOrigin;
     this.drawMap();
     this.createPlayer();
+    this.configureMapCamera();
     this.createObjects();
     this.updateResetHud();
     this.phaseHud.setText('');
@@ -1087,6 +1088,30 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(RESET_LOCK_MS, () => {
       this.isResetting = false;
     });
+  }
+
+  private currentMapCameraLayout() {
+    const map = currentLevel(this.session).map;
+    return calculateMapCameraLayout(
+      this.scale.width,
+      this.scale.height,
+      map.width,
+      map.height,
+      GRID_SIZE,
+    );
+  }
+
+  private configureMapCamera(): void {
+    const layout = this.currentMapCameraLayout();
+    const camera = this.cameras.main;
+    camera.stopFollow();
+    camera.setBounds(0, 0, layout.worldWidth, layout.worldHeight);
+    camera.setScroll(0, 0);
+    camera.roundPixels = true;
+    if (layout.followsPlayer) {
+      camera.startFollow(this.player, true, 1, 1);
+      camera.centerOn(this.player.x, this.player.y);
+    }
   }
 
   private startEndingSequence(cameraAlreadyFaded = false): void {
