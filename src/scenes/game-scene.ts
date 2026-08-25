@@ -85,6 +85,8 @@ export class GameScene extends Phaser.Scene {
   private interactKey!: Phaser.Input.Keyboard.Key;
   private restartKey!: Phaser.Input.Keyboard.Key;
   private continueKey!: Phaser.Input.Keyboard.Key;
+  private codeDigitKeys: Phaser.Input.Keyboard.Key[] = [];
+  private codeClearKey!: Phaser.Input.Keyboard.Key;
   private resetHud!: Phaser.GameObjects.Text;
   private feedbackHud!: Phaser.GameObjects.Text;
   private phaseHud!: Phaser.GameObjects.Text;
@@ -216,6 +218,18 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.gameState.phase !== 'playing') return;
+
+    if (!this.isMoving && this.gameState.codeEntryActive) {
+      const digit = this.codeDigitKeys.findIndex((key) => Phaser.Input.Keyboard.JustDown(key));
+      if (digit >= 0) {
+        this.dispatch({ type: 'input-code', digit });
+        return;
+      }
+      if (Phaser.Input.Keyboard.JustDown(this.codeClearKey)) {
+        this.dispatch({ type: 'clear-code' });
+        return;
+      }
+    }
 
     if (Phaser.Input.Keyboard.JustDown(this.resetKey)) {
       if (this.isMoving) {
@@ -593,6 +607,19 @@ export class GameScene extends Phaser.Scene {
     this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.restartKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
     this.continueKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+    this.codeDigitKeys = [
+      Phaser.Input.Keyboard.KeyCodes.ZERO,
+      Phaser.Input.Keyboard.KeyCodes.ONE,
+      Phaser.Input.Keyboard.KeyCodes.TWO,
+      Phaser.Input.Keyboard.KeyCodes.THREE,
+      Phaser.Input.Keyboard.KeyCodes.FOUR,
+      Phaser.Input.Keyboard.KeyCodes.FIVE,
+      Phaser.Input.Keyboard.KeyCodes.SIX,
+      Phaser.Input.Keyboard.KeyCodes.SEVEN,
+      Phaser.Input.Keyboard.KeyCodes.EIGHT,
+      Phaser.Input.Keyboard.KeyCodes.NINE,
+    ].map((keyCode) => this.input.keyboard!.addKey(keyCode));
+    this.codeClearKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.BACKSPACE);
   }
 
   private readDirection(): Direction | undefined {
@@ -640,6 +667,7 @@ export class GameScene extends Phaser.Scene {
       const message = actionFeedback(result.feedbackEvent);
       if (message) this.showFeedback(message);
     }
+    if (result.feedbackMessage) this.showFeedback(result.feedbackMessage);
 
     if (!result.changed) return;
 

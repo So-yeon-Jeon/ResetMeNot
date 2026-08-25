@@ -121,6 +121,40 @@
             { "name": "stateCollision", "type": "string", "value": "locked=0,0;active=0,0" },
             { "name": "onInteractState", "type": "string", "value": "active" }
           ]
+        },
+        {
+          "name": "chapter4-code-key",
+          "class": "Key",
+          "x": 256,
+          "y": 352,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "collectible", "type": "bool", "value": false },
+            { "name": "visible", "type": "bool", "value": false },
+            { "name": "blocksMovement", "type": "bool", "value": false }
+          ]
+        },
+        {
+          "name": "chapter4-exit-door",
+          "class": "Door",
+          "x": 544,
+          "y": 288,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "keyId", "type": "string", "value": "chapter4-code-key" },
+            { "name": "closedAssetKey", "type": "string", "value": "chapter1-door-closed" },
+            { "name": "openAssetKey", "type": "string", "value": "chapter1-door-open" }
+          ]
+        },
+        {
+          "name": "chapter4-exit",
+          "class": "Exit",
+          "x": 576,
+          "y": 288,
+          "width": 32,
+          "height": 32
         }
       ]
     }
