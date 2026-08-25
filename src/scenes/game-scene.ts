@@ -888,16 +888,21 @@ export class GameScene extends Phaser.Scene {
         }
       }
       if (object.type === 'pressure-switch') {
+        const pendingMemory =
+          object.requiresCommittedMemory &&
+          this.gameState.objects.some(
+            (candidate) =>
+              candidate.type === 'box' &&
+              !candidate.memoryCommitted &&
+              candidate.position.x === object.position.x &&
+              candidate.position.y === object.position.y,
+          );
+        const fillColor = object.active ? 0x73c8df : pendingMemory ? 0xb58a45 : 0x625b70;
+        const strokeColor = object.active ? 0xb9efff : pendingMemory ? 0xf2c66d : 0x8e849c;
         this.objectSprites.push(
           this.add
-            .rectangle(
-              pixel.x,
-              pixel.y,
-              GRID_SIZE - 8,
-              GRID_SIZE - 8,
-              object.active ? 0x73c8df : 0x625b70,
-            )
-            .setStrokeStyle(2, object.active ? 0xb9efff : 0x8e849c)
+            .rectangle(pixel.x, pixel.y, GRID_SIZE - 8, GRID_SIZE - 8, fillColor)
+            .setStrokeStyle(2, strokeColor)
             .setDepth(0.25),
         );
       }

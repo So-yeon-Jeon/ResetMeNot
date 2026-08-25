@@ -106,7 +106,9 @@ Tiled Object의 위치는 픽셀 좌표이지만 로더에서 32로 나눠 그�
 
 Switch Class는 점유 중에만 활성화되는 압력 스위치입니다. Z 입력 방식은 Lever Class의 `toggle` 또는 `hold`를 사용합니다.
 
-Memory Object 상자는 `persistentFields=position`과 `memorySocketId`를 함께 지정합니다. 해당 ID의 Box 허용 Switch 위에서 RESET한 경우에만 상자 위치가 유지되며, Socket 밖에서 RESET하면 시작 위치로 돌아갑니다.
+Memory Object 상자는 `persistentFields=position`과 `memorySocketId`를 함께 지정합니다. 해당 ID의 Box 허용 Switch 위에서 RESET한 경우에만 상자 위치가 유지되며, Socket 밖에서 RESET하면 시작 위치로 돌아갑니다. Memory Socket Switch에는 `requiresCommittedMemory=true`를 지정하며, 상자를 올린 직후가 아니라 그 상태로 RESET하여 기억을 확정한 뒤에만 활성화됩니다.
+
+비정형 맵은 Map Property `floorMask`에 각 행을 `0`과 `1`로 작성하고 `/`로 구분합니다. `1`은 이동 가능한 바닥, `0`은 맵 바깥 공간입니다. 외곽선을 전용 에셋으로 구성하는 맵은 `useWallLayer=false`로 설정하여 임시 Tile Wall 충돌을 끌 수 있습니다.
 
 | Property         | 타입   | 필수   | 설명                                |
 | ---------------- | ------ | ------ | ----------------------------------- |

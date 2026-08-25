@@ -87,7 +87,10 @@
           "y": 96,
           "width": 32,
           "height": 32,
-          "properties": [{ "name": "acceptedActors", "type": "string", "value": "box" }]
+          "properties": [
+            { "name": "acceptedActors", "type": "string", "value": "box" },
+            { "name": "requiresCommittedMemory", "type": "bool", "value": true }
+          ]
         },
         {
           "name": "chapter3-hold-lever",

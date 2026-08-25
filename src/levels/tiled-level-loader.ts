@@ -259,7 +259,7 @@ function createLevelObject(
     PocketWatch: ['visible', 'interactable', 'blocksMovement'],
     Box: ['persistentFields', 'memorySocketId'],
     Prop: ['assetKey', 'collisionCells'],
-    Switch: ['acceptedActors'],
+    Switch: ['acceptedActors', 'requiresCommittedMemory'],
     Lever: ['mode', 'acceptedActors'],
     Key: [
       'persistentFields',
@@ -319,7 +319,12 @@ function createLevelObject(
         parseCollisionCells(props.collisionCells, `${id}.collisionCells`),
       );
     case 'Switch':
-      return createPressureSwitch(id, position, actors(props.acceptedActors));
+      return createPressureSwitch(
+        id,
+        position,
+        actors(props.acceptedActors),
+        boolean(props.requiresCommittedMemory, false, `${id}.requiresCommittedMemory`),
+      );
     case 'Lever':
       return createLever(
         id,

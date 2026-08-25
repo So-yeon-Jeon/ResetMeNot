@@ -58,6 +58,7 @@ export type PressureSwitchState = Readonly<{
   position: GridPosition;
   active: boolean;
   acceptedActors: readonly AcceptedActor[];
+  requiresCommittedMemory: boolean;
 }>;
 
 export type BoxState = Readonly<{
@@ -66,6 +67,7 @@ export type BoxState = Readonly<{
   position: GridPosition;
   persistentFields: readonly 'position'[];
   memorySocketId?: string;
+  memoryCommitted: boolean;
 }>;
 
 export type LeverState = Readonly<{
@@ -191,6 +193,7 @@ export function createPressureSwitch(
   id: string,
   position: GridPosition,
   acceptedActors: readonly AcceptedActor[] = ['player', 'echo', 'box'],
+  requiresCommittedMemory = false,
 ): PressureSwitchState {
   return {
     id,
@@ -198,6 +201,7 @@ export function createPressureSwitch(
     position: { ...position },
     active: false,
     acceptedActors: [...acceptedActors],
+    requiresCommittedMemory,
   };
 }
 
@@ -213,6 +217,7 @@ export function createBox(
     position: { ...position },
     persistentFields: rememberPosition ? ['position'] : [],
     memorySocketId,
+    memoryCommitted: false,
   };
 }
 
@@ -320,6 +325,7 @@ export function restoreWorldObjects(
       return {
         ...initial,
         position: positionIsRemembered ? { ...current.position } : { ...initial.position },
+        memoryCommitted: positionIsRemembered && initial.memorySocketId !== undefined,
         persistentFields: [...initial.persistentFields],
       };
     }
