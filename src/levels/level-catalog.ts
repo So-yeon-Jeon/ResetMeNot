@@ -2,6 +2,7 @@ import chapter1Room1Json from './chapter1-room1.json';
 import chapter2Room1Json from './chapter2-room1.json';
 import chapter3Room1Json from './chapter3-room1.json';
 import chapter4Room1Json from './chapter4-room1.json';
+import finalClockRoomJson from './final-clock-room.json';
 import demoLevelJson from './demo-level.json';
 import { tryLoadTiledLevel } from './tiled-level-loader';
 import type { LevelDefinition } from './level-definition';
@@ -20,6 +21,7 @@ export const LEVEL_SOURCES: readonly LevelSource[] = [
   { fileName: 'chapter2-room1.json', data: chapter2Room1Json },
   { fileName: 'chapter3-room1.json', data: chapter3Room1Json },
   { fileName: 'chapter4-room1.json', data: chapter4Room1Json },
+  { fileName: 'final-clock-room.json', data: finalClockRoomJson },
 ];
 
 export const TEST_LEVEL_SOURCES: readonly LevelSource[] = [
