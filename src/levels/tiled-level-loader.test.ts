@@ -112,6 +112,26 @@ describe('loadTiledLevel', () => {
     expect(level.objects.find((object) => object.id === 'switch-a')).toBeDefined();
   });
 
+  it('floor가 없는 셀을 void로 보존하고 내부 partition을 별도 벽으로 읽는다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    layers[0]!.data = [0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0];
+    layers.splice(2, 0, {
+      name: 'partitions',
+      type: 'tilelayer',
+      data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+    });
+    const objects = layers[3]!.objects as Array<Record<string, unknown>>;
+    layers[3]!.objects = objects.filter((item) => item.name !== 'watch');
+
+    const level = loadTiledLevel(map);
+
+    expect(level.map.floorCells).toEqual(new Set(['1,1', '2,1', '1,2', '2,2']));
+    expect(level.map.partitionWalls).toEqual(new Set(['1,2']));
+    expect(level.map.walls.has('1,2')).toBe(true);
+    expect(level.map.structuralWalls?.has('1,2')).toBe(false);
+  });
+
   it('존재하지 않는 오브젝트 참조를 거부한다', () => {
     const map = validMap();
     const layers = map.layers as Array<Record<string, unknown>>;

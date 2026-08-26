@@ -16,7 +16,7 @@
     {
       "name": "floorMask",
       "type": "string",
-      "value": "000000000000000000/011111110011111110/011111110011111110/011111110011111110/011111110011111110/011111110111111110/001000000100000000/001000000100000000/011111111111111110/011111111111111110/011111110111111110/011111110111111110/000000000100000000/000000000100000000"
+      "value": "000000000000000000/011111111111111110/011111111111111110/011111111111111110/011111111111111110/011111111111111110/011111111111111110/011111111111111110/011111111111111110/011111111111111110/011111111111111110/011111111111111110/000000000111000000/000000000111000000"
     },
     { "name": "useWallLayer", "type": "bool", "value": false }
   ],
@@ -56,6 +56,23 @@
       ]
     },
     {
+      "name": "partitions",
+      "type": "tilelayer",
+      "width": 18,
+      "height": 14,
+      "data": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0
+      ]
+    },
+    {
       "name": "objects",
       "type": "objectgroup",
       "objects": [
@@ -69,10 +86,166 @@
           "properties": [{ "name": "facing", "type": "string", "value": "up" }]
         },
         {
+          "name": "chapter3-left-bed",
+          "class": "Prop",
+          "x": 32,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-bed" },
+            { "name": "collisionCells", "type": "string", "value": "0,0|1,0|0,1|1,1" }
+          ]
+        },
+        {
+          "name": "chapter3-left-window",
+          "class": "Prop",
+          "x": 96,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-window" },
+            { "name": "collisionCells", "type": "string", "value": "" }
+          ]
+        },
+        {
+          "name": "chapter3-left-clock",
+          "class": "Prop",
+          "x": 160,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-grandfather-clock" },
+            { "name": "collisionCells", "type": "string", "value": "" }
+          ]
+        },
+        {
+          "name": "chapter3-left-bookshelf",
+          "class": "Prop",
+          "x": 384,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-bookshelf-standing" },
+            { "name": "collisionCells", "type": "string", "value": "0,0|1,0|2,0|0,1|1,1|2,1" }
+          ]
+        },
+        {
+          "name": "chapter3-right-window",
+          "class": "Prop",
+          "x": 320,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-window" },
+            { "name": "collisionCells", "type": "string", "value": "" }
+          ]
+        },
+        {
+          "name": "chapter3-right-desk",
+          "class": "Prop",
+          "x": 320,
+          "y": 128,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-desk" },
+            { "name": "collisionCells", "type": "string", "value": "0,0|1,0|0,1|1,1|0,2|1,2" }
+          ]
+        },
+        {
+          "name": "chapter3-right-chair",
+          "class": "Prop",
+          "x": 384,
+          "y": 128,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-chair" },
+            { "name": "collisionCells", "type": "string", "value": "0,0|0,1" }
+          ]
+        },
+        {
+          "name": "chapter3-right-portrait",
+          "class": "Prop",
+          "x": 480,
+          "y": 160,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-portrait" },
+            { "name": "collisionCells", "type": "string", "value": "" }
+          ]
+        },
+        {
+          "name": "chapter3-bottom-rug",
+          "class": "Prop",
+          "x": 288,
+          "y": 256,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-rug" },
+            { "name": "collisionCells", "type": "string", "value": "" }
+          ]
+        },
+        {
+          "name": "chapter3-bottom-crates",
+          "class": "Prop",
+          "x": 64,
+          "y": 320,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-crate" },
+            { "name": "collisionCells", "type": "string", "value": "" }
+          ]
+        },
+        {
+          "name": "chapter3-bottom-barrel",
+          "class": "Prop",
+          "x": 160,
+          "y": 352,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-barrel" },
+            { "name": "collisionCells", "type": "string", "value": "" }
+          ]
+        },
+        {
+          "name": "chapter3-bottom-left-plant",
+          "class": "Prop",
+          "x": 32,
+          "y": 320,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-potted-plant" },
+            { "name": "collisionCells", "type": "string", "value": "" }
+          ]
+        },
+        {
+          "name": "chapter3-bottom-right-plant",
+          "class": "Prop",
+          "x": 512,
+          "y": 352,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-potted-plant" },
+            { "name": "collisionCells", "type": "string", "value": "" }
+          ]
+        },
+        {
           "name": "chapter3-memory-box",
           "class": "Box",
-          "x": 96,
-          "y": 96,
+          "x": 160,
+          "y": 288,
           "width": 32,
           "height": 32,
           "properties": [
@@ -83,8 +256,8 @@
         {
           "name": "chapter3-memory-socket",
           "class": "Switch",
-          "x": 160,
-          "y": 96,
+          "x": 224,
+          "y": 288,
           "width": 32,
           "height": 32,
           "properties": [
@@ -95,8 +268,8 @@
         {
           "name": "chapter3-hold-lever",
           "class": "Lever",
-          "x": 416,
-          "y": 320,
+          "x": 480,
+          "y": 288,
           "width": 32,
           "height": 32,
           "properties": [
@@ -115,6 +288,7 @@
             { "name": "switchIds", "type": "string", "value": "chapter3-memory-socket" },
             { "name": "leverIds", "type": "string", "value": "chapter3-hold-lever" },
             { "name": "activationMode", "type": "string", "value": "all" },
+            { "name": "interactionCells", "type": "string", "value": "0,0|1,0|2,0" },
             { "name": "closedAssetKey", "type": "string", "value": "chapter1-door-closed" },
             { "name": "openAssetKey", "type": "string", "value": "chapter1-door-open" }
           ]
@@ -134,7 +308,7 @@
         {
           "name": "chapter3-exit-door",
           "class": "Door",
-          "x": 480,
+          "x": 512,
           "y": 64,
           "width": 32,
           "height": 32,
@@ -153,8 +327,8 @@
         {
           "name": "chapter3-exit",
           "class": "Exit",
-          "x": 512,
-          "y": 64,
+          "x": 480,
+          "y": 128,
           "width": 32,
           "height": 32
         }

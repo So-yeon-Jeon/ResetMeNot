@@ -20,11 +20,20 @@ describe('map camera layout', () => {
     });
   });
 
+  it('keeps the 22x15 Chapter 2 floor plan fully visible between both HUD rows', () => {
+    expect(calculateMapCameraLayout(960, 540, 22, 15, 32)).toEqual({
+      mapOrigin: { x: 128, y: 30 },
+      worldWidth: 960,
+      worldHeight: 540,
+      followsPlayer: false,
+    });
+  });
+
   it('adds safe margins and enables tracking for a large multi-room map', () => {
     expect(calculateMapCameraLayout(960, 540, 32, 20, 32)).toEqual({
-      mapOrigin: { x: 32, y: 64 },
+      mapOrigin: { x: 32, y: 30 },
       worldWidth: 1088,
-      worldHeight: 768,
+      worldHeight: 700,
       followsPlayer: true,
     });
   });

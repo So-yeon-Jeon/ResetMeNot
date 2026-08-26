@@ -30,6 +30,17 @@ describe('grid movement', () => {
     expect(tryMove(position, 'up', map)).toBe(position);
   });
 
+  it('does not move onto an in-bounds void cell when a floor mask is present', () => {
+    const floorMaskedMap = {
+      width: 3,
+      height: 3,
+      walls: new Set<string>(),
+      floorCells: new Set(['1,1']),
+    };
+
+    expect(tryMove({ x: 1, y: 1 }, 'right', floorMaskedMap)).toEqual({ x: 1, y: 1 });
+  });
+
   it('rejects rows with inconsistent widths', () => {
     expect(() => createGridMap(['###', '##'])).toThrow('모든 맵 행의 길이는 같아야 합니다.');
   });
