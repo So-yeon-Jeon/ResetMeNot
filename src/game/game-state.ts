@@ -466,12 +466,12 @@ function applyInteract(state: GameState, map: GridMap): ActionResult {
     };
   }
   if (state.chapter4Puzzle && object.id === 'chapter4-code-lock') {
-    const available = state.chapter4Puzzle.resetStage >= 3;
     return {
-      ...result({ ...state, codeEntryActive: available, hasAction: true }, available),
-      feedbackMessage: available
-        ? '암호를 숫자키로 입력하자. BACKSPACE로 지울 수 있다.'
-        : '단서가 부족하다.',
+      ...result({ ...state, codeEntryActive: true, hasAction: true }, true),
+      feedbackMessage:
+        state.chapter4Puzzle.resetStage >= 3
+          ? '암호를 숫자키로 입력하자. BACKSPACE로 지울 수 있다.'
+          : '단서는 부족하지만 암호를 입력해 볼 수 있다.',
     };
   }
 
