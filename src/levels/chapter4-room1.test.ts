@@ -90,7 +90,7 @@ describe('Chapter 4 room 1', () => {
     expect(object(state, 'chapter4-book-clue')).toMatchObject({ state: 'changed' });
 
     state = applyAction(at(state, { x: 16, y: 3 }, 'up'), { type: 'reset' }, level.map).state;
-    expect(object(state, 'chapter4-painting-clue')).toMatchObject({ state: 'changed' });
+    expect(object(state, 'chapter4-missing-picture-clue')).toMatchObject({ state: 'changed' });
 
     state = applyAction(at(state, { x: 14, y: 13 }, 'up'), { type: 'interact' }, level.map).state;
     for (const digit of [9, 2, 4]) {

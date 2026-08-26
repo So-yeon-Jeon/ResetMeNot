@@ -179,8 +179,10 @@ export const CHAPTER4_VISUAL_THEME: ChapterVisualTheme = {
     'chapter4-archive-bookshelf-center': WALL_ATTACHED_BOOKSHELF_VISUAL,
     'chapter4-portrait-clue': { depth: 0.65 },
     'chapter4-book-clue': { depth: 0.65 },
-    'chapter4-painting-clue': { depth: 0.65 },
+    'chapter4-missing-picture-clue': { depth: 0.65 },
     'chapter4-wall-clock': {
+      offset: { x: 0, y: -24 },
+      displaySize: { width: 32, height: 64 },
       depth: 0.65,
       offsetsByState: { moved: { x: -8, y: 8 } },
     },

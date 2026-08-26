@@ -313,7 +313,7 @@
           ]
         },
         {
-          "name": "chapter4-painting-clue",
+          "name": "chapter4-missing-picture-clue",
           "class": "PuzzleObject",
           "x": 512,
           "y": 64,

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { ECHO_CHARACTER_ASSET, PLAYER_CHARACTER_ASSET } from '../assets/characters/manifest';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
+import { chapter4ResetFeedback } from '../game/chapter4-puzzle';
 import { formatClockTime } from '../game/clock';
 import { createEndingSequence, type EndingPage } from '../game/ending';
 import {
@@ -18,7 +19,7 @@ import {
   restartChapter,
   type GameState,
 } from '../game/game-state';
-import type { Direction, GridMap, GridPosition } from '../game/grid';
+import { positionInDirection, type Direction, type GridMap, type GridPosition } from '../game/grid';
 import type { PuzzleObjectState } from '../game/world-object';
 import { GAME_LEVELS_LOAD_RESULT } from '../levels/level-catalog';
 import type {
@@ -28,7 +29,11 @@ import type {
 } from '../themes/chapter-visual-theme';
 import { CHAPTER_VISUAL_THEMES, getChapterVisualTheme } from '../themes/theme-catalog';
 import { actionFeedback, FEEDBACK_MESSAGES, resetBlockedFeedback } from '../ui/feedback-messages';
-import { calculateMapCameraLayout } from './map-camera';
+import {
+  BOTTOM_HUD_SAFE_MARGIN,
+  calculateMapCameraLayout,
+  TOP_HUD_SAFE_MARGIN,
+} from './map-camera';
 
 const MOVE_DURATION_MS = 110;
 const RESET_LOCK_MS = 100;
@@ -51,6 +56,8 @@ const WALL_BOTTOM_ALPHA = 0.8;
 const FOREGROUND_DEPTH_OFFSET = 0.03;
 const GRID_DEPTH_STEP = 0.02;
 const INTERNAL_WALL_DEPTH_BASE = 1.01;
+const HUD_MASK_DEPTH = 8;
+const HUD_CONTENT_DEPTH = 9;
 
 type MovementKeys = Readonly<{
   up: Phaser.Input.Keyboard.Key[];
@@ -91,8 +98,9 @@ export class GameScene extends Phaser.Scene {
   private interactKey!: Phaser.Input.Keyboard.Key;
   private restartKey!: Phaser.Input.Keyboard.Key;
   private continueKey!: Phaser.Input.Keyboard.Key;
-  private codeDigitKeys: Phaser.Input.Keyboard.Key[] = [];
+  private codeDigitKeys: Phaser.Input.Keyboard.Key[][] = [];
   private codeClearKey!: Phaser.Input.Keyboard.Key;
+  private inspectionCloseKey!: Phaser.Input.Keyboard.Key;
   private resetHud!: Phaser.GameObjects.Text;
   private feedbackHud!: Phaser.GameObjects.Text;
   private phaseHud!: Phaser.GameObjects.Text;
@@ -110,6 +118,10 @@ export class GameScene extends Phaser.Scene {
   private endingPages: readonly EndingPage[] = [];
   private endingPageIndex = 0;
   private mapOrigin = { x: 0, y: 0 };
+  private inspectionOverlay?: Phaser.GameObjects.Container;
+  private codeEntryOverlay?: Phaser.GameObjects.Container;
+  private codeEntryValueHud?: Phaser.GameObjects.Text;
+  private chapter4ClockTween?: Phaser.Tweens.Tween;
 
   constructor() {
     super('game');
@@ -188,6 +200,37 @@ export class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.continueKey)) this.advanceEndingPage();
       return;
     }
+    if (this.codeEntryOverlay) {
+      const digit = this.readCodeDigit();
+      if (digit !== undefined) {
+        this.dispatch({ type: 'input-code', digit });
+        this.updateCodeEntryOverlay();
+        return;
+      }
+      if (Phaser.Input.Keyboard.JustDown(this.codeClearKey)) {
+        this.dispatch({ type: 'clear-code' });
+        this.updateCodeEntryOverlay();
+        return;
+      }
+      if (
+        Phaser.Input.Keyboard.JustDown(this.interactKey) ||
+        Phaser.Input.Keyboard.JustDown(this.continueKey) ||
+        Phaser.Input.Keyboard.JustDown(this.inspectionCloseKey)
+      ) {
+        this.closeCodeEntryOverlay();
+      }
+      return;
+    }
+    if (this.inspectionOverlay) {
+      if (
+        Phaser.Input.Keyboard.JustDown(this.interactKey) ||
+        Phaser.Input.Keyboard.JustDown(this.continueKey) ||
+        Phaser.Input.Keyboard.JustDown(this.inspectionCloseKey)
+      ) {
+        this.closeInspectionOverlay();
+      }
+      return;
+    }
     if (this.isResetting || this.isChapterTransitioning) return;
     if (this.isObjectTransitioning) {
       if (Phaser.Input.Keyboard.JustDown(this.resetKey)) {
@@ -226,8 +269,8 @@ export class GameScene extends Phaser.Scene {
     if (this.gameState.phase !== 'playing') return;
 
     if (!this.isMoving && this.gameState.codeEntryActive) {
-      const digit = this.codeDigitKeys.findIndex((key) => Phaser.Input.Keyboard.JustDown(key));
-      if (digit >= 0) {
+      const digit = this.readCodeDigit();
+      if (digit !== undefined) {
         this.dispatch({ type: 'input-code', digit });
         return;
       }
@@ -296,14 +339,23 @@ export class GameScene extends Phaser.Scene {
   }
 
   private drawFloorPlanBoundary(map: GridMap, theme: ChapterVisualTheme): void {
-    const structuralWalls = map.structuralWalls;
-    const floorCells = map.floorCells;
-    if (!structuralWalls || !floorCells) return;
+    const floorCells = map.floorTiles ?? map.floorCells;
+    if (!floorCells) return;
+
+    const boundaryCells = new Set(map.structuralWalls ?? []);
+    floorCells.forEach((key) => {
+      const [x, y] = key.split(',').map(Number);
+      if (x === undefined || y === undefined) return;
+      const touchesVoid = [`${x},${y - 1}`, `${x},${y + 1}`, `${x - 1},${y}`, `${x + 1},${y}`].some(
+        (neighbor) => !floorCells.has(neighbor),
+      );
+      if (touchesVoid) boundaryCells.add(key);
+    });
 
     const hasFloor = (x: number, y: number): boolean => floorCells.has(`${x},${y}`);
-    const hasOuterWall = (x: number, y: number): boolean => structuralWalls.has(`${x},${y}`);
+    const hasOuterWall = (x: number, y: number): boolean => boundaryCells.has(`${x},${y}`);
 
-    structuralWalls.forEach((key) => {
+    boundaryCells.forEach((key) => {
       const [x, y] = key.split(',').map(Number);
       if (x === undefined || y === undefined) return;
 
@@ -391,6 +443,32 @@ export class GameScene extends Phaser.Scene {
       const [x, y] = key.split(',').map(Number);
       if (x === undefined || y === undefined) return;
       const depth = gridRowDepth(INTERNAL_WALL_DEPTH_BASE, y);
+      const hasHorizontalNeighbor =
+        partitionWalls.has(`${x - 1},${y}`) || partitionWalls.has(`${x + 1},${y}`);
+      const hasVerticalNeighbor =
+        partitionWalls.has(`${x},${y - 1}`) || partitionWalls.has(`${x},${y + 1}`);
+      if (!hasHorizontalNeighbor && hasVerticalNeighbor && theme.walls.partitionVertical) {
+        const verticalAssetKey = theme.walls.partitionVertical;
+        if (
+          !this.currentTheme().assets[verticalAssetKey] ||
+          !this.textures.exists(verticalAssetKey)
+        )
+          return;
+        const displayWidth = theme.walls.partitionVerticalDisplayWidth ?? GRID_SIZE;
+        const displayHeight = theme.walls.partitionVerticalDisplayHeight ?? GRID_SIZE;
+        this.mapTiles.push(
+          this.add
+            .image(
+              this.mapOrigin.x + x * GRID_SIZE + (GRID_SIZE - displayWidth) / 2,
+              this.mapOrigin.y + (y + 1) * GRID_SIZE - displayHeight,
+              verticalAssetKey,
+            )
+            .setOrigin(0, 0)
+            .setDisplaySize(displayWidth, displayHeight)
+            .setDepth(depth),
+        );
+        return;
+      }
       const assetKey = theme.walls.partition ?? theme.walls.internalTop ?? theme.walls.bottom;
       if (!this.currentTheme().assets[assetKey] || !this.textures.exists(assetKey)) return;
       let frame = theme.walls.partitionStraightFrame ?? 0;
@@ -811,6 +889,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createInstructions(): void {
+    this.add
+      .rectangle(0, 0, this.scale.width, TOP_HUD_SAFE_MARGIN, 0x0d0c13, 1)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(HUD_MASK_DEPTH);
+    this.add
+      .rectangle(
+        0,
+        this.scale.height - BOTTOM_HUD_SAFE_MARGIN,
+        this.scale.width,
+        BOTTOM_HUD_SAFE_MARGIN,
+        0x0d0c13,
+        1,
+      )
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(HUD_MASK_DEPTH);
+
     const instructions = this.add
       .text(
         this.scale.width / 2,
@@ -824,31 +920,34 @@ export class GameScene extends Phaser.Scene {
         },
       )
       .setOrigin(0.5, 0)
-      .setScrollFactor(0);
+      .setScrollFactor(0)
+      .setDepth(HUD_CONTENT_DEPTH);
     const availableWidth = this.scale.width - 32;
     if (instructions.width > availableWidth) {
       instructions.setScale(availableWidth / instructions.width);
     }
 
     this.resetHud = this.add
-      .text(this.scale.width / 2, this.scale.height - 18, '', {
+      .text(this.scale.width / 2, this.scale.height - 1, '', {
         color: '#73c8df',
         fontFamily: 'monospace',
         fontSize: '13px',
         letterSpacing: 1,
       })
       .setOrigin(0.5, 1)
-      .setScrollFactor(0);
+      .setScrollFactor(0)
+      .setDepth(HUD_CONTENT_DEPTH);
     this.updateResetHud();
     this.feedbackHud = this.add
-      .text(this.scale.width / 2, this.scale.height - 42, '', {
+      .text(this.scale.width / 2, this.scale.height - 15, '', {
         color: '#d8b65a',
         fontFamily: 'monospace',
         fontSize: '13px',
         letterSpacing: 1,
       })
       .setOrigin(0.5, 1)
-      .setScrollFactor(0);
+      .setScrollFactor(0)
+      .setDepth(HUD_CONTENT_DEPTH);
     this.phaseHud = this.add
       .text(this.scale.width / 2, this.scale.height / 2, '', {
         color: '#f1ded2',
@@ -866,7 +965,8 @@ export class GameScene extends Phaser.Scene {
         letterSpacing: 2,
       })
       .setOrigin(1, 0)
-      .setScrollFactor(0);
+      .setScrollFactor(0)
+      .setDepth(HUD_CONTENT_DEPTH);
     this.endingHud = this.add
       .text(this.scale.width / 2, this.scale.height / 2, '', {
         align: 'center',
@@ -902,7 +1002,8 @@ export class GameScene extends Phaser.Scene {
     this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.restartKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
     this.continueKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
-    this.codeDigitKeys = [
+    this.inspectionCloseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    const numberRow = [
       Phaser.Input.Keyboard.KeyCodes.ZERO,
       Phaser.Input.Keyboard.KeyCodes.ONE,
       Phaser.Input.Keyboard.KeyCodes.TWO,
@@ -913,7 +1014,23 @@ export class GameScene extends Phaser.Scene {
       Phaser.Input.Keyboard.KeyCodes.SEVEN,
       Phaser.Input.Keyboard.KeyCodes.EIGHT,
       Phaser.Input.Keyboard.KeyCodes.NINE,
-    ].map((keyCode) => this.input.keyboard!.addKey(keyCode));
+    ];
+    const numberPad = [
+      Phaser.Input.Keyboard.KeyCodes.NUMPAD_ZERO,
+      Phaser.Input.Keyboard.KeyCodes.NUMPAD_ONE,
+      Phaser.Input.Keyboard.KeyCodes.NUMPAD_TWO,
+      Phaser.Input.Keyboard.KeyCodes.NUMPAD_THREE,
+      Phaser.Input.Keyboard.KeyCodes.NUMPAD_FOUR,
+      Phaser.Input.Keyboard.KeyCodes.NUMPAD_FIVE,
+      Phaser.Input.Keyboard.KeyCodes.NUMPAD_SIX,
+      Phaser.Input.Keyboard.KeyCodes.NUMPAD_SEVEN,
+      Phaser.Input.Keyboard.KeyCodes.NUMPAD_EIGHT,
+      Phaser.Input.Keyboard.KeyCodes.NUMPAD_NINE,
+    ];
+    this.codeDigitKeys = numberRow.map((keyCode, digit) => [
+      this.input.keyboard!.addKey(keyCode),
+      this.input.keyboard!.addKey(numberPad[digit]!),
+    ]);
     this.codeClearKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.BACKSPACE);
   }
 
@@ -929,10 +1046,25 @@ export class GameScene extends Phaser.Scene {
     return directions.find((direction) => pressed[direction]);
   }
 
+  private readCodeDigit(): number | undefined {
+    const digit = this.codeDigitKeys.findIndex((keys) =>
+      keys.some((key) => Phaser.Input.Keyboard.JustDown(key)),
+    );
+    return digit >= 0 ? digit : undefined;
+  }
+
   private dispatch(action: GameAction): void {
     const previousPlayer = this.gameState.player;
     const previousState = this.gameState;
+    const inspectionTarget =
+      action.type === 'interact' ? this.chapter4InspectionTarget() : undefined;
+    const codeEntryTarget = action.type === 'interact' && this.chapter4CodeEntryTarget();
     const result = applyAction(this.gameState, action, currentLevel(this.session).map);
+    const chapter4ResetStage =
+      action.type === 'reset' &&
+      previousState.chapter4Puzzle?.resetStage !== result.state.chapter4Puzzle?.resetStage
+        ? result.state.chapter4Puzzle?.resetStage
+        : undefined;
     const stateTransition = this.findStateTransition(previousState, result.state);
     this.setGameState(result.state);
     if (action.type === 'move') {
@@ -942,6 +1074,7 @@ export class GameScene extends Phaser.Scene {
     if (result.chapterCompleted) this.phaseHud.setText('CHAPTER CLEAR');
 
     if (result.resetPerformed) {
+      if (result.feedbackMessage) this.showFeedback(result.feedbackMessage);
       if (result.echoCreationBlocked === 'occupied') {
         this.showFeedback(FEEDBACK_MESSAGES.echoSpaceOccupied);
       } else if (result.echoCreationBlocked === 'limit') {
@@ -949,6 +1082,9 @@ export class GameScene extends Phaser.Scene {
       }
       this.lockInputForReset();
       this.renderResetState();
+      if (chapter4ResetStage !== undefined) {
+        this.showFeedback(chapter4ResetFeedback(chapter4ResetStage));
+      }
       return;
     }
 
@@ -963,6 +1099,12 @@ export class GameScene extends Phaser.Scene {
       if (message) this.showFeedback(message);
     }
     if (result.feedbackMessage) this.showFeedback(result.feedbackMessage);
+    if (inspectionTarget && result.feedbackMessage) {
+      this.openInspectionOverlay(inspectionTarget, result.feedbackMessage);
+    }
+    if (codeEntryTarget && result.state.codeEntryActive) {
+      this.openCodeEntryOverlay();
+    }
 
     if (!result.changed) return;
 
@@ -1011,6 +1153,209 @@ export class GameScene extends Phaser.Scene {
         if (nextDirection) this.dispatch({ type: 'move', direction: nextDirection });
       },
     });
+  }
+
+  private chapter4InspectionTarget(): string | undefined {
+    if (this.gameState.chapterId !== 'chapter-04') return undefined;
+    const target = positionInDirection(this.gameState.player, this.gameState.playerFacing);
+    const inspectableIds = new Set([
+      'chapter4-portrait-clue',
+      'chapter4-book-clue',
+      'chapter4-missing-picture-clue',
+    ]);
+    return this.gameState.objects.find(
+      (object) =>
+        inspectableIds.has(object.id) &&
+        object.position.x === target.x &&
+        object.position.y === target.y,
+    )?.id;
+  }
+
+  private chapter4CodeEntryTarget(): boolean {
+    if (this.gameState.chapterId !== 'chapter-04') return false;
+    const target = positionInDirection(this.gameState.player, this.gameState.playerFacing);
+    return this.gameState.objects.some(
+      (object) =>
+        object.id === 'chapter4-code-lock' &&
+        object.position.x === target.x &&
+        object.position.y === target.y,
+    );
+  }
+
+  private openCodeEntryOverlay(): void {
+    this.closeCodeEntryOverlay(false);
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2;
+    const backdrop = this.add
+      .rectangle(centerX, centerY, this.scale.width, this.scale.height, 0x08070c, 0.9)
+      .setInteractive();
+    const panel = this.add
+      .rectangle(centerX, centerY, 520, 330, 0x17131a, 1)
+      .setStrokeStyle(3, 0x8e7357);
+    const title = this.add
+      .text(centerX, centerY - 120, '3자리 암호 장치', {
+        color: '#d8b65a',
+        fontFamily: 'serif',
+        fontSize: '28px',
+      })
+      .setOrigin(0.5);
+    this.codeEntryValueHud = this.add
+      .text(centerX, centerY - 10, '', {
+        color: '#d8b65a',
+        fontFamily: 'monospace',
+        fontSize: '58px',
+        letterSpacing: 16,
+      })
+      .setOrigin(0.5);
+    const guide = this.add
+      .text(
+        centerX,
+        centerY + 105,
+        '숫자열 / 숫자 키패드 · 입력   BACKSPACE · 지우기\nZ · ENTER · ESC · 닫기',
+        {
+          align: 'center',
+          color: '#aaa1b5',
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          lineSpacing: 10,
+        },
+      )
+      .setOrigin(0.5);
+    this.codeEntryOverlay = this.add
+      .container(0, 0, [backdrop, panel, title, this.codeEntryValueHud, guide])
+      .setScrollFactor(0)
+      .setDepth(20);
+    this.updateCodeEntryOverlay();
+  }
+
+  private updateCodeEntryOverlay(): void {
+    if (!this.codeEntryValueHud) return;
+    const puzzle = this.gameState.chapter4Puzzle;
+    const confirmed = puzzle?.codeConfirmed ?? false;
+    this.codeEntryValueHud
+      .setText(puzzle?.codeInput.padEnd(3, '·') ?? '···')
+      .setColor(confirmed ? '#a7d7ad' : '#d8b65a');
+  }
+
+  private closeCodeEntryOverlay(deactivate = true): void {
+    this.codeEntryOverlay?.destroy(true);
+    this.codeEntryOverlay = undefined;
+    this.codeEntryValueHud = undefined;
+    if (deactivate && this.gameState.codeEntryActive) {
+      this.setGameState({ ...this.gameState, codeEntryActive: false });
+    }
+  }
+
+  private openInspectionOverlay(objectId: string, description: string): void {
+    this.closeInspectionOverlay();
+
+    const content = this.chapter4InspectionContent(objectId);
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2;
+    const panelWidth = Math.min(680, this.scale.width - 80);
+    const panelHeight = Math.min(470, this.scale.height - 80);
+    const backdrop = this.add
+      .rectangle(centerX, centerY, this.scale.width, this.scale.height, 0x08070c, 0.88)
+      .setInteractive();
+    const panel = this.add
+      .rectangle(centerX, centerY, panelWidth, panelHeight, 0x17131a, 1)
+      .setStrokeStyle(3, 0x8e7357);
+    const title = this.add
+      .text(centerX, centerY - panelHeight / 2 + 38, content.title, {
+        color: '#d8b65a',
+        fontFamily: 'serif',
+        fontSize: '28px',
+      })
+      .setOrigin(0.5);
+    const visual = this.createInspectionVisual(objectId, centerX, centerY - 35);
+    const body = this.add
+      .text(centerX, centerY + panelHeight / 2 - 92, description, {
+        align: 'center',
+        color: '#f1ded2',
+        fontFamily: 'serif',
+        fontSize: '20px',
+        lineSpacing: 8,
+        wordWrap: { width: panelWidth - 90 },
+      })
+      .setOrigin(0.5);
+    const prompt = this.add
+      .text(centerX, centerY + panelHeight / 2 - 28, 'Z · ENTER · ESC  닫기', {
+        color: '#aaa1b5',
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        letterSpacing: 1,
+      })
+      .setOrigin(0.5);
+
+    this.inspectionOverlay = this.add
+      .container(0, 0, [backdrop, panel, title, ...visual, body, prompt])
+      .setScrollFactor(0)
+      .setDepth(20);
+  }
+
+  private chapter4InspectionContent(objectId: string): Readonly<{ title: string }> {
+    if (objectId === 'chapter4-book-clue') return { title: '펼쳐진 책' };
+    if (objectId === 'chapter4-missing-picture-clue') return { title: '벽에 걸린 그림' };
+    return { title: '낡은 초상화' };
+  }
+
+  private createInspectionVisual(
+    objectId: string,
+    centerX: number,
+    centerY: number,
+  ): Phaser.GameObjects.GameObject[] {
+    const stage = this.gameState.chapter4Puzzle?.resetStage ?? 0;
+    if (objectId === 'chapter4-portrait-clue' && this.textures.exists('chapter1-portrait')) {
+      const objects: Phaser.GameObjects.GameObject[] = [
+        this.add
+          .image(centerX, centerY, 'chapter1-portrait')
+          .setDisplaySize(128, 256)
+          .setOrigin(0.5),
+      ];
+      if (stage >= 1) {
+        objects.push(
+          this.add
+            .text(centerX, centerY + 72, '9', {
+              color: '#d8b65a',
+              fontFamily: 'serif',
+              fontSize: '46px',
+              fontStyle: 'bold',
+            })
+            .setOrigin(0.5),
+        );
+      }
+      return objects;
+    }
+
+    const frame = this.add
+      .rectangle(
+        centerX,
+        centerY,
+        260,
+        190,
+        objectId === 'chapter4-book-clue' ? 0xd8c49d : 0x273328,
+      )
+      .setStrokeStyle(8, 0x5f452f);
+    const clueVisible =
+      (objectId === 'chapter4-book-clue' && stage >= 2) ||
+      (objectId === 'chapter4-missing-picture-clue' && stage >= 3);
+    if (!clueVisible) return [frame];
+
+    return [
+      frame,
+      this.add
+        .text(centerX, centerY, objectId === 'chapter4-book-clue' ? '2  ←' : '4', {
+          color: objectId === 'chapter4-book-clue' ? '#4b382d' : '#d8b65a',
+          fontFamily: 'serif',
+          fontSize: '54px',
+        })
+        .setOrigin(0.5),
+    ];
+  }
+
+  private closeInspectionOverlay(): void {
+    this.inspectionOverlay?.destroy(true);
+    this.inspectionOverlay = undefined;
   }
 
   private renderResetState(): void {
@@ -1159,6 +1504,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderObjects(): void {
+    this.chapter4ClockTween?.stop();
+    this.chapter4ClockTween = undefined;
     this.objectSprites.forEach((object) => object.destroy());
     this.objectSprites = [];
     this.gameState.objects.forEach((object) => {
@@ -1175,27 +1522,42 @@ export class GameScene extends Phaser.Scene {
       };
       const visualOffset = visual.offset;
       if (object.type === 'prop') {
-        this.objectSprites.push(
-          ...this.renderAssetObject(
-            object.assetKey,
-            visualPosition,
-            visual.depth ?? 0.35,
-            visualOffset,
-            visual.displaySize,
-          ),
+        const rendered = this.renderAssetObject(
+          object.assetKey,
+          visualPosition,
+          visual.depth ?? 0.35,
+          visualOffset,
+          visual.displaySize,
         );
+        this.objectSprites.push(...rendered);
+        if (
+          object.id === 'chapter4-wall-clock' &&
+          this.gameState.chapter4Puzzle?.clockStarted &&
+          rendered[0] instanceof Phaser.GameObjects.Image
+        ) {
+          this.chapter4ClockTween = this.tweens.add({
+            targets: rendered[0],
+            angle: { from: -0.8, to: 0.8 },
+            duration: 520,
+            ease: 'Sine.easeInOut',
+            yoyo: true,
+            repeat: -1,
+          });
+        }
       }
       if (object.type === 'puzzle-object') {
         const stateDefinition = object.states[object.state];
-        this.objectSprites.push(
-          ...this.renderAssetObject(
-            stateDefinition?.assetKey ?? object.assetKey,
-            visualPosition,
-            visual.depth ?? 0.6,
-            visualOffset,
-            visual.displaySize,
-          ),
+        const rendered = this.renderAssetObject(
+          stateDefinition?.assetKey ?? object.assetKey,
+          visualPosition,
+          visual.depth ?? 0.6,
+          visualOffset,
+          visual.displaySize,
         );
+        this.objectSprites.push(...rendered);
+        if (rendered.length === 0) {
+          this.objectSprites.push(...this.renderChapter4ClueObject(object.id, object.position));
+        }
       }
       if (object.type === 'pocket-watch' && !object.collected) {
         if (object.visible) {
@@ -1232,9 +1594,10 @@ export class GameScene extends Phaser.Scene {
           visual.displaySize,
         );
         if (switchSprites.length > 0) {
-          if (object.active && !visual.stateAssetKeys?.active) {
+          if ((object.active || pendingMemory) && !visual.stateAssetKeys?.active) {
+            const tint = object.active ? 0xb9efff : 0xf2c66d;
             switchSprites.forEach((sprite) => {
-              if (sprite instanceof Phaser.GameObjects.Image) sprite.setTint(0xb9efff);
+              if (sprite instanceof Phaser.GameObjects.Image) sprite.setTint(tint);
             });
           }
           this.objectSprites.push(...switchSprites);
@@ -1262,12 +1625,22 @@ export class GameScene extends Phaser.Scene {
         );
       }
       if (object.type === 'box') {
-        this.objectSprites.push(
-          this.add
-            .rectangle(pixel.x, pixel.y, GRID_SIZE - 6, GRID_SIZE - 6, 0x9a754f)
-            .setStrokeStyle(2, 0xd8b65a)
-            .setDepth(0.65),
+        const boxSprites = this.renderAssetObject(
+          visual.assetKey,
+          visualPosition,
+          visual.depth ?? 0.65,
+          visualOffset,
+          visual.displaySize,
         );
+        if (boxSprites.length > 0) this.objectSprites.push(...boxSprites);
+        else {
+          this.objectSprites.push(
+            this.add
+              .rectangle(pixel.x, pixel.y, GRID_SIZE - 6, GRID_SIZE - 6, 0x9a754f)
+              .setStrokeStyle(2, 0xd8b65a)
+              .setDepth(0.65),
+          );
+        }
       }
       if (object.type === 'lever') {
         const leverSprites = this.renderAssetObject(
@@ -1369,6 +1742,109 @@ export class GameScene extends Phaser.Scene {
         }
       }
       return sprites;
+    }
+
+    return [];
+  }
+
+  private renderChapter4ClueObject(
+    objectId: string,
+    position: GridPosition,
+  ): Phaser.GameObjects.GameObject[] {
+    const stage = this.gameState.chapter4Puzzle?.resetStage ?? 0;
+    const pixel = this.gridToPixel(position);
+
+    if (objectId === 'chapter4-portrait-clue') {
+      const portrait = this.textures.exists('chapter1-portrait')
+        ? this.add
+            .image(pixel.x, pixel.y - 16, 'chapter1-portrait')
+            .setDisplaySize(32, 64)
+            .setDepth(0.58)
+        : this.add
+            .rectangle(pixel.x, pixel.y - 16, 32, 64, 0x49352f)
+            .setStrokeStyle(3, 0xa4825e)
+            .setDepth(0.58);
+      const objects: Phaser.GameObjects.GameObject[] = [portrait];
+      if (stage >= 1) {
+        objects.push(
+          this.add
+            .text(pixel.x, pixel.y + 3, '9', {
+              color: '#d8b65a',
+              fontFamily: 'serif',
+              fontSize: '20px',
+              fontStyle: 'bold',
+            })
+            .setOrigin(0.5)
+            .setDepth(0.61),
+        );
+      }
+      return objects;
+    }
+
+    if (objectId === 'chapter4-book-clue') {
+      const book = this.add
+        .rectangle(pixel.x, pixel.y, 52, 34, 0xd6c39d)
+        .setStrokeStyle(3, 0x705039)
+        .setDepth(0.58);
+      const spine = this.add.rectangle(pixel.x, pixel.y, 2, 30, 0x8e7357).setDepth(0.59);
+      const objects: Phaser.GameObjects.GameObject[] = [book, spine];
+      if (stage >= 2) {
+        objects.push(
+          this.add
+            .text(pixel.x + 12, pixel.y, '2', {
+              color: '#4b382d',
+              fontFamily: 'serif',
+              fontSize: '18px',
+              fontStyle: 'bold',
+            })
+            .setOrigin(0.5)
+            .setDepth(0.61),
+        );
+      }
+      return objects;
+    }
+
+    if (objectId === 'chapter4-missing-picture-clue') {
+      const missing = stage >= 3;
+      const frame = this.add
+        .rectangle(pixel.x, pixel.y - 8, 48, 48, missing ? 0x17131a : 0x344235)
+        .setStrokeStyle(4, 0x8e7357)
+        .setDepth(0.58);
+      const objects: Phaser.GameObjects.GameObject[] = [frame];
+      if (missing) {
+        objects.push(
+          this.add
+            .text(pixel.x, pixel.y - 8, '4', {
+              color: '#d8b65a',
+              fontFamily: 'serif',
+              fontSize: '22px',
+              fontStyle: 'bold',
+            })
+            .setOrigin(0.5)
+            .setDepth(0.61),
+        );
+      }
+      return objects;
+    }
+
+    if (objectId === 'chapter4-code-lock') {
+      const input = this.gameState.chapter4Puzzle?.codeInput.padEnd(3, '·') ?? '···';
+      const confirmed = this.gameState.chapter4Puzzle?.codeConfirmed ?? false;
+      return [
+        this.add
+          .rectangle(pixel.x, pixel.y, 78, 50, 0x28242a)
+          .setStrokeStyle(4, confirmed ? 0x87bd82 : 0x8e7357)
+          .setDepth(0.58),
+        this.add
+          .text(pixel.x, pixel.y, input, {
+            color: confirmed ? '#a7d7ad' : '#d8b65a',
+            fontFamily: 'monospace',
+            fontSize: '20px',
+            letterSpacing: 3,
+          })
+          .setOrigin(0.5)
+          .setDepth(0.61),
+      ];
     }
 
     return [];
@@ -1499,6 +1975,7 @@ export class GameScene extends Phaser.Scene {
     const layout = this.currentMapCameraLayout();
     const camera = this.cameras.main;
     camera.stopFollow();
+    camera.setZoom(this.currentTheme().cameraZoom ?? 1);
     camera.setBounds(0, 0, layout.worldWidth, layout.worldHeight);
     camera.setScroll(0, 0);
     camera.roundPixels = true;

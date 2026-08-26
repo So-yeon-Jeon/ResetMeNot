@@ -359,6 +359,21 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
     );
   }
 
+  const memorySocket =
+    box?.type === 'box' && box.memorySocketId
+      ? objects.find((object) => object.id === box.memorySocketId)
+      : undefined;
+  const memoryPending =
+    box?.type === 'box' &&
+    memorySocket?.type === 'pressure-switch' &&
+    !samePosition(box.position, memorySocket.position) &&
+    objects.some(
+      (object) =>
+        object.id === box.id &&
+        object.type === 'box' &&
+        samePosition(object.position, memorySocket.position),
+    );
+
   objects = recalculateDerivedObjects(objects, candidate, state.echoes, state.objects, undefined);
   const completed = objects.some(
     (object) =>
@@ -375,45 +390,65 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
     objects,
     phase: completed ? 'completed' : state.phase,
   };
-  return { ...result(nextState, true), chapterCompleted: completed };
+  return {
+    ...result(nextState, true),
+    feedbackMessage: memoryPending
+      ? '기억석이 Socket에 들어갔다. RESET으로 고정할 수 있다.'
+      : undefined,
+    chapterCompleted: completed,
+  };
 }
 
 function applyInteract(state: GameState, map: GridMap): ActionResult {
-  const target = positionInDirection(state.player, state.playerFacing);
-  const object = state.objects.find((candidate) => {
-    const isPuzzleObject = candidate.type === 'puzzle-object' && candidate.onInteract !== undefined;
-    const isKeyOnPlayer =
-      candidate.type === 'key' && samePosition(candidate.position, state.player);
-    if (isPuzzleObject && !puzzleObjectOccupies(candidate, target)) return false;
-    if (
-      !isPuzzleObject &&
-      !isKeyOnPlayer &&
-      (candidate.type === 'door'
-        ? !relativeCellsContain(candidate.position, candidate.interactionCells, target)
-        : positionKey(candidate.position) !== positionKey(target))
-    ) {
-      return false;
-    }
-    return (
-      (candidate.type === 'pocket-watch' && !candidate.collected && candidate.interactable) ||
-      (candidate.type === 'key' &&
-        !candidate.collected &&
-        candidate.collectible &&
-        (!candidate.requiresReset ||
-          candidate.availableAfterResetCount === undefined ||
-          state.resetCount >= candidate.availableAfterResetCount)) ||
-      candidate.type === 'lever' ||
-      (candidate.type === 'door' && !candidate.unlocked && candidate.keyId !== undefined) ||
-      (candidate.type === 'exit' && candidate.mode === 'interact') ||
-      (candidate.type === 'puzzle-object' && candidate.onInteract !== undefined)
-    );
-  });
+  const interactionTargets = [
+    positionInDirection(state.player, state.playerFacing),
+    { x: state.player.x, y: state.player.y - 1 },
+    { x: state.player.x + 1, y: state.player.y },
+    { x: state.player.x, y: state.player.y + 1 },
+    { x: state.player.x - 1, y: state.player.y },
+  ].filter(
+    (target, index, targets) =>
+      targets.findIndex((candidate) => samePosition(candidate, target)) === index,
+  );
+  const object = interactionTargets
+    .map((target) =>
+      state.objects.find((candidate) => {
+        const isPuzzleObject =
+          candidate.type === 'puzzle-object' && candidate.onInteract !== undefined;
+        const isKeyOnPlayer =
+          candidate.type === 'key' && samePosition(candidate.position, state.player);
+        if (isPuzzleObject && !puzzleObjectOccupies(candidate, target)) return false;
+        if (
+          !isPuzzleObject &&
+          !isKeyOnPlayer &&
+          (candidate.type === 'door'
+            ? !relativeCellsContain(candidate.position, candidate.interactionCells, target)
+            : positionKey(candidate.position) !== positionKey(target))
+        ) {
+          return false;
+        }
+        return (
+          (candidate.type === 'pocket-watch' && !candidate.collected && candidate.interactable) ||
+          (candidate.type === 'key' &&
+            !candidate.collected &&
+            candidate.collectible &&
+            (!candidate.requiresReset ||
+              candidate.availableAfterResetCount === undefined ||
+              state.resetCount >= candidate.availableAfterResetCount)) ||
+          candidate.type === 'lever' ||
+          (candidate.type === 'door' && !candidate.unlocked && candidate.keyId !== undefined) ||
+          (candidate.type === 'exit' && candidate.mode === 'interact') ||
+          (candidate.type === 'puzzle-object' && candidate.onInteract !== undefined)
+        );
+      }),
+    )
+    .find((candidate): candidate is WorldObjectState => candidate !== undefined);
   if (!object) return result(state, false);
 
   const clueByObjectId: Readonly<Record<string, Chapter4Clue>> = {
     'chapter4-portrait-clue': 'portrait-9',
     'chapter4-book-clue': 'book-2-left-to-right',
-    'chapter4-painting-clue': 'missing-picture-4',
+    'chapter4-missing-picture-clue': 'missing-picture-4',
   };
   if (state.chapter4Puzzle && object.id === 'chapter4-wall-clock') {
     const moved = state.chapter4Puzzle.clockStarted;
@@ -440,19 +475,19 @@ function applyInteract(state: GameState, map: GridMap): ActionResult {
     };
   }
   if (state.chapter4Puzzle && object.id === 'chapter4-code-lock') {
-    const available = state.chapter4Puzzle.resetStage >= 3;
     return {
-      ...result({ ...state, codeEntryActive: available, hasAction: true }, available),
-      feedbackMessage: available
-        ? '암호를 숫자키로 입력하자. BACKSPACE로 지울 수 있다.'
-        : '단서가 부족하다.',
+      ...result({ ...state, codeEntryActive: true, hasAction: true }, true),
+      feedbackMessage:
+        state.chapter4Puzzle.resetStage >= 3
+          ? '암호를 숫자키로 입력하자. BACKSPACE로 지울 수 있다.'
+          : '단서는 부족하지만 암호를 입력해 볼 수 있다.',
     };
   }
 
   if (
     object.type === 'key' &&
     !samePosition(object.position, state.player) &&
-    isBlockedByOtherObject(state.objects, target, object.id)
+    isBlockedByOtherObject(state.objects, object.position, object.id)
   ) {
     return result(state, false);
   }
@@ -701,6 +736,11 @@ function applyReset(state: GameState): ActionResult {
         },
       ]
     : state.echoes;
+  const memoryWillCommit = state.objects.some((object) => {
+    if (object.type !== 'box' || object.memoryCommitted || !object.memorySocketId) return false;
+    const socket = state.objects.find((candidate) => candidate.id === object.memorySocketId);
+    return socket?.type === 'pressure-switch' && samePosition(object.position, socket.position);
+  });
   const restoredObjects = restoreWorldObjects(state.objects, state.initialObjects);
   let objects = recalculateDerivedObjects(
     restoredObjects,
@@ -752,6 +792,7 @@ function applyReset(state: GameState): ActionResult {
     resetPerformed: true,
     echoCreated: canCreateEcho,
     echoCreationBlocked,
+    feedbackMessage: memoryWillCommit ? '기억석이 고정되었다.' : undefined,
     chapterCompleted: false,
   };
 }
@@ -765,7 +806,7 @@ function applyChapter4VisualStates(
   const stateByObjectId: Readonly<Record<string, string>> = {
     'chapter4-portrait-clue': puzzle.resetStage >= 1 ? 'changed' : 'normal',
     'chapter4-book-clue': puzzle.resetStage >= 2 ? 'changed' : 'normal',
-    'chapter4-painting-clue': puzzle.resetStage >= 3 ? 'changed' : 'normal',
+    'chapter4-missing-picture-clue': puzzle.resetStage >= 3 ? 'changed' : 'normal',
     'chapter4-wall-clock': puzzle.resetStage >= 4 ? 'moved' : 'static',
   };
   return objects.map((object) => {
