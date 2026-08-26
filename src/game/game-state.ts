@@ -1,4 +1,13 @@
 import type { GameAction } from './action';
+import {
+  clearChapter4Code,
+  createChapter4PuzzleState,
+  inputChapter4Digit,
+  inspectChapter4Clue,
+  resetChapter4Puzzle,
+  type Chapter4Clue,
+  type Chapter4PuzzleState,
+} from './chapter4-puzzle';
 import type { Direction, GridMap, GridPosition } from './grid';
 import { positionInDirection, positionKey, tryMove } from './grid';
 import {
@@ -67,6 +76,9 @@ export type GameState = Readonly<{
   finalClockWarning: boolean;
   finalResolved: boolean;
   levelId?: string;
+  chapterId?: string;
+  chapter4Puzzle?: Chapter4PuzzleState;
+  codeEntryActive: boolean;
 }>;
 
 export type GameStateOptions = Readonly<{
@@ -81,16 +93,18 @@ export type GameStateOptions = Readonly<{
   finalClockDurationMs?: number;
   finalDoorId?: string;
   levelId?: string;
+  chapterId?: string;
 }>;
 
 export type ActionResult = Readonly<{
   state: GameState;
   changed: boolean;
   resetPerformed: boolean;
-  resetBlocked?: 'locked' | 'empty-run' | 'limit';
+  resetBlocked?: 'locked' | 'empty-run' | 'limit' | 'chapter4-code-required';
   echoCreated: boolean;
   echoCreationBlocked?: 'occupied' | 'limit';
   feedbackEvent?: 'reset-unlocked' | 'key-acquired' | 'key-required';
+  feedbackMessage?: string;
   chapterCompleted: boolean;
 }>;
 
@@ -140,6 +154,9 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
     finalClockWarning: false,
     finalResolved: false,
     levelId: options.levelId,
+    chapterId: options.chapterId,
+    chapter4Puzzle: options.chapterId === 'chapter-04' ? createChapter4PuzzleState() : undefined,
+    codeEntryActive: false,
   };
 }
 
@@ -205,6 +222,8 @@ export function applyAction(state: GameState, action: GameAction, map: GridMap):
   if (state.phase !== 'playing') return result(state, false);
   if (action.type === 'reset') return applyReset(state);
   if (action.type === 'interact') return applyInteract(state, map);
+  if (action.type === 'input-code') return applyCodeDigit(state, action.digit);
+  if (action.type === 'clear-code') return applyCodeClear(state);
   return applyMove(state, action.direction, map);
 }
 
@@ -230,6 +249,9 @@ export function restartChapter(state: GameState): GameState {
     finalClockElapsedMs: 0,
     finalClockWarning: false,
     finalResolved: false,
+    chapter4Puzzle:
+      state.chapterId === 'chapter-04' ? createChapter4PuzzleState() : state.chapter4Puzzle,
+    codeEntryActive: false,
     worldMemory: {
       ...state.worldMemory,
       chapterRestartCount: state.worldMemory.chapterRestartCount + 1,
@@ -387,6 +409,36 @@ function applyInteract(state: GameState, map: GridMap): ActionResult {
     );
   });
   if (!object) return result(state, false);
+
+  const clueByObjectId: Readonly<Record<string, Chapter4Clue>> = {
+    'chapter4-portrait-clue': 'portrait-9',
+    'chapter4-book-clue': 'book-2-left-to-right',
+    'chapter4-missing-picture-clue': 'missing-picture-4',
+  };
+  const clue = clueByObjectId[object.id];
+  if (state.chapter4Puzzle && clue) {
+    const inspection = inspectChapter4Clue(state.chapter4Puzzle, clue);
+    return {
+      ...result(
+        {
+          ...state,
+          chapter4Puzzle: inspection.state,
+          hasAction: state.hasAction || inspection.discovered,
+        },
+        inspection.discovered,
+      ),
+      feedbackMessage: inspection.feedback,
+    };
+  }
+  if (state.chapter4Puzzle && object.id === 'chapter4-code-lock') {
+    const available = state.chapter4Puzzle.resetStage >= 3;
+    return {
+      ...result({ ...state, codeEntryActive: available, hasAction: true }, available),
+      feedbackMessage: available
+        ? '암호를 숫자키로 입력하자. BACKSPACE로 지울 수 있다.'
+        : '단서가 부족하다.',
+    };
+  }
 
   if (
     object.type === 'key' &&
@@ -607,6 +659,16 @@ function applyReset(state: GameState): ActionResult {
   if (resetLimitReached) return { ...result(state, false), resetBlocked: 'limit' };
   if (!state.hasAction) return { ...result(state, false), resetBlocked: 'empty-run' };
 
+  const chapter4Reset = state.chapter4Puzzle
+    ? resetChapter4Puzzle(state.chapter4Puzzle)
+    : undefined;
+  if (chapter4Reset && !chapter4Reset.performed) {
+    return {
+      ...result(state, false),
+      resetBlocked: chapter4Reset.blocked === 'code-required' ? 'chapter4-code-required' : 'limit',
+    };
+  }
+
   const echoAlreadyAtPlayer = state.echoes.some((echo) =>
     samePosition(echo.position, state.player),
   );
@@ -631,13 +693,20 @@ function applyReset(state: GameState): ActionResult {
       ]
     : state.echoes;
   const restoredObjects = restoreWorldObjects(state.objects, state.initialObjects);
-  const objects = recalculateDerivedObjects(
+  let objects = recalculateDerivedObjects(
     restoredObjects,
     state.playerStart,
     echoes,
     state.objects,
     undefined,
   );
+  if (chapter4Reset?.state.exitOpen) {
+    objects = objects.map((object) =>
+      object.type === 'door' && object.id === 'chapter4-exit-door'
+        ? { ...object, open: true, scriptedOpen: true }
+        : object,
+    );
+  }
 
   return {
     state: {
@@ -656,6 +725,8 @@ function applyReset(state: GameState): ActionResult {
       finalClockElapsedMs: 0,
       finalClockWarning: false,
       finalResolved: false,
+      chapter4Puzzle: chapter4Reset?.state ?? state.chapter4Puzzle,
+      codeEntryActive: false,
       worldMemory: {
         ...state.worldMemory,
         totalResetCount: state.worldMemory.totalResetCount + 1,
@@ -672,6 +743,28 @@ function applyReset(state: GameState): ActionResult {
     echoCreated: canCreateEcho,
     echoCreationBlocked,
     chapterCompleted: false,
+  };
+}
+
+function applyCodeDigit(state: GameState, digit: number): ActionResult {
+  if (!state.chapter4Puzzle || !state.codeEntryActive) return result(state, false);
+  const chapter4Puzzle = inputChapter4Digit(state.chapter4Puzzle, digit);
+  if (chapter4Puzzle === state.chapter4Puzzle) return result(state, false);
+  return {
+    ...result({ ...state, chapter4Puzzle, hasAction: true }, true),
+    feedbackMessage: chapter4Puzzle.codeConfirmed
+      ? '기억은 맞지만, 아직 시간이 맞지 않는다.'
+      : `암호 ${chapter4Puzzle.codeInput.padEnd(3, '·')}`,
+  };
+}
+
+function applyCodeClear(state: GameState): ActionResult {
+  if (!state.chapter4Puzzle || !state.codeEntryActive) return result(state, false);
+  const chapter4Puzzle = clearChapter4Code(state.chapter4Puzzle);
+  if (chapter4Puzzle === state.chapter4Puzzle) return result(state, false);
+  return {
+    ...result({ ...state, chapter4Puzzle }, true),
+    feedbackMessage: '암호를 지웠다.',
   };
 }
 
@@ -693,7 +786,9 @@ function recalculateDerivedObjects(
         object.acceptedActors.includes('box') &&
         objects.some(
           (candidate) =>
-            candidate.type === 'box' && samePosition(candidate.position, object.position),
+            candidate.type === 'box' &&
+            samePosition(candidate.position, object.position) &&
+            (!object.requiresCommittedMemory || candidate.memoryCommitted),
         );
       return { ...object, active: playerActive || echoActive || boxActive };
     }

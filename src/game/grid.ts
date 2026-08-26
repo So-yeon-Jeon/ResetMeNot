@@ -10,6 +10,7 @@ export type GridMap = Readonly<{
   height: number;
   walls: ReadonlySet<string>;
   floorCells?: ReadonlySet<string>;
+  floorTiles?: ReadonlySet<string>;
   structuralWalls?: ReadonlySet<string>;
   partitionWalls?: ReadonlySet<string>;
 }>;
@@ -61,7 +62,8 @@ export function tryMove(current: GridPosition, direction: Direction, map: GridMa
     destination.y >= map.height;
 
   const destinationKey = positionKey(destination);
-  const isVoid = map.floorCells !== undefined && !map.floorCells.has(destinationKey);
+  const floorTiles = map.floorTiles ?? map.floorCells;
+  const isVoid = floorTiles !== undefined && !floorTiles.has(destinationKey);
   if (isOutOfBounds || isVoid || map.walls.has(destinationKey)) return current;
   return destination;
 }

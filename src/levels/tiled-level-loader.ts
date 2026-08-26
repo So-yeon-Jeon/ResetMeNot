@@ -53,6 +53,8 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
       'echoLimit',
       'resetPolicy',
       'echoUnlocked',
+      'floorMask',
+      'useWallLayer',
       'finalClockStart',
       'finalClockTarget',
       'finalDoorId',
@@ -84,14 +86,25 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   const objectLayer = requireLayer(layers, 'objects', 'objectgroup');
   const floorData = readTileLayerData(floorLayer, 'floor', width, height);
   const floorCells = new Set<string>();
+  const floorTiles = new Set<string>();
+  const floorMask = optionalText(properties.floorMask)?.split('/');
+  if (floorMask && (floorMask.length !== height || floorMask.some((row) => row.length !== width))) {
+    fail('floorMask는 맵 크기와 같은 0/1 행을 /로 구분해야 합니다.');
+  }
   floorData.forEach((gid, index) => {
-    if (gid !== 0) floorCells.add(positionKey({ x: index % width, y: Math.floor(index / width) }));
+    const x = index % width;
+    const y = Math.floor(index / width);
+    const maskTile = floorMask?.[y]?.[x];
+    if (gid !== 0) floorCells.add(positionKey({ x, y }));
+    if (gid !== 0 && maskTile !== '0') floorTiles.add(positionKey({ x, y }));
   });
   const wallData = readTileLayerData(wallLayer, 'walls', width, height);
   const structuralWalls = new Set<string>();
+  const useWallLayer = boolean(properties.useWallLayer, true, 'useWallLayer');
   wallData.forEach((gid, index) => {
-    if (gid !== 0) {
-      structuralWalls.add(positionKey({ x: index % width, y: Math.floor(index / width) }));
+    if (useWallLayer && gid !== 0) {
+      const key = positionKey({ x: index % width, y: Math.floor(index / width) });
+      if (floorTiles.has(key)) structuralWalls.add(key);
     }
   });
   const walls = new Set(structuralWalls);
@@ -105,13 +118,26 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
       walls.add(key);
     });
   }
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (!floorTiles.has(positionKey({ x, y }))) walls.add(positionKey({ x, y }));
+    }
+  }
   if (movementBlockerLayer) {
     const blockerData = readTileLayerData(movementBlockerLayer, 'movement-blockers', width, height);
     blockerData.forEach((gid, index) => {
       if (gid !== 0) walls.add(positionKey({ x: index % width, y: Math.floor(index / width) }));
     });
   }
-  const gridMap: GridMap = { width, height, walls, floorCells, structuralWalls, partitionWalls };
+  const gridMap: GridMap = {
+    width,
+    height,
+    walls,
+    floorCells,
+    floorTiles,
+    structuralWalls,
+    partitionWalls,
+  };
 
   const tiledObjects = array(objectLayer.objects, 'objects.objects').map((value, index) =>
     object(value, `objects.objects[${index}]`),
@@ -129,7 +155,8 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     const type = text(item.class ?? item.type, `${label}.class`);
     const position = readPosition(item, label, width, height);
     const key = positionKey(position);
-    if (!floorCells.has(key)) fail(`${name}이(가) 바닥이 없는 위치에 있습니다.`);
+    const floorTiles = gridMap.floorTiles ?? gridMap.floorCells;
+    if (!floorTiles?.has(key)) fail(`${name}이(가) 바닥이 없는 위치에 있습니다.`);
     if (structuralWalls.has(key) || partitionWalls.has(key)) {
       fail(`${name}이(가) 벽 위에 있습니다.`);
     }
@@ -197,7 +224,7 @@ function validateInitialOccupancy(
       };
       const key = positionKey(occupiedPosition);
       if (
-        !map.floorCells?.has(key) ||
+        !(map.floorTiles ?? map.floorCells)?.has(key) ||
         map.structuralWalls?.has(key) ||
         map.partitionWalls?.has(key)
       ) {
@@ -264,9 +291,9 @@ function createLevelObject(
 ): WorldObjectState {
   const allowedProperties: Readonly<Record<string, readonly string[]>> = {
     PocketWatch: ['visible', 'interactable', 'blocksMovement'],
-    Box: ['persistentFields'],
+    Box: ['persistentFields', 'memorySocketId'],
     Prop: ['assetKey', 'collisionCells'],
-    Switch: ['acceptedActors'],
+    Switch: ['acceptedActors', 'requiresCommittedMemory'],
     Lever: ['mode', 'acceptedActors'],
     Key: [
       'persistentFields',
@@ -312,7 +339,12 @@ function createLevelObject(
         blocksMovement: boolean(props.blocksMovement, true, `${id}.blocksMovement`),
       });
     case 'Box':
-      return createBox(id, position, csv(props.persistentFields).includes('position'));
+      return createBox(
+        id,
+        position,
+        csv(props.persistentFields).includes('position'),
+        optionalText(props.memorySocketId),
+      );
     case 'Prop':
       return createProp(
         id,
@@ -321,7 +353,12 @@ function createLevelObject(
         parseCollisionCells(props.collisionCells, `${id}.collisionCells`),
       );
     case 'Switch':
-      return createPressureSwitch(id, position, actors(props.acceptedActors));
+      return createPressureSwitch(
+        id,
+        position,
+        actors(props.acceptedActors),
+        boolean(props.requiresCommittedMemory, false, `${id}.requiresCommittedMemory`),
+      );
     case 'Lever':
       return createLever(
         id,
@@ -570,6 +607,14 @@ function validateReferences(objects: readonly WorldObjectState[]): void {
           fail(`${item.id}.leverIds가 존재하는 Lever를 가리켜야 합니다: ${id}`);
       if (item.keyId && byId.get(item.keyId)?.type !== 'key')
         fail(`${item.id}.keyId가 존재하는 Key를 가리켜야 합니다: ${item.keyId}`);
+    }
+    if (item.type === 'box' && item.memorySocketId) {
+      const socket = byId.get(item.memorySocketId);
+      if (socket?.type !== 'pressure-switch' || !socket.acceptedActors.includes('box')) {
+        fail(
+          `${item.id}.memorySocketId는 Box를 허용하는 Switch를 가리켜야 합니다: ${item.memorySocketId}`,
+        );
+      }
     }
     if (item.type === 'puzzle-object') {
       for (const effect of item.onInteract?.effects ?? []) {

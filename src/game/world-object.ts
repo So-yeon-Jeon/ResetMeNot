@@ -58,6 +58,7 @@ export type PressureSwitchState = Readonly<{
   position: GridPosition;
   active: boolean;
   acceptedActors: readonly AcceptedActor[];
+  requiresCommittedMemory: boolean;
 }>;
 
 export type BoxState = Readonly<{
@@ -65,6 +66,8 @@ export type BoxState = Readonly<{
   type: 'box';
   position: GridPosition;
   persistentFields: readonly 'position'[];
+  memorySocketId?: string;
+  memoryCommitted: boolean;
 }>;
 
 export type LeverState = Readonly<{
@@ -190,6 +193,7 @@ export function createPressureSwitch(
   id: string,
   position: GridPosition,
   acceptedActors: readonly AcceptedActor[] = ['player', 'echo', 'box'],
+  requiresCommittedMemory = false,
 ): PressureSwitchState {
   return {
     id,
@@ -197,15 +201,23 @@ export function createPressureSwitch(
     position: { ...position },
     active: false,
     acceptedActors: [...acceptedActors],
+    requiresCommittedMemory,
   };
 }
 
-export function createBox(id: string, position: GridPosition, rememberPosition = false): BoxState {
+export function createBox(
+  id: string,
+  position: GridPosition,
+  rememberPosition = false,
+  memorySocketId?: string,
+): BoxState {
   return {
     id,
     type: 'box',
     position: { ...position },
     persistentFields: rememberPosition ? ['position'] : [],
+    memorySocketId,
+    memoryCommitted: false,
   };
 }
 
@@ -301,11 +313,19 @@ export function restoreWorldObjects(
       return cloneWorldObject(current);
     }
     if (initial.type === 'box' && current.type === 'box') {
+      const socket = initial.memorySocketId
+        ? currentObjects.find((object) => object.id === initial.memorySocketId)
+        : undefined;
+      const positionIsRemembered =
+        initial.persistentFields.includes('position') &&
+        (!initial.memorySocketId ||
+          (socket?.type === 'pressure-switch' &&
+            socket.position.x === current.position.x &&
+            socket.position.y === current.position.y));
       return {
         ...initial,
-        position: initial.persistentFields.includes('position')
-          ? { ...current.position }
-          : { ...initial.position },
+        position: positionIsRemembered ? { ...current.position } : { ...initial.position },
+        memoryCommitted: positionIsRemembered && initial.memorySocketId !== undefined,
         persistentFields: [...initial.persistentFields],
       };
     }

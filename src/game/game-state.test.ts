@@ -484,6 +484,39 @@ describe('game state', () => {
     ]);
   });
 
+  it('keeps a socket-bound memory box only while it is on that socket', () => {
+    const initialObjects = [
+      createBox('memory', { x: 2, y: 1 }, true, 'socket'),
+      createPressureSwitch('socket', { x: 4, y: 1 }, ['box']),
+    ];
+    let state = unlockReset(
+      createGameState({ x: 1, y: 1 }, { resetLimit: 2, echoLimit: 0, objects: initialObjects }),
+    );
+    state = {
+      ...state,
+      hasAction: true,
+      objects: state.objects.map((object) =>
+        object.id === 'memory' ? { ...object, position: { x: 3, y: 1 } } : object,
+      ),
+    };
+    state = applyAction(state, { type: 'reset' }, map).state;
+    expect(state.objects.find((object) => object.id === 'memory')).toMatchObject({
+      position: { x: 2, y: 1 },
+    });
+
+    state = {
+      ...state,
+      hasAction: true,
+      objects: state.objects.map((object) =>
+        object.id === 'memory' ? { ...object, position: { x: 4, y: 1 } } : object,
+      ),
+    };
+    state = applyAction(state, { type: 'reset' }, map).state;
+    expect(state.objects.find((object) => object.id === 'memory')).toMatchObject({
+      position: { x: 4, y: 1 },
+    });
+  });
+
   it('toggles a lever and opens its linked door', () => {
     const state = createGameState(
       { x: 1, y: 1 },

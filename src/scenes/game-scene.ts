@@ -91,6 +91,8 @@ export class GameScene extends Phaser.Scene {
   private interactKey!: Phaser.Input.Keyboard.Key;
   private restartKey!: Phaser.Input.Keyboard.Key;
   private continueKey!: Phaser.Input.Keyboard.Key;
+  private codeDigitKeys: Phaser.Input.Keyboard.Key[] = [];
+  private codeClearKey!: Phaser.Input.Keyboard.Key;
   private resetHud!: Phaser.GameObjects.Text;
   private feedbackHud!: Phaser.GameObjects.Text;
   private phaseHud!: Phaser.GameObjects.Text;
@@ -223,6 +225,18 @@ export class GameScene extends Phaser.Scene {
 
     if (this.gameState.phase !== 'playing') return;
 
+    if (!this.isMoving && this.gameState.codeEntryActive) {
+      const digit = this.codeDigitKeys.findIndex((key) => Phaser.Input.Keyboard.JustDown(key));
+      if (digit >= 0) {
+        this.dispatch({ type: 'input-code', digit });
+        return;
+      }
+      if (Phaser.Input.Keyboard.JustDown(this.codeClearKey)) {
+        this.dispatch({ type: 'clear-code' });
+        return;
+      }
+    }
+
     if (Phaser.Input.Keyboard.JustDown(this.resetKey)) {
       if (this.isMoving) {
         this.pendingReset = true;
@@ -253,7 +267,8 @@ export class GameScene extends Phaser.Scene {
 
     for (let y = 0; y < map.height; y += 1) {
       for (let x = 0; x < map.width; x += 1) {
-        if (map.floorCells !== undefined && !map.floorCells.has(`${x},${y}`)) continue;
+        const floorTiles = map.floorTiles ?? map.floorCells;
+        if (floorTiles !== undefined && !floorTiles.has(`${x},${y}`)) continue;
         const pixelX = this.mapOrigin.x + x * GRID_SIZE;
         const pixelY = this.mapOrigin.y + y * GRID_SIZE;
 
@@ -459,6 +474,7 @@ export class GameScene extends Phaser.Scene {
     theme: ChapterVisualTheme,
   ): void {
     const wall = theme.walls;
+    if (wall.renderBoundary === false) return;
     const doorObject = this.gameState.objects.find((object) => object.id === wall.doorwayObjectId);
     const doorwayStartX = this.validSectionStart(doorObject?.position.x, map.width);
     if (wall.perspectiveBoundary) {
@@ -778,6 +794,19 @@ export class GameScene extends Phaser.Scene {
     this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.restartKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
     this.continueKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+    this.codeDigitKeys = [
+      Phaser.Input.Keyboard.KeyCodes.ZERO,
+      Phaser.Input.Keyboard.KeyCodes.ONE,
+      Phaser.Input.Keyboard.KeyCodes.TWO,
+      Phaser.Input.Keyboard.KeyCodes.THREE,
+      Phaser.Input.Keyboard.KeyCodes.FOUR,
+      Phaser.Input.Keyboard.KeyCodes.FIVE,
+      Phaser.Input.Keyboard.KeyCodes.SIX,
+      Phaser.Input.Keyboard.KeyCodes.SEVEN,
+      Phaser.Input.Keyboard.KeyCodes.EIGHT,
+      Phaser.Input.Keyboard.KeyCodes.NINE,
+    ].map((keyCode) => this.input.keyboard!.addKey(keyCode));
+    this.codeClearKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.BACKSPACE);
   }
 
   private readDirection(): Direction | undefined {
@@ -825,6 +854,7 @@ export class GameScene extends Phaser.Scene {
       const message = actionFeedback(result.feedbackEvent);
       if (message) this.showFeedback(message);
     }
+    if (result.feedbackMessage) this.showFeedback(result.feedbackMessage);
 
     if (!result.changed) return;
 
@@ -1073,6 +1103,17 @@ export class GameScene extends Phaser.Scene {
         }
       }
       if (object.type === 'pressure-switch') {
+        const pendingMemory =
+          object.requiresCommittedMemory &&
+          this.gameState.objects.some(
+            (candidate) =>
+              candidate.type === 'box' &&
+              !candidate.memoryCommitted &&
+              candidate.position.x === object.position.x &&
+              candidate.position.y === object.position.y,
+          );
+        const fillColor = object.active ? 0x73c8df : pendingMemory ? 0xb58a45 : 0x625b70;
+        const strokeColor = object.active ? 0xb9efff : pendingMemory ? 0xf2c66d : 0x8e849c;
         const switchState = object.active ? 'active' : 'inactive';
         const switchAssetKey = visual.stateAssetKeys?.[switchState] ?? visual.assetKey;
         const switchSprites = this.renderAssetObject(
@@ -1092,14 +1133,8 @@ export class GameScene extends Phaser.Scene {
         } else {
           this.objectSprites.push(
             this.add
-              .rectangle(
-                pixel.x,
-                pixel.y,
-                GRID_SIZE - 8,
-                GRID_SIZE - 8,
-                object.active ? 0x73c8df : 0x625b70,
-              )
-              .setStrokeStyle(2, object.active ? 0xb9efff : 0x8e849c)
+              .rectangle(pixel.x, pixel.y, GRID_SIZE - 8, GRID_SIZE - 8, fillColor)
+              .setStrokeStyle(2, strokeColor)
               .setDepth(0.25),
           );
         }

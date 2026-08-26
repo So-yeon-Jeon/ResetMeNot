@@ -47,6 +47,7 @@ export type WallVisualTheme = Readonly<{
   partitionDoorwayRightFrame?: number;
   partitionDisplayHeight?: number;
   partitionDoorwayOverlap?: number;
+  renderBoundary?: boolean;
   top: string;
   bottom: string;
   left: string;
