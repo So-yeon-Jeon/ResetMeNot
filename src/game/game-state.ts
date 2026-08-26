@@ -47,8 +47,11 @@ export type RememberedObjectState = Readonly<{
 }>;
 
 export type GamePhase = 'playing' | 'let-time-go' | 'completed';
+export type FinalClockStage = 'waiting' | 'wall-message' | 'clock-moving' | 'door-open';
 export type ResetPolicy = 'disable' | 'unlimited';
 const FINAL_GAZE_LEAD_MS = 3_000;
+const DEFAULT_FINAL_WALL_MESSAGE_LEAD_MS = 20_000;
+const DEFAULT_FINAL_CLOCK_MOTION_LEAD_MS = 10_000;
 
 export type GameState = Readonly<{
   player: GridPosition;
@@ -71,9 +74,12 @@ export type GameState = Readonly<{
   phase: GamePhase;
   worldMemory: WorldMemory;
   finalClockDurationMs?: number;
+  finalWallMessageAtMs?: number;
+  finalClockMotionAtMs?: number;
   finalDoorId?: string;
   finalClockElapsedMs: number;
   finalClockWarning: boolean;
+  finalClockStage: FinalClockStage;
   finalResolved: boolean;
   levelId?: string;
   chapterId?: string;
@@ -91,6 +97,8 @@ export type GameStateOptions = Readonly<{
   objects?: readonly WorldObjectState[];
   worldMemory?: WorldMemory;
   finalClockDurationMs?: number;
+  finalWallMessageAtMs?: number;
+  finalClockMotionAtMs?: number;
   finalDoorId?: string;
   levelId?: string;
   chapterId?: string;
@@ -119,6 +127,11 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
   ) {
     throw new Error('Final 시계 시간은 0보다 커야 합니다.');
   }
+  validateFinalTimeline(
+    options.finalClockDurationMs,
+    options.finalWallMessageAtMs,
+    options.finalClockMotionAtMs,
+  );
 
   const facing = options.facing ?? 'down';
   const resetUnlocked = options.resetUnlocked ?? options.worldMemory?.pocketWatchCollected ?? false;
@@ -149,9 +162,12 @@ export function createGameState(player: GridPosition, options: GameStateOptions 
       events: [],
     },
     finalClockDurationMs: options.finalClockDurationMs,
+    finalWallMessageAtMs: options.finalWallMessageAtMs,
+    finalClockMotionAtMs: options.finalClockMotionAtMs,
     finalDoorId: options.finalDoorId,
     finalClockElapsedMs: 0,
     finalClockWarning: false,
+    finalClockStage: 'waiting',
     finalResolved: false,
     levelId: options.levelId,
     chapterId: options.chapterId,
@@ -178,6 +194,7 @@ export function advanceTime(state: GameState, deltaMs: number): GameState {
   const finalClockWarning =
     state.finalClockDurationMs !== undefined &&
     finalClockElapsedMs >= Math.max(0, state.finalClockDurationMs - FINAL_GAZE_LEAD_MS);
+  const finalClockStage = calculateFinalClockStage(state, finalClockElapsedMs);
   const objects = reachedFinalClock
     ? state.objects.map((object) =>
         object.type === 'door' && object.id === state.finalDoorId
@@ -197,6 +214,7 @@ export function advanceTime(state: GameState, deltaMs: number): GameState {
     elapsedMs: state.elapsedMs + deltaMs,
     finalClockElapsedMs,
     finalClockWarning,
+    finalClockStage,
     objects,
     echoes,
     phase: reachedFinalClock ? 'let-time-go' : state.phase,
@@ -216,6 +234,49 @@ export function finishFinale(state: GameState): GameState {
         : object,
     ),
   };
+}
+
+function calculateFinalClockStage(state: GameState, elapsedMs: number): FinalClockStage {
+  const durationMs = state.finalClockDurationMs;
+  if (durationMs === undefined) return 'waiting';
+  if (elapsedMs >= durationMs) return 'door-open';
+  const clockMotionAtMs =
+    state.finalClockMotionAtMs ?? Math.max(0, durationMs - DEFAULT_FINAL_CLOCK_MOTION_LEAD_MS);
+  if (elapsedMs >= clockMotionAtMs) return 'clock-moving';
+  const wallMessageAtMs =
+    state.finalWallMessageAtMs ?? Math.max(0, durationMs - DEFAULT_FINAL_WALL_MESSAGE_LEAD_MS);
+  return elapsedMs >= wallMessageAtMs ? 'wall-message' : 'waiting';
+}
+
+function validateFinalTimeline(
+  durationMs: number | undefined,
+  wallMessageAtMs: number | undefined,
+  clockMotionAtMs: number | undefined,
+): void {
+  for (const [label, value] of [
+    ['Final 벽 문장 시점', wallMessageAtMs],
+    ['Final 시계 움직임 시점', clockMotionAtMs],
+  ] as const) {
+    if (value !== undefined && (!Number.isFinite(value) || value < 0)) {
+      throw new Error(`${label}은 0 이상이어야 합니다.`);
+    }
+  }
+  if (
+    durationMs === undefined &&
+    (wallMessageAtMs !== undefined || clockMotionAtMs !== undefined)
+  ) {
+    throw new Error('Final 연출 시점은 Final 시계 시간과 함께 지정해야 합니다.');
+  }
+  if (
+    wallMessageAtMs !== undefined &&
+    clockMotionAtMs !== undefined &&
+    wallMessageAtMs > clockMotionAtMs
+  ) {
+    throw new Error('Final 벽 문장 시점은 시계 움직임 시점보다 늦을 수 없습니다.');
+  }
+  if (durationMs !== undefined && clockMotionAtMs !== undefined && clockMotionAtMs >= durationMs) {
+    throw new Error('Final 시계 움직임 시점은 목표 시간 전이어야 합니다.');
+  }
 }
 
 export function applyAction(state: GameState, action: GameAction, map: GridMap): ActionResult {
@@ -248,6 +309,7 @@ export function restartChapter(state: GameState): GameState {
     phase: 'playing',
     finalClockElapsedMs: 0,
     finalClockWarning: false,
+    finalClockStage: 'waiting',
     finalResolved: false,
     chapter4Puzzle:
       state.chapterId === 'chapter-04' ? createChapter4PuzzleState() : state.chapter4Puzzle,
@@ -724,6 +786,7 @@ function applyReset(state: GameState): ActionResult {
         .map((object) => object.id),
       finalClockElapsedMs: 0,
       finalClockWarning: false,
+      finalClockStage: 'waiting',
       finalResolved: false,
       chapter4Puzzle: chapter4Reset?.state ?? state.chapter4Puzzle,
       codeEntryActive: false,

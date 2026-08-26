@@ -1,0 +1,228 @@
+{
+  "width": 20,
+  "height": 20,
+  "tilewidth": 32,
+  "tileheight": 32,
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "properties": [
+    { "name": "schemaVersion", "type": "int", "value": 1 },
+    { "name": "levelId", "type": "string", "value": "chapter-05-room-01" },
+    { "name": "chapterId", "type": "string", "value": "chapter-05" },
+    { "name": "resetLimit", "type": "int", "value": 0 },
+    { "name": "echoLimit", "type": "int", "value": 0 },
+    { "name": "resetPolicy", "type": "string", "value": "disable" },
+    { "name": "echoUnlocked", "type": "bool", "value": false },
+    { "name": "finalClockStart", "type": "string", "value": "11:59:30" },
+    { "name": "finalClockTarget", "type": "string", "value": "12:00:00" },
+    { "name": "finalWallMessageAtMs", "type": "int", "value": 10000 },
+    { "name": "finalClockMotionAtMs", "type": "int", "value": 20000 },
+    { "name": "finalDoorId", "type": "string", "value": "final-exit-door" },
+    {
+      "name": "floorMask",
+      "type": "string",
+      "value": "00000000000000000000/01111111111111111110/01111111111111111110/01111111111111111110/01111111111111111110/01111111111111111110/01111111111111111110/01111111111111111110/01111111111111111110/01111111111111111110/01111111111111111110/01111111111111111110/01111111111111111110/01111111111111111110/01111111111111111110/00000001111110000000/00000001111110000000/00000001111110000000/00000001111110000000/00000000000000000000"
+    },
+    { "name": "useWallLayer", "type": "bool", "value": false }
+  ],
+  "layers": [
+    {
+      "name": "floor",
+      "type": "tilelayer",
+      "width": 20,
+      "height": 20,
+      "data": [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+      ]
+    },
+    {
+      "name": "walls",
+      "type": "tilelayer",
+      "width": 20,
+      "height": 20,
+      "data": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      ]
+    },
+    {
+      "name": "objects",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "name": "final-player-spawn",
+          "class": "PlayerSpawn",
+          "x": 288,
+          "y": 544,
+          "width": 32,
+          "height": 32,
+          "properties": [{ "name": "facing", "type": "string", "value": "up" }]
+        },
+        {
+          "name": "final-grand-clock",
+          "class": "Prop",
+          "x": 256,
+          "y": 64,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            {
+              "name": "assetKey",
+              "type": "string",
+              "value": "chapter5-final-clock-base"
+            },
+            {
+              "name": "collisionCells",
+              "type": "string",
+              "value": "0,0|1,0|2,0|3,0|0,1|1,1|2,1|3,1"
+            }
+          ]
+        },
+        {
+          "name": "final-exit-door",
+          "class": "Door",
+          "x": 480,
+          "y": 64,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "keyId", "type": "string", "value": "final-exit-lock" },
+            { "name": "interactionCells", "type": "string", "value": "0,0" },
+            { "name": "closedAssetKey", "type": "string", "value": "chapter1-door-closed" },
+            { "name": "openAssetKey", "type": "string", "value": "chapter1-door-open" }
+          ]
+        },
+        {
+          "name": "final-exit-lock",
+          "class": "Key",
+          "x": 32,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "collectible", "type": "bool", "value": false },
+            { "name": "visible", "type": "bool", "value": false },
+            { "name": "blocksMovement", "type": "bool", "value": false }
+          ]
+        },
+        {
+          "name": "final-exit",
+          "class": "Exit",
+          "x": 480,
+          "y": 64,
+          "width": 32,
+          "height": 32
+        },
+        {
+          "name": "final-rug",
+          "class": "Prop",
+          "x": 224,
+          "y": 288,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-rug" },
+            { "name": "collisionCells", "type": "string", "value": "" }
+          ]
+        },
+        {
+          "name": "final-memory-socket",
+          "class": "PuzzleObject",
+          "x": 288,
+          "y": 320,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "initialState", "type": "string", "value": "fixed" },
+            { "name": "assetKey", "type": "string", "value": "chapter1-crate" },
+            { "name": "stateCollision", "type": "string", "value": "fixed=0,0" },
+            { "name": "stateInteraction", "type": "string", "value": "fixed=0,1" }
+          ]
+        },
+        {
+          "name": "final-lever",
+          "class": "Lever",
+          "x": 480,
+          "y": 384,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "mode", "type": "string", "value": "toggle" },
+            { "name": "acceptedActors", "type": "string", "value": "player" }
+          ]
+        },
+        {
+          "name": "final-left-desk",
+          "class": "Prop",
+          "x": 64,
+          "y": 352,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-desk" },
+            { "name": "collisionCells", "type": "string", "value": "0,0|1,0" }
+          ]
+        },
+        {
+          "name": "final-right-desk",
+          "class": "Prop",
+          "x": 512,
+          "y": 320,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-desk" },
+            { "name": "collisionCells", "type": "string", "value": "0,0|1,0" }
+          ]
+        },
+        {
+          "name": "final-left-plant",
+          "class": "Prop",
+          "x": 160,
+          "y": 160,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-potted-plant" },
+            { "name": "collisionCells", "type": "string", "value": "0,0" }
+          ]
+        },
+        {
+          "name": "final-right-plant",
+          "class": "Prop",
+          "x": 544,
+          "y": 384,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-potted-plant" },
+            { "name": "collisionCells", "type": "string", "value": "0,0" }
+          ]
+        }
+      ]
+    }
+  ]
+}
