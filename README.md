@@ -7,11 +7,8 @@ Phaser 3, TypeScript, Vite로 만드는 타일 기반 시간 퍼즐 게임입니
 개발 흐름은 `작업 브랜치 → dev → master → Cloudflare Production`입니다. 프로덕션 배포는 `master`에서만 실행됩니다.
 
 협업을 시작하기 전에 [CONTRIBUTING.md](./CONTRIBUTING.md)의 브랜치, 커밋, PR 규칙을 확인해 주세요.
+일정과 일일 진행 상황은 [프로젝트 트래커](./docs/PROJECT_TRACKER.md)에서 관리합니다.
 저장소 관리자는 첫 push 전에 [GitHub 설정 체크리스트](./docs/GITHUB_SETUP.md)를 완료해 주세요.
-아트와 레벨 작업은 [게임 화면 및 그리드 규격](./docs/GAME_SPEC.md)을 기준으로 합니다.
-게임 상태와 렌더링 구조는 [게임 시스템 아키텍처](./docs/ARCHITECTURE.md)를 따릅니다.
-런타임 상태, 행동, 레벨 데이터의 상세 계약은 각각 [게임 상태 모델](./docs/GAME_STATE.md), [게임 행동 명세](./docs/ACTIONS.md), [레벨 데이터 기술 규격](./docs/LEVEL_SCHEMA.md)에 정의합니다.
-확정된 공통 판정은 [게임 규칙 결정서](./docs/GAME_RULE_DECISIONS.md)를 따르며, A/B가 추가로 합의할 게임 고유 항목은 [Reset Me Not 고유 규칙 결정서](./docs/GAME_IDENTITY_DECISIONS.md)에서 관리합니다.
 
 ## 로컬 실행
 
@@ -38,13 +35,12 @@ Cloudflare 설정은 빌드 명령 `npm run build`, 배포 명령 `npx wrangler 
 
 ## 주요 명령
 
-| 명령                      | 용도                   |
-| ------------------------- | ---------------------- |
-| `npm run dev`             | 개발 서버              |
-| `npm run test`            | 테스트                 |
-| `npm run typecheck`       | TypeScript 검사        |
-| `npm run lint`            | ESLint 검사            |
-| `npm run validate:levels` | 등록된 Tiled 레벨 검사 |
-| `npm run build`           | 프로덕션 빌드          |
-| `npm run preview`         | 빌드 결과 미리보기     |
-| `npm run deploy`          | Cloudflare에 수동 배포 |
+| 명령                | 용도                   |
+| ------------------- | ---------------------- |
+| `npm run dev`       | 개발 서버              |
+| `npm run test`      | 테스트                 |
+| `npm run typecheck` | TypeScript 검사        |
+| `npm run lint`      | ESLint 검사            |
+| `npm run build`     | 프로덕션 빌드          |
+| `npm run preview`   | 빌드 결과 미리보기     |
+| `npm run deploy`    | Cloudflare에 수동 배포 |

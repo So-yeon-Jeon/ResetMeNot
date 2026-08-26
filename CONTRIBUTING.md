@@ -49,7 +49,6 @@ level/*─┘
 - 설명은 2~5단어를 권장합니다.
 - 사람 이름이나 `a-work`, `temp`, `new`처럼 의미 없는 이름은 사용하지 않습니다.
 - 이슈 번호가 있으면 끝에 붙일 수 있습니다: `feat/grid-movement-12`.
-- Dependabot이 생성한 `dependabot/npm_and_yarn/*`, `dependabot/github_actions/*` 브랜치는 자동화 예외로 허용합니다.
 
 ## 3. 커밋 컨벤션
 
@@ -86,7 +85,6 @@ chore: Cloudflare 배포 설정
 - 게임 동작과 무관한 포맷 변경을 기능 커밋에 섞지 않습니다.
 - 호환성이 깨지는 변경은 `feat(core)!: ...`와 본문의 `BREAKING CHANGE:`로 표시합니다.
 - 예외적으로 라이브러리명, API명, 고유명사는 원문 영문을 사용할 수 있습니다.
-- Dependabot 자동 커밋의 영문 subject는 예외로 허용합니다.
 
 ## 4. Pull Request 규칙
 
