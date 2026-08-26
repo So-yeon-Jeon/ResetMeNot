@@ -24,6 +24,7 @@ export type ForegroundCrop = Readonly<{
 
 export type ObjectVisual = Readonly<{
   assetKey?: string;
+  stateAssetKeys?: Readonly<Partial<Record<'inactive' | 'active' | 'closed' | 'open', string>>>;
   positionOverride?: Readonly<Partial<GridPosition>>;
   offset?: GridPosition;
   offsetsByPosition?: Readonly<Record<string, GridPosition>>;
@@ -37,6 +38,15 @@ export type ObjectVisual = Readonly<{
 export type WallVisualTheme = Readonly<{
   doorwayObjectId?: string;
   perspectiveBoundary?: boolean;
+  floorPlanBoundary?: boolean;
+  partition?: string;
+  partitionStraightFrame?: number;
+  partitionLeftEndFrame?: number;
+  partitionRightEndFrame?: number;
+  partitionDoorwayLeftFrame?: number;
+  partitionDoorwayRightFrame?: number;
+  partitionDisplayHeight?: number;
+  partitionDoorwayOverlap?: number;
   top: string;
   bottom: string;
   left: string;
@@ -46,6 +56,8 @@ export type WallVisualTheme = Readonly<{
   cornerBottomLeft: string;
   cornerBottomRight: string;
   bottomDoorway?: string;
+  internalTop?: string;
+  internalLeft?: string;
 }>;
 
 export type ChapterVisualTheme = Readonly<{

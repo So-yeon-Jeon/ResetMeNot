@@ -79,9 +79,14 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   );
   const floorLayer = requireLayer(layers, 'floor', 'tilelayer');
   const wallLayer = requireLayer(layers, 'walls', 'tilelayer');
+  const partitionLayer = optionalLayer(layers, 'partitions', 'tilelayer');
   const movementBlockerLayer = optionalLayer(layers, 'movement-blockers', 'tilelayer');
   const objectLayer = requireLayer(layers, 'objects', 'objectgroup');
-  readTileLayerData(floorLayer, 'floor', width, height);
+  const floorData = readTileLayerData(floorLayer, 'floor', width, height);
+  const floorCells = new Set<string>();
+  floorData.forEach((gid, index) => {
+    if (gid !== 0) floorCells.add(positionKey({ x: index % width, y: Math.floor(index / width) }));
+  });
   const wallData = readTileLayerData(wallLayer, 'walls', width, height);
   const structuralWalls = new Set<string>();
   wallData.forEach((gid, index) => {
@@ -90,13 +95,23 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     }
   });
   const walls = new Set(structuralWalls);
+  const partitionWalls = new Set<string>();
+  if (partitionLayer) {
+    const partitionData = readTileLayerData(partitionLayer, 'partitions', width, height);
+    partitionData.forEach((gid, index) => {
+      if (gid === 0) return;
+      const key = positionKey({ x: index % width, y: Math.floor(index / width) });
+      partitionWalls.add(key);
+      walls.add(key);
+    });
+  }
   if (movementBlockerLayer) {
     const blockerData = readTileLayerData(movementBlockerLayer, 'movement-blockers', width, height);
     blockerData.forEach((gid, index) => {
       if (gid !== 0) walls.add(positionKey({ x: index % width, y: Math.floor(index / width) }));
     });
   }
-  const gridMap: GridMap = { width, height, walls, structuralWalls };
+  const gridMap: GridMap = { width, height, walls, floorCells, structuralWalls, partitionWalls };
 
   const tiledObjects = array(objectLayer.objects, 'objects.objects').map((value, index) =>
     object(value, `objects.objects[${index}]`),
@@ -113,7 +128,11 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     ids.add(name);
     const type = text(item.class ?? item.type, `${label}.class`);
     const position = readPosition(item, label, width, height);
-    if (structuralWalls.has(positionKey(position))) fail(`${name}이(가) 벽 위에 있습니다.`);
+    const key = positionKey(position);
+    if (!floorCells.has(key)) fail(`${name}이(가) 바닥이 없는 위치에 있습니다.`);
+    if (structuralWalls.has(key) || partitionWalls.has(key)) {
+      fail(`${name}이(가) 벽 위에 있습니다.`);
+    }
     const props = readProperties(item.properties, `${label}.properties`);
 
     if (type === 'PlayerSpawn') {
@@ -131,7 +150,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   });
   if (!playerStart) fail('PlayerSpawn이 필요합니다.');
 
-  validateInitialOccupancy(objects, playerStart);
+  validateInitialOccupancy(objects, playerStart, gridMap);
   validateReferences(objects);
   const finalClock = readFinalClock(properties);
   const finalDoorId = optionalText(properties.finalDoorId);
@@ -163,6 +182,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
 function validateInitialOccupancy(
   objects: readonly WorldObjectState[],
   playerStart: GridPosition,
+  map: GridMap,
 ): void {
   const solidByPosition = new Map<string, WorldObjectState>();
   const interactionByPosition = new Map<string, WorldObjectState>();
@@ -176,6 +196,13 @@ function validateInitialOccupancy(
         y: item.position.y + cell.y,
       };
       const key = positionKey(occupiedPosition);
+      if (
+        !map.floorCells?.has(key) ||
+        map.structuralWalls?.has(key) ||
+        map.partitionWalls?.has(key)
+      ) {
+        fail(`${item.id}의 충돌 영역 ${key}이(가) 이동 가능한 바닥을 벗어났습니다.`);
+      }
       if (samePosition(occupiedPosition, playerStart)) {
         fail(`PlayerSpawn과 ${item.id}이(가) 초기 위치 ${key}에서 겹칩니다.`);
       }
@@ -209,7 +236,7 @@ function initialCollisionCells(object: WorldObjectState): readonly GridPosition[
   if (object.type === 'key') {
     return object.collectible && !object.collected ? [{ x: 0, y: 0 }] : [];
   }
-  if (object.type === 'door') return object.open ? [] : [{ x: 0, y: 0 }];
+  if (object.type === 'door') return object.open ? [] : object.interactionCells;
   if (object.type === 'box' || object.type === 'lever') return [{ x: 0, y: 0 }];
   return [];
 }

@@ -9,7 +9,9 @@ export type GridMap = Readonly<{
   width: number;
   height: number;
   walls: ReadonlySet<string>;
+  floorCells?: ReadonlySet<string>;
   structuralWalls?: ReadonlySet<string>;
+  partitionWalls?: ReadonlySet<string>;
 }>;
 
 const DIRECTION_OFFSETS: Readonly<Record<Direction, GridPosition>> = {
@@ -58,6 +60,8 @@ export function tryMove(current: GridPosition, direction: Direction, map: GridMa
     destination.x >= map.width ||
     destination.y >= map.height;
 
-  if (isOutOfBounds || map.walls.has(positionKey(destination))) return current;
+  const destinationKey = positionKey(destination);
+  const isVoid = map.floorCells !== undefined && !map.floorCells.has(destinationKey);
+  if (isOutOfBounds || isVoid || map.walls.has(destinationKey)) return current;
   return destination;
 }
