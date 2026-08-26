@@ -188,6 +188,7 @@ describe('Chapter 3 room 1', () => {
       'right',
       'right',
     ]);
+    state = at(state, state.player, 'up');
     const hold = applyAction(state, { type: 'interact' }, level.map);
     expect(hold.changed).toBe(true);
     const holdReset = applyAction(hold.state, { type: 'reset' }, level.map);
@@ -214,6 +215,7 @@ describe('Chapter 3 room 1', () => {
       'down',
       'right',
     ]);
+    state = at(state, state.player, 'up');
     const finalLever = applyAction(state, { type: 'interact' }, level.map);
     expect(finalLever.changed).toBe(true);
     expect(object(finalLever.state, 'chapter3-exit-door')).toMatchObject({ open: true });

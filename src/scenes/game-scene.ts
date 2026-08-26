@@ -548,7 +548,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private drawWallKit(
-    map: Readonly<{ width: number; height: number }>,
+    map: Readonly<{ width: number; height: number; floorTiles?: ReadonlySet<string> }>,
     theme: ChapterVisualTheme,
   ): void {
     const wall = theme.walls;
@@ -556,7 +556,13 @@ export class GameScene extends Phaser.Scene {
     const doorObject = this.gameState.objects.find((object) => object.id === wall.doorwayObjectId);
     const doorwayStartX = this.validSectionStart(doorObject?.position.x, map.width);
     if (wall.perspectiveBoundary) {
+      if (wall.followFloorSilhouette && map.floorTiles) {
+        this.drawFloorSilhouetteWall(map, wall);
+        return;
+      }
       this.drawPerspectiveWall(map, doorwayStartX);
+      this.drawInteriorBottomBoundaries(map, wall);
+      this.drawInteriorSideBoundaries(map, wall);
       return;
     }
 
@@ -608,6 +614,108 @@ export class GameScene extends Phaser.Scene {
           undefined,
           WALL_BOTTOM_ALPHA,
         );
+      }
+    }
+  }
+
+  private drawFloorSilhouetteWall(
+    map: Readonly<{ width: number; height: number; floorTiles?: ReadonlySet<string> }>,
+    wall: ChapterVisualTheme['walls'],
+  ): void {
+    const hasFloor = (x: number, y: number) => map.floorTiles?.has(`${x},${y}`) ?? false;
+    const render = (assetKey: string, x: number, y: number) =>
+      this.renderPerspectiveBoundaryAsset(assetKey, x, y);
+
+    for (const key of map.floorTiles ?? []) {
+      const [x, y] = key.split(',').map(Number);
+      if (x === undefined || y === undefined) continue;
+      const north = !hasFloor(x, y - 1);
+      const south = !hasFloor(x, y + 1);
+      const west = !hasFloor(x - 1, y);
+      const east = !hasFloor(x + 1, y);
+      const pixelX = x * GRID_SIZE;
+      const pixelY = y * GRID_SIZE;
+
+      if (north && west) {
+        render(wall.cornerTopLeft, pixelX, pixelY);
+        continue;
+      }
+      if (north && east) {
+        render(
+          wall.cornerTopRight,
+          pixelX + GRID_SIZE - this.assetWidth(wall.cornerTopRight),
+          pixelY,
+        );
+        continue;
+      }
+      if (south && west) {
+        render(
+          wall.cornerBottomLeft,
+          pixelX,
+          pixelY + GRID_SIZE - this.assetHeight(wall.cornerBottomLeft),
+        );
+        continue;
+      }
+      if (south && east) {
+        render(
+          wall.cornerBottomRight,
+          pixelX + GRID_SIZE - this.assetWidth(wall.cornerBottomRight),
+          pixelY + GRID_SIZE - this.assetHeight(wall.cornerBottomRight),
+        );
+        continue;
+      }
+      if (north) render(wall.top, pixelX, pixelY);
+      if (south) render(wall.bottom, pixelX, pixelY + GRID_SIZE - this.assetHeight(wall.bottom));
+      if (west) render(wall.left, pixelX, pixelY);
+      if (east) render(wall.right, pixelX + GRID_SIZE - this.assetWidth(wall.right), pixelY);
+    }
+  }
+
+  private drawInteriorSideBoundaries(
+    map: Readonly<{ width: number; height: number }>,
+    wall: ChapterVisualTheme['walls'],
+  ): void {
+    for (const boundary of wall.interiorSideBoundaries ?? []) {
+      if (
+        boundary.x < 0 ||
+        boundary.x > map.width ||
+        boundary.startY < 0 ||
+        boundary.endY >= map.height
+      )
+        continue;
+      const assetKey = boundary.side === 'left' ? wall.left : wall.right;
+      const offsetX =
+        boundary.side === 'left'
+          ? boundary.x * GRID_SIZE - this.assetWidth(assetKey)
+          : boundary.x * GRID_SIZE;
+      for (let y = boundary.startY; y <= boundary.endY; y += 1) {
+        this.renderPerspectiveBoundaryAsset(assetKey, offsetX, y * GRID_SIZE);
+      }
+    }
+  }
+
+  private drawInteriorBottomBoundaries(
+    map: Readonly<{ width: number; height: number }>,
+    wall: ChapterVisualTheme['walls'],
+  ): void {
+    for (const boundary of wall.interiorBottomBoundaries ?? []) {
+      if (boundary.y < 0 || boundary.y >= map.height) continue;
+      for (let x = boundary.startX; x <= boundary.endX; x += 1) {
+        const isDoorway =
+          boundary.doorwayStartX !== undefined &&
+          x >= boundary.doorwayStartX &&
+          x < boundary.doorwayStartX + 3;
+        if (!isDoorway)
+          this.renderPerspectiveBoundaryAsset(wall.bottom, x * GRID_SIZE, boundary.y * GRID_SIZE);
+      }
+      if (boundary.doorwayStartX !== undefined && wall.bottomDoorway) {
+        this.renderPerspectiveBoundaryAsset(
+          wall.bottomDoorway,
+          boundary.doorwayStartX * GRID_SIZE,
+          boundary.y * GRID_SIZE,
+          WALL_OPENING_DEPTH,
+        );
+        this.renderDoorwayForeground(wall.bottomDoorway, boundary.doorwayStartX, boundary.y + 1);
       }
     }
   }
@@ -1587,7 +1695,7 @@ export class GameScene extends Phaser.Scene {
           ),
         );
       }
-      if (object.type === 'exit') {
+      if (object.type === 'exit' && import.meta.env.VITE_DEBUG_EXIT_TRIGGER === 'true') {
         this.objectSprites.push(
           this.add
             .rectangle(pixel.x, pixel.y, GRID_SIZE - 10, GRID_SIZE - 10, 0x6b8f71, 0.55)

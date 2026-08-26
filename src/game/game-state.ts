@@ -400,49 +400,35 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
 }
 
 function applyInteract(state: GameState, map: GridMap): ActionResult {
-  const interactionTargets = [
-    positionInDirection(state.player, state.playerFacing),
-    { x: state.player.x, y: state.player.y - 1 },
-    { x: state.player.x + 1, y: state.player.y },
-    { x: state.player.x, y: state.player.y + 1 },
-    { x: state.player.x - 1, y: state.player.y },
-  ].filter(
-    (target, index, targets) =>
-      targets.findIndex((candidate) => samePosition(candidate, target)) === index,
-  );
-  const object = interactionTargets
-    .map((target) =>
-      state.objects.find((candidate) => {
-        const isPuzzleObject =
-          candidate.type === 'puzzle-object' && candidate.onInteract !== undefined;
-        const isKeyOnPlayer =
-          candidate.type === 'key' && samePosition(candidate.position, state.player);
-        if (isPuzzleObject && !puzzleObjectOccupies(candidate, target)) return false;
-        if (
-          !isPuzzleObject &&
-          !isKeyOnPlayer &&
-          (candidate.type === 'door'
-            ? !relativeCellsContain(candidate.position, candidate.interactionCells, target)
-            : positionKey(candidate.position) !== positionKey(target))
-        ) {
-          return false;
-        }
-        return (
-          (candidate.type === 'pocket-watch' && !candidate.collected && candidate.interactable) ||
-          (candidate.type === 'key' &&
-            !candidate.collected &&
-            candidate.collectible &&
-            (!candidate.requiresReset ||
-              candidate.availableAfterResetCount === undefined ||
-              state.resetCount >= candidate.availableAfterResetCount)) ||
-          candidate.type === 'lever' ||
-          (candidate.type === 'door' && !candidate.unlocked && candidate.keyId !== undefined) ||
-          (candidate.type === 'exit' && candidate.mode === 'interact') ||
-          (candidate.type === 'puzzle-object' && candidate.onInteract !== undefined)
-        );
-      }),
-    )
-    .find((candidate): candidate is WorldObjectState => candidate !== undefined);
+  const target = positionInDirection(state.player, state.playerFacing);
+  const object = state.objects.find((candidate) => {
+    const isPuzzleObject = candidate.type === 'puzzle-object' && candidate.onInteract !== undefined;
+    const isKeyOnPlayer =
+      candidate.type === 'key' && samePosition(candidate.position, state.player);
+    if (isPuzzleObject && !puzzleObjectOccupies(candidate, target)) return false;
+    if (
+      !isPuzzleObject &&
+      !isKeyOnPlayer &&
+      (candidate.type === 'door'
+        ? !relativeCellsContain(candidate.position, candidate.interactionCells, target)
+        : positionKey(candidate.position) !== positionKey(target))
+    ) {
+      return false;
+    }
+    return (
+      (candidate.type === 'pocket-watch' && !candidate.collected && candidate.interactable) ||
+      (candidate.type === 'key' &&
+        !candidate.collected &&
+        candidate.collectible &&
+        (!candidate.requiresReset ||
+          candidate.availableAfterResetCount === undefined ||
+          state.resetCount >= candidate.availableAfterResetCount)) ||
+      candidate.type === 'lever' ||
+      (candidate.type === 'door' && !candidate.unlocked && candidate.keyId !== undefined) ||
+      (candidate.type === 'exit' && candidate.mode === 'interact') ||
+      (candidate.type === 'puzzle-object' && candidate.onInteract !== undefined)
+    );
+  });
   if (!object) return result(state, false);
 
   const clueByObjectId: Readonly<Record<string, Chapter4Clue>> = {
@@ -450,6 +436,15 @@ function applyInteract(state: GameState, map: GridMap): ActionResult {
     'chapter4-book-clue': 'book-2-left-to-right',
     'chapter4-missing-picture-clue': 'missing-picture-4',
   };
+  if (state.chapter4Puzzle && object.id === 'chapter4-wall-clock') {
+    const moved = state.chapter4Puzzle.clockStarted;
+    return {
+      ...result({ ...state, hasAction: true }, moved),
+      feedbackMessage: moved
+        ? '벽시계가 앞으로 미끄러져 나왔다. 멈췄던 시간이 다시 흐른다.'
+        : '벽시계는 아직 제자리에서 멈춰 있다.',
+    };
+  }
   const clue = clueByObjectId[object.id];
   if (state.chapter4Puzzle && clue) {
     const inspection = inspectChapter4Clue(state.chapter4Puzzle, clue);
@@ -740,6 +735,7 @@ function applyReset(state: GameState): ActionResult {
     state.objects,
     undefined,
   );
+  objects = applyChapter4VisualStates(objects, chapter4Reset?.state);
   if (chapter4Reset?.state.exitOpen) {
     objects = objects.map((object) =>
       object.type === 'door' && object.id === 'chapter4-exit-door'
@@ -785,6 +781,24 @@ function applyReset(state: GameState): ActionResult {
     feedbackMessage: memoryWillCommit ? '기억석이 고정되었다.' : undefined,
     chapterCompleted: false,
   };
+}
+
+function applyChapter4VisualStates(
+  objects: readonly WorldObjectState[],
+  puzzle: Chapter4PuzzleState | undefined,
+): readonly WorldObjectState[] {
+  if (!puzzle) return objects;
+
+  const stateByObjectId: Readonly<Record<string, string>> = {
+    'chapter4-portrait-clue': puzzle.resetStage >= 1 ? 'changed' : 'normal',
+    'chapter4-book-clue': puzzle.resetStage >= 2 ? 'changed' : 'normal',
+    'chapter4-missing-picture-clue': puzzle.resetStage >= 3 ? 'changed' : 'normal',
+    'chapter4-wall-clock': puzzle.resetStage >= 4 ? 'moved' : 'static',
+  };
+  return objects.map((object) => {
+    const nextState = stateByObjectId[object.id];
+    return object.type === 'puzzle-object' && nextState ? { ...object, state: nextState } : object;
+  });
 }
 
 function applyCodeDigit(state: GameState, digit: number): ActionResult {
