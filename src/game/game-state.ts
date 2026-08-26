@@ -375,11 +375,17 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
     );
 
   objects = recalculateDerivedObjects(objects, candidate, state.echoes, state.objects, undefined);
+  const finalDoorOpen =
+    state.finalDoorId === undefined ||
+    objects.some(
+      (object) => object.type === 'door' && object.id === state.finalDoorId && object.open,
+    );
   const completed = objects.some(
     (object) =>
       object.type === 'exit' &&
       object.mode === 'enter' &&
-      positionKey(object.position) === positionKey(candidate),
+      positionKey(object.position) === positionKey(candidate) &&
+      finalDoorOpen,
   );
   const nextState: GameState = {
     ...state,

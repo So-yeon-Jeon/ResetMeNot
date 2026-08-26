@@ -17,6 +17,12 @@ describe('Final clock room', () => {
       type: 'prop',
       position: { x: 8, y: 1 },
     });
+    expect(level.objects.filter((object) => object.type === 'prop')).toHaveLength(7);
+    expect(level.objects.find((object) => object.id === 'final-rug')).toMatchObject({
+      type: 'prop',
+      assetKey: 'chapter1-rug',
+      position: { x: 7, y: 7 },
+    });
   });
 
   it('rewinds on RESET and opens the final door only after uninterrupted time', () => {
@@ -48,5 +54,26 @@ describe('Final clock room', () => {
     ).state;
     const exited = applyAction(state, { type: 'move', direction: 'right' }, level.map);
     expect(exited.chapterCompleted).toBe(true);
+  });
+
+  it('does not clear when the player reaches the exit before midnight', () => {
+    let state = createLevelGameState(level, {
+      totalResetCount: 0,
+      chapterRestartCount: 0,
+      pocketWatchCollected: true,
+      events: [],
+    });
+
+    state = {
+      ...state,
+      player: { x: 15, y: 2 },
+      playerFacing: 'right',
+      hasAction: true,
+    };
+    const earlyExit = applyAction(state, { type: 'move', direction: 'right' }, level.map);
+
+    expect(earlyExit.state.player).toEqual({ x: 16, y: 2 });
+    expect(earlyExit.chapterCompleted).toBe(false);
+    expect(earlyExit.state.phase).not.toBe('completed');
   });
 });
