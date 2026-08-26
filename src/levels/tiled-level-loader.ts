@@ -57,6 +57,8 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
       'useWallLayer',
       'finalClockStart',
       'finalClockTarget',
+      'finalWallMessageAtMs',
+      'finalClockMotionAtMs',
       'finalDoorId',
     ],
     'map',
@@ -180,6 +182,14 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   validateInitialOccupancy(objects, playerStart, gridMap);
   validateReferences(objects);
   const finalClock = readFinalClock(properties);
+  const finalWallMessageAtMs = optionalNonNegativeInteger(
+    properties.finalWallMessageAtMs,
+    'finalWallMessageAtMs',
+  );
+  const finalClockMotionAtMs = optionalNonNegativeInteger(
+    properties.finalClockMotionAtMs,
+    'finalClockMotionAtMs',
+  );
   const finalDoorId = optionalText(properties.finalDoorId);
   if ((finalClock === undefined) !== (finalDoorId === undefined)) {
     fail('Final 시계와 finalDoorId는 함께 지정해야 합니다.');
@@ -187,6 +197,25 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   if (finalDoorId !== undefined) {
     const finalDoor = objects.find((item) => item.id === finalDoorId);
     if (finalDoor?.type !== 'door') fail(`finalDoorId가 Door를 참조하지 않습니다: ${finalDoorId}`);
+  }
+  if (
+    finalClock === undefined &&
+    (finalWallMessageAtMs !== undefined || finalClockMotionAtMs !== undefined)
+  ) {
+    fail('Final 연출 시점은 Final 시계와 함께 지정해야 합니다.');
+  }
+  if (
+    finalClock !== undefined &&
+    (finalWallMessageAtMs ?? 0) > (finalClockMotionAtMs ?? finalClock.durationMs)
+  ) {
+    fail('Final 벽 문장 변화는 시계 움직임보다 늦을 수 없습니다.');
+  }
+  if (
+    finalClockMotionAtMs !== undefined &&
+    finalClock !== undefined &&
+    finalClockMotionAtMs >= finalClock.durationMs
+  ) {
+    fail('Final 시계 움직임은 목표 시간 전에 시작해야 합니다.');
   }
   return {
     schemaVersion: 1,
@@ -202,6 +231,8 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     objects,
     finalClockStartSeconds: finalClock?.startSeconds,
     finalClockDurationMs: finalClock?.durationMs,
+    finalWallMessageAtMs,
+    finalClockMotionAtMs,
     finalDoorId,
   };
 }
@@ -786,6 +817,10 @@ function nonNegativeInteger(value: unknown, label: string): number {
   const parsed = number(value, label);
   if (!Number.isInteger(parsed) || parsed < 0) return fail(`${label}은 0 이상의 정수여야 합니다.`);
   return parsed;
+}
+
+function optionalNonNegativeInteger(value: unknown, label: string): number | undefined {
+  return value === undefined ? undefined : nonNegativeInteger(value, label);
 }
 function fail(message: string): never {
   throw new Error(`Tiled level validation failed: ${message}`);
