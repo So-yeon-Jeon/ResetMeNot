@@ -1,0 +1,300 @@
+{
+  "width": 24,
+  "height": 18,
+  "tilewidth": 32,
+  "tileheight": 32,
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "properties": [
+    {
+      "name": "schemaVersion",
+      "type": "int",
+      "value": 1
+    },
+    {
+      "name": "levelId",
+      "type": "string",
+      "value": "chapter-04-room-01"
+    },
+    {
+      "name": "chapterId",
+      "type": "string",
+      "value": "chapter-04"
+    },
+    {
+      "name": "resetLimit",
+      "type": "int",
+      "value": 4
+    },
+    {
+      "name": "echoLimit",
+      "type": "int",
+      "value": 4
+    },
+    {
+      "name": "resetPolicy",
+      "type": "string",
+      "value": "disable"
+    },
+    {
+      "name": "echoUnlocked",
+      "type": "bool",
+      "value": true
+    },
+    {
+      "name": "floorMask",
+      "type": "string",
+      "value": "000000000000000000000000/000011111111111111111000/000011111111111111111000/011111111111111111111000/011111111111111111111000/011111111111111111111000/000000000000000000111000/000000000000000000111000/000000000000000000111000/000000000111111111111100/000000000111111111111100/000000000111111111111100/000000000111111111111100/000000000111111111111100/000000000111111111111100/000000000111111111111100/000000000000000000000000/000000000000000000000000"
+    },
+    {
+      "name": "useWallLayer",
+      "type": "bool",
+      "value": false
+    }
+  ],
+  "layers": [
+    {
+      "name": "floor",
+      "type": "tilelayer",
+      "width": 24,
+      "height": 18,
+      "data": [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+      ]
+    },
+    {
+      "name": "walls",
+      "type": "tilelayer",
+      "width": 24,
+      "height": 18,
+      "data": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      ]
+    },
+    {
+      "name": "objects",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "name": "chapter4-player-spawn",
+          "class": "PlayerSpawn",
+          "x": 64,
+          "y": 128,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            {
+              "name": "facing",
+              "type": "string",
+              "value": "right"
+            }
+          ]
+        },
+        {
+          "name": "chapter4-portrait-clue",
+          "class": "PuzzleObject",
+          "x": 224,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            {
+              "name": "initialState",
+              "type": "string",
+              "value": "normal"
+            },
+            {
+              "name": "stateCollision",
+              "type": "string",
+              "value": "normal=0,0;inspected=0,0"
+            },
+            {
+              "name": "onInteractState",
+              "type": "string",
+              "value": "inspected"
+            }
+          ]
+        },
+        {
+          "name": "chapter4-book-clue",
+          "class": "PuzzleObject",
+          "x": 352,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            {
+              "name": "initialState",
+              "type": "string",
+              "value": "normal"
+            },
+            {
+              "name": "stateCollision",
+              "type": "string",
+              "value": "normal=0,0;inspected=0,0"
+            },
+            {
+              "name": "onInteractState",
+              "type": "string",
+              "value": "inspected"
+            }
+          ]
+        },
+        {
+          "name": "chapter4-missing-picture-clue",
+          "class": "PuzzleObject",
+          "x": 480,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            {
+              "name": "initialState",
+              "type": "string",
+              "value": "normal"
+            },
+            {
+              "name": "stateCollision",
+              "type": "string",
+              "value": "normal=0,0;inspected=0,0"
+            },
+            {
+              "name": "onInteractState",
+              "type": "string",
+              "value": "inspected"
+            }
+          ]
+        },
+        {
+          "name": "chapter4-wall-clock",
+          "class": "Prop",
+          "x": 576,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            {
+              "name": "assetKey",
+              "type": "string",
+              "value": "chapter1-grandfather-clock"
+            },
+            {
+              "name": "collisionCells",
+              "type": "string",
+              "value": "0,0|0,1"
+            }
+          ]
+        },
+        {
+          "name": "chapter4-code-lock",
+          "class": "PuzzleObject",
+          "x": 544,
+          "y": 352,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            {
+              "name": "initialState",
+              "type": "string",
+              "value": "locked"
+            },
+            {
+              "name": "stateCollision",
+              "type": "string",
+              "value": "locked=0,0;active=0,0"
+            },
+            {
+              "name": "onInteractState",
+              "type": "string",
+              "value": "active"
+            }
+          ]
+        },
+        {
+          "name": "chapter4-code-key",
+          "class": "Key",
+          "x": 320,
+          "y": 448,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            {
+              "name": "collectible",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "visible",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "blocksMovement",
+              "type": "bool",
+              "value": false
+            }
+          ]
+        },
+        {
+          "name": "chapter4-exit-door",
+          "class": "Door",
+          "x": 640,
+          "y": 384,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            {
+              "name": "keyId",
+              "type": "string",
+              "value": "chapter4-code-key"
+            },
+            {
+              "name": "closedAssetKey",
+              "type": "string",
+              "value": "chapter1-door-closed"
+            },
+            {
+              "name": "openAssetKey",
+              "type": "string",
+              "value": "chapter1-door-open"
+            }
+          ]
+        },
+        {
+          "name": "chapter4-exit",
+          "class": "Exit",
+          "x": 672,
+          "y": 384,
+          "width": 32,
+          "height": 32
+        }
+      ]
+    }
+  ]
+}

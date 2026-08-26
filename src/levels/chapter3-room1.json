@@ -1,0 +1,164 @@
+{
+  "width": 18,
+  "height": 14,
+  "tilewidth": 32,
+  "tileheight": 32,
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "properties": [
+    { "name": "schemaVersion", "type": "int", "value": 1 },
+    { "name": "levelId", "type": "string", "value": "chapter-03-room-01" },
+    { "name": "chapterId", "type": "string", "value": "chapter-03" },
+    { "name": "resetLimit", "type": "int", "value": 2 },
+    { "name": "echoLimit", "type": "int", "value": 2 },
+    { "name": "resetPolicy", "type": "string", "value": "disable" },
+    { "name": "echoUnlocked", "type": "bool", "value": true },
+    {
+      "name": "floorMask",
+      "type": "string",
+      "value": "000000000000000000/011111110011111110/011111110011111110/011111110011111110/011111110011111110/011111110111111110/001000000100000000/001000000100000000/011111111111111110/011111111111111110/011111110111111110/011111110111111110/000000000100000000/000000000100000000"
+    },
+    { "name": "useWallLayer", "type": "bool", "value": false }
+  ],
+  "layers": [
+    {
+      "name": "floor",
+      "type": "tilelayer",
+      "width": 18,
+      "height": 14,
+      "data": [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1
+      ]
+    },
+    {
+      "name": "walls",
+      "type": "tilelayer",
+      "width": 18,
+      "height": 14,
+      "data": [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1
+      ]
+    },
+    {
+      "name": "objects",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "name": "chapter3-player-spawn",
+          "class": "PlayerSpawn",
+          "x": 288,
+          "y": 416,
+          "width": 32,
+          "height": 32,
+          "properties": [{ "name": "facing", "type": "string", "value": "up" }]
+        },
+        {
+          "name": "chapter3-memory-box",
+          "class": "Box",
+          "x": 96,
+          "y": 96,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "persistentFields", "type": "string", "value": "position" },
+            { "name": "memorySocketId", "type": "string", "value": "chapter3-memory-socket" }
+          ]
+        },
+        {
+          "name": "chapter3-memory-socket",
+          "class": "Switch",
+          "x": 160,
+          "y": 96,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "acceptedActors", "type": "string", "value": "box" },
+            { "name": "requiresCommittedMemory", "type": "bool", "value": true }
+          ]
+        },
+        {
+          "name": "chapter3-hold-lever",
+          "class": "Lever",
+          "x": 416,
+          "y": 320,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "mode", "type": "string", "value": "hold" },
+            { "name": "acceptedActors", "type": "string", "value": "player,echo" }
+          ]
+        },
+        {
+          "name": "chapter3-central-gate",
+          "class": "Door",
+          "x": 288,
+          "y": 224,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "switchIds", "type": "string", "value": "chapter3-memory-socket" },
+            { "name": "leverIds", "type": "string", "value": "chapter3-hold-lever" },
+            { "name": "activationMode", "type": "string", "value": "all" },
+            { "name": "closedAssetKey", "type": "string", "value": "chapter1-door-closed" },
+            { "name": "openAssetKey", "type": "string", "value": "chapter1-door-open" }
+          ]
+        },
+        {
+          "name": "chapter3-final-lever",
+          "class": "Lever",
+          "x": 448,
+          "y": 96,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "mode", "type": "string", "value": "toggle" },
+            { "name": "acceptedActors", "type": "string", "value": "player" }
+          ]
+        },
+        {
+          "name": "chapter3-exit-door",
+          "class": "Door",
+          "x": 480,
+          "y": 64,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "switchIds", "type": "string", "value": "chapter3-memory-socket" },
+            {
+              "name": "leverIds",
+              "type": "string",
+              "value": "chapter3-hold-lever,chapter3-final-lever"
+            },
+            { "name": "activationMode", "type": "string", "value": "all" },
+            { "name": "closedAssetKey", "type": "string", "value": "chapter1-door-closed" },
+            { "name": "openAssetKey", "type": "string", "value": "chapter1-door-open" }
+          ]
+        },
+        {
+          "name": "chapter3-exit",
+          "class": "Exit",
+          "x": 512,
+          "y": 64,
+          "width": 32,
+          "height": 32
+        }
+      ]
+    }
+  ]
+}
