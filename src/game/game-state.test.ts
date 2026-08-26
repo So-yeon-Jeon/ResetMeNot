@@ -222,6 +222,19 @@ describe('game state', () => {
     expect(interaction.feedbackEvent).toBe('key-acquired');
   });
 
+  it('does not interact with an object outside the facing tile', () => {
+    const sideAccessMap = createGridMap(['#####', '#...#', '#...#', '#####']);
+    const state = createGameState(
+      { x: 2, y: 1 },
+      { facing: 'right', objects: [createKey('key', { x: 2, y: 2 })] },
+    );
+    const interaction = applyAction(state, { type: 'interact' }, sideAccessMap);
+
+    expect(interaction.changed).toBe(false);
+    expect(interaction.state.inventoryKeys).toEqual([]);
+    expect(interaction.state.objects[0]).toMatchObject({ id: 'key', collected: false });
+  });
+
   it('열쇠 없이 잠긴 문을 조사하면 필요한 조건을 반환한다', () => {
     const state = createGameState(
       { x: 1, y: 1 },

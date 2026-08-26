@@ -400,49 +400,35 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
 }
 
 function applyInteract(state: GameState, map: GridMap): ActionResult {
-  const interactionTargets = [
-    positionInDirection(state.player, state.playerFacing),
-    { x: state.player.x, y: state.player.y - 1 },
-    { x: state.player.x + 1, y: state.player.y },
-    { x: state.player.x, y: state.player.y + 1 },
-    { x: state.player.x - 1, y: state.player.y },
-  ].filter(
-    (target, index, targets) =>
-      targets.findIndex((candidate) => samePosition(candidate, target)) === index,
-  );
-  const object = interactionTargets
-    .map((target) =>
-      state.objects.find((candidate) => {
-        const isPuzzleObject =
-          candidate.type === 'puzzle-object' && candidate.onInteract !== undefined;
-        const isKeyOnPlayer =
-          candidate.type === 'key' && samePosition(candidate.position, state.player);
-        if (isPuzzleObject && !puzzleObjectOccupies(candidate, target)) return false;
-        if (
-          !isPuzzleObject &&
-          !isKeyOnPlayer &&
-          (candidate.type === 'door'
-            ? !relativeCellsContain(candidate.position, candidate.interactionCells, target)
-            : positionKey(candidate.position) !== positionKey(target))
-        ) {
-          return false;
-        }
-        return (
-          (candidate.type === 'pocket-watch' && !candidate.collected && candidate.interactable) ||
-          (candidate.type === 'key' &&
-            !candidate.collected &&
-            candidate.collectible &&
-            (!candidate.requiresReset ||
-              candidate.availableAfterResetCount === undefined ||
-              state.resetCount >= candidate.availableAfterResetCount)) ||
-          candidate.type === 'lever' ||
-          (candidate.type === 'door' && !candidate.unlocked && candidate.keyId !== undefined) ||
-          (candidate.type === 'exit' && candidate.mode === 'interact') ||
-          (candidate.type === 'puzzle-object' && candidate.onInteract !== undefined)
-        );
-      }),
-    )
-    .find((candidate): candidate is WorldObjectState => candidate !== undefined);
+  const target = positionInDirection(state.player, state.playerFacing);
+  const object = state.objects.find((candidate) => {
+    const isPuzzleObject = candidate.type === 'puzzle-object' && candidate.onInteract !== undefined;
+    const isKeyOnPlayer =
+      candidate.type === 'key' && samePosition(candidate.position, state.player);
+    if (isPuzzleObject && !puzzleObjectOccupies(candidate, target)) return false;
+    if (
+      !isPuzzleObject &&
+      !isKeyOnPlayer &&
+      (candidate.type === 'door'
+        ? !relativeCellsContain(candidate.position, candidate.interactionCells, target)
+        : positionKey(candidate.position) !== positionKey(target))
+    ) {
+      return false;
+    }
+    return (
+      (candidate.type === 'pocket-watch' && !candidate.collected && candidate.interactable) ||
+      (candidate.type === 'key' &&
+        !candidate.collected &&
+        candidate.collectible &&
+        (!candidate.requiresReset ||
+          candidate.availableAfterResetCount === undefined ||
+          state.resetCount >= candidate.availableAfterResetCount)) ||
+      candidate.type === 'lever' ||
+      (candidate.type === 'door' && !candidate.unlocked && candidate.keyId !== undefined) ||
+      (candidate.type === 'exit' && candidate.mode === 'interact') ||
+      (candidate.type === 'puzzle-object' && candidate.onInteract !== undefined)
+    );
+  });
   if (!object) return result(state, false);
 
   const clueByObjectId: Readonly<Record<string, Chapter4Clue>> = {
