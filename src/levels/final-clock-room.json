@@ -72,6 +72,22 @@
           "properties": [{ "name": "facing", "type": "string", "value": "up" }]
         },
         {
+          "name": "final-great-clock",
+          "class": "Prop",
+          "x": 256,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "assetKey", "type": "string", "value": "chapter1-grandfather-clock" },
+            {
+              "name": "collisionCells",
+              "type": "string",
+              "value": "0,0|1,0|2,0|0,1|1,1|2,1"
+            }
+          ]
+        },
+        {
           "name": "final-clock-door",
           "class": "Door",
           "x": 480,

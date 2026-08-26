@@ -13,6 +13,10 @@ describe('Final clock room', () => {
     expect(level.resetPolicy).toBe('unlimited');
     expect(level.finalClockDurationMs).toBe(30_000);
     expect(level.finalDoorId).toBe('final-clock-door');
+    expect(level.objects.find((object) => object.id === 'final-great-clock')).toMatchObject({
+      type: 'prop',
+      position: { x: 8, y: 1 },
+    });
   });
 
   it('rewinds on RESET and opens the final door only after uninterrupted time', () => {

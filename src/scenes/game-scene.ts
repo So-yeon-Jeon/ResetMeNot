@@ -4,6 +4,7 @@ import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
 import { chapter4ResetFeedback } from '../game/chapter4-puzzle';
 import { formatClockTime } from '../game/clock';
+import { finalWallMessage } from '../game/final-wall-message';
 import { createEndingSequence, type EndingPage } from '../game/ending';
 import {
   advanceGameSession,
@@ -122,6 +123,7 @@ export class GameScene extends Phaser.Scene {
   private codeEntryOverlay?: Phaser.GameObjects.Container;
   private codeEntryValueHud?: Phaser.GameObjects.Text;
   private chapter4ClockTween?: Phaser.Tweens.Tween;
+  private finalWallMessageText?: Phaser.GameObjects.Text;
 
   constructor() {
     super('game');
@@ -170,6 +172,7 @@ export class GameScene extends Phaser.Scene {
     this.createPlayer();
     this.configureMapCamera();
     this.createObjects();
+    this.createFinalWallMessage();
     this.createInstructions();
     this.createKeyboardControls();
   }
@@ -180,6 +183,7 @@ export class GameScene extends Phaser.Scene {
     const previousClockWarning = this.gameState.finalClockWarning;
     this.setGameState(advanceTime(this.gameState, delta));
     this.updateClockHud();
+    this.updateFinalWallMessage();
     if (!previousClockWarning && this.gameState.finalClockWarning) {
       this.renderEchoes();
       this.tweens.add({
@@ -1937,12 +1941,15 @@ export class GameScene extends Phaser.Scene {
     this.echoSprites = [];
     this.objectSprites.forEach((object) => object.destroy());
     this.objectSprites = [];
+    this.finalWallMessageText?.destroy();
+    this.finalWallMessageText = undefined;
 
     this.mapOrigin = this.currentMapCameraLayout().mapOrigin;
     this.drawMap();
     this.createPlayer();
     this.configureMapCamera();
     this.createObjects();
+    this.createFinalWallMessage();
     this.updateResetHud();
     this.phaseHud.setText('');
     this.feedbackHud.setText('');
@@ -2076,6 +2083,31 @@ export class GameScene extends Phaser.Scene {
     if (startSeconds === undefined) return;
 
     this.clockHud.setText(formatClockTime(startSeconds, this.gameState.finalClockElapsedMs));
+  }
+
+  private createFinalWallMessage(): void {
+    this.finalWallMessageText?.destroy();
+    this.finalWallMessageText = undefined;
+    if (currentLevel(this.session).chapterId !== 'final') return;
+
+    const position = this.gridToPixel({ x: 6, y: 7 });
+    this.finalWallMessageText = this.add
+      .text(position.x, position.y, '', {
+        align: 'center',
+        color: '#d8c7b6',
+        fontFamily: 'serif',
+        fontSize: '18px',
+        fontStyle: 'italic',
+        lineSpacing: 6,
+        wordWrap: { width: 300 },
+      })
+      .setOrigin(0.5)
+      .setDepth(0.62);
+    this.updateFinalWallMessage();
+  }
+
+  private updateFinalWallMessage(): void {
+    this.finalWallMessageText?.setText(finalWallMessage(this.gameState.finalClockElapsedMs));
   }
 
   private renderLoadError(error: Error): void {

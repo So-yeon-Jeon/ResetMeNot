@@ -16,6 +16,13 @@ export const FINAL_VISUAL_THEME: ChapterVisualTheme = {
     cornerBottomLeft: 'chapter1-wall-unified-corner-bl',
     cornerBottomRight: 'chapter1-wall-unified-corner-br',
   },
+  objectVisuals: {
+    'final-great-clock': {
+      offset: { x: -12, y: -42 },
+      displaySize: { width: 120, height: 180 },
+      depth: 0.72,
+    },
+  },
   typeVisuals: {
     door: {
       depth: 0.7,
