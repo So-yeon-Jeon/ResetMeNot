@@ -2,6 +2,7 @@ import { CHAPTER1_VISUAL_THEME } from './chapter1-theme';
 import { CHAPTER2_VISUAL_THEME } from './chapter2-theme';
 import { CHAPTER3_VISUAL_THEME } from './chapter3-theme';
 import { CHAPTER4_VISUAL_THEME } from './chapter4-theme';
+import { FINAL_VISUAL_THEME } from './final-theme';
 import type { ChapterVisualTheme } from './chapter-visual-theme';
 
 export const CHAPTER_VISUAL_THEMES: Readonly<Record<string, ChapterVisualTheme>> = {
@@ -9,6 +10,7 @@ export const CHAPTER_VISUAL_THEMES: Readonly<Record<string, ChapterVisualTheme>>
   [CHAPTER2_VISUAL_THEME.chapterId]: CHAPTER2_VISUAL_THEME,
   [CHAPTER3_VISUAL_THEME.chapterId]: CHAPTER3_VISUAL_THEME,
   [CHAPTER4_VISUAL_THEME.chapterId]: CHAPTER4_VISUAL_THEME,
+  [FINAL_VISUAL_THEME.chapterId]: FINAL_VISUAL_THEME,
 };
 
 export function getChapterVisualTheme(chapterId: string): ChapterVisualTheme {

@@ -1,0 +1,97 @@
+{
+  "width": 18,
+  "height": 14,
+  "tilewidth": 32,
+  "tileheight": 32,
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "properties": [
+    { "name": "schemaVersion", "type": "int", "value": 1 },
+    { "name": "levelId", "type": "string", "value": "final-clock-room" },
+    { "name": "chapterId", "type": "string", "value": "final" },
+    { "name": "resetLimit", "type": "int", "value": 0 },
+    { "name": "echoLimit", "type": "int", "value": 8 },
+    { "name": "resetPolicy", "type": "string", "value": "unlimited" },
+    { "name": "echoUnlocked", "type": "bool", "value": true },
+    { "name": "finalClockStart", "type": "string", "value": "11:59:30" },
+    { "name": "finalClockTarget", "type": "string", "value": "12:00:00" },
+    { "name": "finalDoorId", "type": "string", "value": "final-clock-door" },
+    {
+      "name": "floorMask",
+      "type": "string",
+      "value": "000000000000000000/000011111111111110/000011111111111110/000011111111111110/011111111111111110/011111111111111110/011111111111111110/011111111111111110/011111111111111110/011111111111111110/011111111111111110/000000001110000000/000000001110000000/000000000000000000"
+    },
+    { "name": "useWallLayer", "type": "bool", "value": false }
+  ],
+  "layers": [
+    {
+      "name": "floor",
+      "type": "tilelayer",
+      "width": 18,
+      "height": 14,
+      "data": [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1
+      ]
+    },
+    {
+      "name": "walls",
+      "type": "tilelayer",
+      "width": 18,
+      "height": 14,
+      "data": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0
+      ]
+    },
+    {
+      "name": "objects",
+      "type": "objectgroup",
+      "objects": [
+        {
+          "name": "final-player-spawn",
+          "class": "PlayerSpawn",
+          "x": 288,
+          "y": 384,
+          "width": 32,
+          "height": 32,
+          "properties": [{ "name": "facing", "type": "string", "value": "up" }]
+        },
+        {
+          "name": "final-clock-door",
+          "class": "Door",
+          "x": 480,
+          "y": 64,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            { "name": "closedAssetKey", "type": "string", "value": "chapter1-door-closed" },
+            { "name": "openAssetKey", "type": "string", "value": "chapter1-door-open" }
+          ]
+        },
+        {
+          "name": "final-exit",
+          "class": "Exit",
+          "x": 512,
+          "y": 64,
+          "width": 32,
+          "height": 32
+        }
+      ]
+    }
+  ]
+}
