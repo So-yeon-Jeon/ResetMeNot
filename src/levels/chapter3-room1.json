@@ -93,7 +93,7 @@
           "width": 32,
           "height": 32,
           "properties": [
-            { "name": "assetKey", "type": "string", "value": "chapter1-bed" },
+            { "name": "assetKey", "type": "string", "value": "chapter2-bookshelf-standing" },
             { "name": "collisionCells", "type": "string", "value": "0,0|1,0|0,1|1,1" }
           ]
         },
@@ -105,7 +105,7 @@
           "width": 32,
           "height": 32,
           "properties": [
-            { "name": "assetKey", "type": "string", "value": "chapter1-window" },
+            { "name": "assetKey", "type": "string", "value": "chapter2-wall-painting" },
             { "name": "collisionCells", "type": "string", "value": "" }
           ]
         },
@@ -117,7 +117,7 @@
           "width": 32,
           "height": 32,
           "properties": [
-            { "name": "assetKey", "type": "string", "value": "chapter1-grandfather-clock" },
+            { "name": "assetKey", "type": "string", "value": "chapter2-candle" },
             { "name": "collisionCells", "type": "string", "value": "" }
           ]
         },
@@ -129,7 +129,7 @@
           "width": 32,
           "height": 32,
           "properties": [
-            { "name": "assetKey", "type": "string", "value": "chapter1-bookshelf-standing" },
+            { "name": "assetKey", "type": "string", "value": "chapter2-bookshelf-standing" },
             { "name": "collisionCells", "type": "string", "value": "0,0|1,0|2,0|0,1|1,1|2,1" }
           ]
         },
@@ -141,7 +141,7 @@
           "width": 32,
           "height": 32,
           "properties": [
-            { "name": "assetKey", "type": "string", "value": "chapter1-window" },
+            { "name": "assetKey", "type": "string", "value": "chapter2-wall-painting" },
             { "name": "collisionCells", "type": "string", "value": "" }
           ]
         },

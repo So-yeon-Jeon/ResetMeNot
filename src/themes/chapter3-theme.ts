@@ -8,6 +8,16 @@ export const CHAPTER3_VISUAL_THEME: ChapterVisualTheme = {
   assets: {
     ...CHAPTER1_ASSET_MANIFEST,
     ...CHAPTER2_ASSET_MANIFEST,
+    'chapter3-floor-tileset': {
+      path: new URL('../assets/chapter3/tiles/floor_tileset.png', import.meta.url).href,
+      width: 256,
+      height: 32,
+      placeholderColor: 0x3a2518,
+      sourceAvailable: true,
+      kind: 'spritesheet',
+      frameWidth: 32,
+      frameHeight: 32,
+    },
     'chapter3-memory-cube': {
       path: new URL('../assets/chapter3/puzzle/memory-cube.png', import.meta.url).href,
       width: 64,
@@ -16,8 +26,9 @@ export const CHAPTER3_VISUAL_THEME: ChapterVisualTheme = {
       sourceAvailable: true,
     },
   },
-  floor: { assetKey: 'chapter1-floor-tileset', frameCount: 8 },
+  floor: { assetKey: 'chapter3-floor-tileset', frameCount: 8, tint: 0xe0bc8c },
   walls: {
+    tint: 0xd0ad82,
     renderBoundary: false,
     floorPlanBoundary: true,
     doorwayObjectId: 'chapter3-central-gate',
@@ -39,26 +50,29 @@ export const CHAPTER3_VISUAL_THEME: ChapterVisualTheme = {
     cornerBottomRight: 'chapter1-wall-unified-corner-br',
   },
   objectVisuals: {
-    'chapter3-left-bed': { offset: { x: -12, y: 8 } },
+    'chapter3-left-bed': {
+      offset: { x: -4, y: -32 },
+      displaySize: { width: 112, height: 84 },
+      depth: 0.62,
+    },
     'chapter3-left-window': {
-      positionOverride: { y: 0 },
-      offset: { x: 4, y: 28 },
-      displaySize: { width: 48, height: 32 },
-      depth: 0.18,
+      offset: { x: 0, y: -24 },
+      displaySize: { width: 48, height: 64 },
+      depth: 0.12,
     },
     'chapter3-left-clock': {
-      offset: { x: 16, y: -32 },
-      displaySize: { width: 54, height: 84 },
+      offset: { x: 4, y: -20 },
+      displaySize: { width: 24, height: 36 },
+      depth: 0.42,
     },
     'chapter3-left-bookshelf': {
       offset: { x: -4, y: -32 },
       displaySize: { width: 112, height: 84 },
     },
     'chapter3-right-window': {
-      positionOverride: { y: 0 },
-      offset: { x: 4, y: 28 },
-      displaySize: { width: 48, height: 32 },
-      depth: 0.18,
+      offset: { x: 0, y: -24 },
+      displaySize: { width: 48, height: 64 },
+      depth: 0.12,
     },
     'chapter3-right-desk': { offset: { x: 8, y: 0 } },
     'chapter3-right-chair': { depth: 0.5 },

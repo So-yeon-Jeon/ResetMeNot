@@ -84,6 +84,17 @@ function reachable(start: GridPosition, target: GridPosition, blockedKey?: strin
 }
 
 describe('Chapter 3 room 1', () => {
+  it('uses archive decor instead of Chapter 1 bedroom fixtures', () => {
+    const assetKeys = level.objects
+      .filter((item) => item.type === 'prop')
+      .map((item) => item.assetKey);
+
+    expect(assetKeys).not.toContain('chapter1-bed');
+    expect(assetKeys).not.toContain('chapter1-window');
+    expect(assetKeys).not.toContain('chapter1-grandfather-clock');
+    expect(assetKeys).toContain('chapter2-wall-painting');
+  });
+
   it('uses two RESETs and two fixed Echoes on an 18x14 map', () => {
     const state = createLevelGameState(level, previousMemory);
 
