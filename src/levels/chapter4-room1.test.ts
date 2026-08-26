@@ -13,8 +13,8 @@ function at(state: GameState, player: GridPosition, facing: Direction): GameStat
 
 describe('Chapter 4 room 1', () => {
   it('uses a larger corridor-and-puzzle-room layout', () => {
-    expect(level.map).toMatchObject({ width: 20, height: 14 });
-    expect(level.playerStart).toEqual({ x: 2, y: 3 });
+    expect(level.map).toMatchObject({ width: 24, height: 18 });
+    expect(level.playerStart).toEqual({ x: 2, y: 4 });
     expect(level.resetLimit).toBe(4);
   });
 
@@ -36,9 +36,11 @@ describe('Chapter 4 room 1', () => {
   });
 
   it('keeps the upper corridor connected to the lower puzzle room', () => {
-    expect(level.map.floorTiles?.has('15,5')).toBe(true);
-    expect(level.map.floorTiles?.has('15,6')).toBe(true);
-    expect(level.map.floorTiles?.has('15,7')).toBe(true);
+    expect(level.map.floorTiles?.has('19,5')).toBe(true);
+    expect(level.map.floorTiles?.has('19,6')).toBe(true);
+    expect(level.map.floorTiles?.has('19,8')).toBe(true);
+    expect(level.map.floorTiles?.has('19,9')).toBe(true);
+    expect(level.map.floorTiles?.has('8,9')).toBe(false);
   });
 
   it('connects clue inspection, 924, the fourth RESET, and Exit', () => {
@@ -49,14 +51,14 @@ describe('Chapter 4 room 1', () => {
       events: [],
     });
 
-    state = applyAction(at(state, { x: 5, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
+    state = applyAction(at(state, { x: 7, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
     state = applyAction(state, { type: 'interact' }, level.map).state;
-    state = applyAction(at(state, { x: 9, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
+    state = applyAction(at(state, { x: 11, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
     state = applyAction(state, { type: 'interact' }, level.map).state;
-    state = applyAction(at(state, { x: 13, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
+    state = applyAction(at(state, { x: 15, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
     state = applyAction(state, { type: 'interact' }, level.map).state;
 
-    state = applyAction(at(state, { x: 10, y: 10 }, 'up'), { type: 'interact' }, level.map).state;
+    state = applyAction(at(state, { x: 17, y: 12 }, 'up'), { type: 'interact' }, level.map).state;
     state = applyAction(state, { type: 'input-code', digit: 9 }, level.map).state;
     state = applyAction(state, { type: 'input-code', digit: 2 }, level.map).state;
     state = applyAction(state, { type: 'input-code', digit: 4 }, level.map).state;
@@ -69,7 +71,7 @@ describe('Chapter 4 room 1', () => {
     });
 
     state = applyAction(
-      at(state, { x: 16, y: 9 }, 'right'),
+      at(state, { x: 19, y: 12 }, 'right'),
       { type: 'move', direction: 'right' },
       level.map,
     ).state;
