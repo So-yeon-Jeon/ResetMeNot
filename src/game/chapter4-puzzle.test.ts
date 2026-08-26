@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   clearChapter4Code,
+  chapter4ResetFeedback,
   chapter4SceneState,
   createChapter4PuzzleState,
   inputChapter4Digit,
@@ -9,6 +10,13 @@ import {
 } from './chapter4-puzzle';
 
 describe('Chapter 4 puzzle', () => {
+  it('describes the visible change caused by each RESET', () => {
+    expect(chapter4ResetFeedback(1)).toContain('시선');
+    expect(chapter4ResetFeedback(2)).toContain('페이지');
+    expect(chapter4ResetFeedback(3)).toContain('그림');
+    expect(chapter4ResetFeedback(4)).toContain('출구');
+  });
+
   it('changes the room over the first three RESETs without auto-discovering clues', () => {
     let state = createChapter4PuzzleState();
 
@@ -47,9 +55,9 @@ describe('Chapter 4 puzzle', () => {
     ]);
   });
 
-  it('does not accept code input before the third clue appears', () => {
+  it('allows code input before the clues appear', () => {
     const state = inputChapter4Digit(createChapter4PuzzleState(), 9);
-    expect(state.codeInput).toBe('');
+    expect(state.codeInput).toBe('9');
   });
 
   it('keeps the correct 924 input but waits for the fourth RESET', () => {

@@ -16,6 +16,13 @@ export const CHAPTER4_VISUAL_THEME: ChapterVisualTheme = {
     cornerBottomLeft: 'chapter1-wall-unified-corner-bl',
     cornerBottomRight: 'chapter1-wall-unified-corner-br',
   },
+  objectVisuals: {
+    'chapter4-wall-clock': {
+      offset: { x: 0, y: -24 },
+      displaySize: { width: 32, height: 64 },
+      depth: 0.65,
+    },
+  },
   typeVisuals: {
     door: {
       depth: 0.7,

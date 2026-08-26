@@ -192,6 +192,26 @@
           ]
         },
         {
+          "name": "chapter4-wall-clock",
+          "class": "Prop",
+          "x": 576,
+          "y": 32,
+          "width": 32,
+          "height": 32,
+          "properties": [
+            {
+              "name": "assetKey",
+              "type": "string",
+              "value": "chapter1-grandfather-clock"
+            },
+            {
+              "name": "collisionCells",
+              "type": "string",
+              "value": "0,0|0,1"
+            }
+          ]
+        },
+        {
           "name": "chapter4-code-lock",
           "class": "PuzzleObject",
           "x": 544,
