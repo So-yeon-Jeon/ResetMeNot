@@ -37,6 +37,7 @@ export type ObjectVisual = Readonly<{
 export type WallVisualTheme = Readonly<{
   doorwayObjectId?: string;
   perspectiveBoundary?: boolean;
+  followFloorSilhouette?: boolean;
   renderBoundary?: boolean;
   top: string;
   bottom: string;
@@ -47,6 +48,18 @@ export type WallVisualTheme = Readonly<{
   cornerBottomLeft: string;
   cornerBottomRight: string;
   bottomDoorway?: string;
+  interiorBottomBoundaries?: readonly Readonly<{
+    y: number;
+    startX: number;
+    endX: number;
+    doorwayStartX?: number;
+  }>[];
+  interiorSideBoundaries?: readonly Readonly<{
+    side: 'left' | 'right';
+    x: number;
+    startY: number;
+    endY: number;
+  }>[];
 }>;
 
 export type ChapterVisualTheme = Readonly<{

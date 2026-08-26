@@ -413,8 +413,17 @@ function applyInteract(state: GameState, map: GridMap): ActionResult {
   const clueByObjectId: Readonly<Record<string, Chapter4Clue>> = {
     'chapter4-portrait-clue': 'portrait-9',
     'chapter4-book-clue': 'book-2-left-to-right',
-    'chapter4-missing-picture-clue': 'missing-picture-4',
+    'chapter4-painting-clue': 'missing-picture-4',
   };
+  if (state.chapter4Puzzle && object.id === 'chapter4-wall-clock') {
+    const moved = state.chapter4Puzzle.clockStarted;
+    return {
+      ...result({ ...state, hasAction: true }, moved),
+      feedbackMessage: moved
+        ? '벽시계가 앞으로 미끄러져 나왔다. 멈췄던 시간이 다시 흐른다.'
+        : '벽시계는 아직 제자리에서 멈춰 있다.',
+    };
+  }
   const clue = clueByObjectId[object.id];
   if (state.chapter4Puzzle && clue) {
     const inspection = inspectChapter4Clue(state.chapter4Puzzle, clue);
@@ -700,6 +709,7 @@ function applyReset(state: GameState): ActionResult {
     state.objects,
     undefined,
   );
+  objects = applyChapter4VisualStates(objects, chapter4Reset?.state);
   if (chapter4Reset?.state.exitOpen) {
     objects = objects.map((object) =>
       object.type === 'door' && object.id === 'chapter4-exit-door'
@@ -744,6 +754,24 @@ function applyReset(state: GameState): ActionResult {
     echoCreationBlocked,
     chapterCompleted: false,
   };
+}
+
+function applyChapter4VisualStates(
+  objects: readonly WorldObjectState[],
+  puzzle: Chapter4PuzzleState | undefined,
+): readonly WorldObjectState[] {
+  if (!puzzle) return objects;
+
+  const stateByObjectId: Readonly<Record<string, string>> = {
+    'chapter4-portrait-clue': puzzle.resetStage >= 1 ? 'changed' : 'normal',
+    'chapter4-book-clue': puzzle.resetStage >= 2 ? 'changed' : 'normal',
+    'chapter4-painting-clue': puzzle.resetStage >= 3 ? 'changed' : 'normal',
+    'chapter4-wall-clock': puzzle.resetStage >= 4 ? 'moved' : 'static',
+  };
+  return objects.map((object) => {
+    const nextState = stateByObjectId[object.id];
+    return object.type === 'puzzle-object' && nextState ? { ...object, state: nextState } : object;
+  });
 }
 
 function applyCodeDigit(state: GameState, digit: number): ActionResult {
