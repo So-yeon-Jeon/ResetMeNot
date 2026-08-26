@@ -1,7 +1,8 @@
 import type { RememberedObjectState, WorldMemory } from './game-state';
 
 export type EndingPage = Readonly<{
-  id: 'room' | 'book' | 'blank-page' | 'title';
+  id: 'room' | 'book' | 'trace' | 'title';
+  assetKey: string;
   heading: string;
   body: string;
 }>;
@@ -20,22 +21,26 @@ export function createEndingSequence(worldMemory: WorldMemory): EndingSequence {
     pages: [
       {
         id: 'room',
-        heading: 'THE ROOM REMEMBERS.',
-        body: 'The book is still open where you left it.',
+        assetKey: 'ending-room',
+        heading: '',
+        body: '눈을 뜨니, 익숙한 방이었다.',
       },
       {
         id: 'book',
-        heading: 'THE LAST SENTENCE HAS CHANGED.',
-        body: '“And the child did not turn the clock.”',
+        assetKey: 'ending-book',
+        heading: '',
+        body: '펼쳐진 책의 마지막 페이지.',
       },
       {
-        id: 'blank-page',
-        heading: 'THE FINAL PAGE',
-        body: '“This time, it is your turn.”',
+        id: 'trace',
+        assetKey: 'ending-trace',
+        heading: '',
+        body: '책 속의 일은 사라지지 않았다.',
       },
       {
         id: 'title',
-        heading: 'RESET ME NOT',
+        assetKey: 'ending-title',
+        heading: '',
         body: 'The world remembers.',
       },
     ],
@@ -51,4 +56,9 @@ export function createEndingSequence(worldMemory: WorldMemory): EndingSequence {
     chapterRestartCount: worldMemory.chapterRestartCount,
     resetCountsByLevel: { ...worldMemory.resetCountsByLevel },
   };
+}
+
+export function nextEndingPageIndex(current: number, pageCount: number): number {
+  if (!Number.isInteger(current) || !Number.isInteger(pageCount) || pageCount <= 0) return 0;
+  return Math.min(Math.max(0, current) + 1, pageCount - 1);
 }

@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { ECHO_CHARACTER_ASSET, PLAYER_CHARACTER_ASSET } from '../assets/characters/manifest';
+import { ENDING_ASSET_MANIFEST } from '../assets/ending/manifest';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
 import { chapter4ResetFeedback } from '../game/chapter4-puzzle';
-import { formatClockTime } from '../game/clock';
-import { createEndingSequence, type EndingPage } from '../game/ending';
+import { calculateFinalClockHandAngles, formatClockTime } from '../game/clock';
+import { finalWallMessage } from '../game/final-wall-message';
+import { createEndingSequence, nextEndingPageIndex, type EndingPage } from '../game/ending';
 import {
   advanceGameSession,
   createGameSession,
@@ -29,11 +31,9 @@ import type {
 } from '../themes/chapter-visual-theme';
 import { CHAPTER_VISUAL_THEMES, getChapterVisualTheme } from '../themes/theme-catalog';
 import { actionFeedback, FEEDBACK_MESSAGES, resetBlockedFeedback } from '../ui/feedback-messages';
-import {
-  BOTTOM_HUD_SAFE_MARGIN,
-  calculateMapCameraLayout,
-  TOP_HUD_SAFE_MARGIN,
-} from './map-camera';
+import { calculateMapCameraLayout, TOP_HUD_SAFE_MARGIN } from './map-camera';
+import { containDisplaySize } from './cinematic-layout';
+import { chapterObjective } from '../ui/chapter-objective';
 
 const MOVE_DURATION_MS = 110;
 const RESET_LOCK_MS = 100;
@@ -58,6 +58,15 @@ const GRID_DEPTH_STEP = 0.02;
 const INTERNAL_WALL_DEPTH_BASE = 1.01;
 const HUD_MASK_DEPTH = 8;
 const HUD_CONTENT_DEPTH = 9;
+const ENDING_REVEAL_FADE_MS = 700;
+const ENDING_PAGE_FADE_OUT_MS = 320;
+const ENDING_PAGE_FADE_IN_MS = 420;
+const ENDING_PAGE_SWAP_DELAY_MS = 340;
+const ENDING_TITLE_SAFE_MARGIN = 16;
+const FINAL_CLOCK_MINUTE_HAND_ASSET_KEY = 'chapter5-final-clock-minute-hand';
+const FINAL_CLOCK_FACE_CENTER = { x: 96, y: 80 };
+const FINAL_CLOCK_MINUTE_HAND_ORIGIN_Y = 0.7;
+const BOTTOM_HUD_MASK_HEIGHT = 48;
 
 type MovementKeys = Readonly<{
   up: Phaser.Input.Keyboard.Key[];
@@ -102,10 +111,15 @@ export class GameScene extends Phaser.Scene {
   private codeClearKey!: Phaser.Input.Keyboard.Key;
   private inspectionCloseKey!: Phaser.Input.Keyboard.Key;
   private resetHud!: Phaser.GameObjects.Text;
+  private objectiveHud!: Phaser.GameObjects.Text;
   private feedbackHud!: Phaser.GameObjects.Text;
+  private instructionsHud!: Phaser.GameObjects.Text;
   private phaseHud!: Phaser.GameObjects.Text;
+  private phaseHudPanel!: Phaser.GameObjects.Rectangle;
   private clockHud!: Phaser.GameObjects.Text;
   private endingHud!: Phaser.GameObjects.Text;
+  private endingCaptionPanel!: Phaser.GameObjects.Rectangle;
+  private endingImage?: Phaser.GameObjects.Image;
   private echoSprites: Phaser.GameObjects.Sprite[] = [];
   private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
@@ -117,11 +131,14 @@ export class GameScene extends Phaser.Scene {
   private pendingDirection?: Direction;
   private endingPages: readonly EndingPage[] = [];
   private endingPageIndex = 0;
+  private isEndingPageTransitioning = false;
   private mapOrigin = { x: 0, y: 0 };
   private inspectionOverlay?: Phaser.GameObjects.Container;
   private codeEntryOverlay?: Phaser.GameObjects.Container;
   private codeEntryValueHud?: Phaser.GameObjects.Text;
   private chapter4ClockTween?: Phaser.Tweens.Tween;
+  private finalWallMessageText?: Phaser.GameObjects.Text;
+  private finalClockMinuteHand?: Phaser.GameObjects.Image;
 
   constructor() {
     super('game');
@@ -143,9 +160,10 @@ export class GameScene extends Phaser.Scene {
       frameHeight: ECHO_CHARACTER_ASSET.frameHeight,
     });
 
-    const assets = new Map(
-      Object.values(CHAPTER_VISUAL_THEMES).flatMap((theme) => Object.entries(theme.assets)),
-    );
+    const assets = new Map([
+      ...Object.values(CHAPTER_VISUAL_THEMES).flatMap((theme) => Object.entries(theme.assets)),
+      ...Object.entries(ENDING_ASSET_MANIFEST),
+    ]);
     assets.forEach((asset, assetKey) => {
       if (!asset.sourceAvailable) return;
       if (asset.kind === 'spritesheet') {
@@ -170,6 +188,7 @@ export class GameScene extends Phaser.Scene {
     this.createPlayer();
     this.configureMapCamera();
     this.createObjects();
+    this.createFinalWallMessage();
     this.createInstructions();
     this.createKeyboardControls();
   }
@@ -178,8 +197,14 @@ export class GameScene extends Phaser.Scene {
     if (this.loadError) return;
     const previousPhase = this.gameState.phase;
     const previousClockWarning = this.gameState.finalClockWarning;
+    const previousClockStage = this.gameState.finalClockStage;
     this.setGameState(advanceTime(this.gameState, delta));
     this.updateClockHud();
+    this.updateFinalWallMessage();
+    this.updateFinalClockHands();
+    if (previousClockStage !== this.gameState.finalClockStage) {
+      this.handleFinalClockStageChange();
+    }
     if (!previousClockWarning && this.gameState.finalClockWarning) {
       this.renderEchoes();
       this.tweens.add({
@@ -251,7 +276,7 @@ export class GameScene extends Phaser.Scene {
       this.pendingDirection = undefined;
       this.setGameState(restartChapter(this.gameState));
       this.renderResetState();
-      this.phaseHud.setText('');
+      this.setPhaseMessage('');
       this.feedbackHud.setText('');
       this.updateClockHud();
       return;
@@ -315,17 +340,12 @@ export class GameScene extends Phaser.Scene {
         const pixelX = this.mapOrigin.x + x * GRID_SIZE;
         const pixelY = this.mapOrigin.y + y * GRID_SIZE;
 
-        this.mapTiles.push(
-          this.add
-            .image(
-              pixelX,
-              pixelY,
-              theme.floor.assetKey,
-              (x + y * 3) % (theme.floor.frameCount ?? 1),
-            )
-            .setOrigin(0, 0)
-            .setDepth(0),
-        );
+        const floorTile = this.add
+          .image(pixelX, pixelY, theme.floor.assetKey, (x + y * 3) % (theme.floor.frameCount ?? 1))
+          .setOrigin(0, 0)
+          .setDepth(0);
+        if (theme.floor.tint !== undefined) floorTile.setTint(theme.floor.tint);
+        this.mapTiles.push(floorTile);
       }
     }
 
@@ -333,20 +353,40 @@ export class GameScene extends Phaser.Scene {
       this.drawFloorPlanBoundary(map, theme);
       this.drawPartitions(map, theme);
     } else {
-      this.drawInternalStructuralWalls(map, theme);
+      if (!theme.walls.followFloorSilhouette) {
+        this.drawInternalStructuralWalls(map, theme);
+      }
       this.drawWallKit(map, theme);
+      this.drawPartitions(map, theme);
     }
   }
 
   private drawFloorPlanBoundary(map: GridMap, theme: ChapterVisualTheme): void {
-    const structuralWalls = map.structuralWalls;
-    const floorCells = map.floorCells;
-    if (!structuralWalls || !floorCells) return;
+    const floorCells = map.floorTiles ?? map.floorCells;
+    if (!floorCells) return;
+
+    const boundaryCells = new Set(map.structuralWalls ?? []);
+    const hasAuthoredBoundary = boundaryCells.size > 0;
+    // Authored wall cells already describe the intended outline. Deriving another
+    // outline from the floor on top of them produces doubled, chunky borders.
+    if (boundaryCells.size === 0) {
+      floorCells.forEach((key) => {
+        const [x, y] = key.split(',').map(Number);
+        if (x === undefined || y === undefined) return;
+        const touchesVoid = [
+          `${x},${y - 1}`,
+          `${x},${y + 1}`,
+          `${x - 1},${y}`,
+          `${x + 1},${y}`,
+        ].some((neighbor) => !floorCells.has(neighbor));
+        if (touchesVoid) boundaryCells.add(key);
+      });
+    }
 
     const hasFloor = (x: number, y: number): boolean => floorCells.has(`${x},${y}`);
-    const hasOuterWall = (x: number, y: number): boolean => structuralWalls.has(`${x},${y}`);
+    const hasOuterWall = (x: number, y: number): boolean => boundaryCells.has(`${x},${y}`);
 
-    structuralWalls.forEach((key) => {
+    boundaryCells.forEach((key) => {
       const [x, y] = key.split(',').map(Number);
       if (x === undefined || y === undefined) return;
 
@@ -358,10 +398,53 @@ export class GameScene extends Phaser.Scene {
       const floorAboveRight = hasFloor(x + 1, y - 1);
       const floorBelowLeft = hasFloor(x - 1, y + 1);
       const floorBelowRight = hasFloor(x + 1, y + 1);
+      const wallAbove = hasOuterWall(x, y - 1);
+      const wallBelow = hasOuterWall(x, y + 1);
+      const wallLeft = hasOuterWall(x - 1, y);
+      const wallRight = hasOuterWall(x + 1, y);
+
+      // Explicit wall layers describe complete corners. Half-corners are only
+      // needed for boundaries inferred from a stepped floor silhouette.
+      if (hasAuthoredBoundary && !floorAbove && !floorBelow && !floorLeft && !floorRight) {
+        let authoredCorner: string | undefined;
+        if (wallRight && wallBelow) authoredCorner = theme.walls.cornerTopLeft;
+        else if (wallLeft && wallBelow) authoredCorner = theme.walls.cornerTopRight;
+        else if (wallRight && wallAbove) authoredCorner = theme.walls.cornerBottomLeft;
+        else if (wallLeft && wallAbove) authoredCorner = theme.walls.cornerBottomRight;
+
+        if (authoredCorner) {
+          const cornerDepth = wallAbove
+            ? gridRowDepth(INTERNAL_WALL_DEPTH_BASE, y)
+            : WALL_DEPTH + 0.01;
+          this.renderPerspectiveBoundaryAsset(
+            authoredCorner,
+            x * GRID_SIZE,
+            y * GRID_SIZE,
+            cornerDepth,
+          );
+          return;
+        }
+
+        if ((wallAbove || wallBelow) && !wallLeft && !wallRight) {
+          const floorIsLeft = floorAboveLeft || floorBelowLeft;
+          const verticalAsset = floorIsLeft ? theme.walls.right : theme.walls.left;
+          const verticalOffset =
+            verticalAsset === theme.walls.left
+              ? x * GRID_SIZE + GRID_SIZE - this.assetWidth(verticalAsset)
+              : x * GRID_SIZE;
+          this.renderPerspectiveBoundaryAsset(
+            verticalAsset,
+            verticalOffset,
+            y * GRID_SIZE,
+            WALL_DEPTH + 0.01,
+          );
+          return;
+        }
+      }
 
       // A stepped outline can place two rooms diagonally across the same grid cell.
       // Render one half-corner for each room so the alcove seam closes cleanly.
-      if (floorAboveRight && floorBelowLeft) {
+      if (!hasAuthoredBoundary && floorAboveRight && floorBelowLeft) {
         this.renderBoundaryHalf(theme.walls.cornerTopRight, x, y, 'left', WALL_DEPTH + 0.01);
         this.renderBoundaryHalf(
           theme.walls.cornerBottomLeft,
@@ -434,6 +517,32 @@ export class GameScene extends Phaser.Scene {
       const [x, y] = key.split(',').map(Number);
       if (x === undefined || y === undefined) return;
       const depth = gridRowDepth(INTERNAL_WALL_DEPTH_BASE, y);
+      const hasHorizontalNeighbor =
+        partitionWalls.has(`${x - 1},${y}`) || partitionWalls.has(`${x + 1},${y}`);
+      const hasVerticalNeighbor =
+        partitionWalls.has(`${x},${y - 1}`) || partitionWalls.has(`${x},${y + 1}`);
+      if (!hasHorizontalNeighbor && hasVerticalNeighbor && theme.walls.partitionVertical) {
+        const verticalAssetKey = theme.walls.partitionVertical;
+        if (
+          !this.currentTheme().assets[verticalAssetKey] ||
+          !this.textures.exists(verticalAssetKey)
+        )
+          return;
+        const displayWidth = theme.walls.partitionVerticalDisplayWidth ?? GRID_SIZE;
+        const displayHeight = theme.walls.partitionVerticalDisplayHeight ?? GRID_SIZE;
+        this.mapTiles.push(
+          this.add
+            .image(
+              this.mapOrigin.x + x * GRID_SIZE + (GRID_SIZE - displayWidth) / 2,
+              this.mapOrigin.y + (y + 1) * GRID_SIZE - displayHeight,
+              verticalAssetKey,
+            )
+            .setOrigin(0, 0)
+            .setDisplaySize(displayWidth, displayHeight)
+            .setDepth(depth),
+        );
+        return;
+      }
       const assetKey = theme.walls.partition ?? theme.walls.internalTop ?? theme.walls.bottom;
       if (!this.currentTheme().assets[assetKey] || !this.textures.exists(assetKey)) return;
       let frame = theme.walls.partitionStraightFrame ?? 0;
@@ -456,18 +565,18 @@ export class GameScene extends Phaser.Scene {
       const doorwayOverlap = doorwaySide ? (theme.walls.partitionDoorwayOverlap ?? 0) : 0;
       const displayWidth = GRID_SIZE + doorwayOverlap;
       const offsetX = doorwaySide === 'right' ? -doorwayOverlap : 0;
-      this.mapTiles.push(
-        this.add
-          .image(
-            this.mapOrigin.x + x * GRID_SIZE + offsetX,
-            this.mapOrigin.y + (y + 1) * GRID_SIZE - displayHeight,
-            assetKey,
-            frame,
-          )
-          .setOrigin(0, 0)
-          .setDisplaySize(displayWidth, displayHeight)
-          .setDepth(depth),
-      );
+      const partition = this.add
+        .image(
+          this.mapOrigin.x + x * GRID_SIZE + offsetX,
+          this.mapOrigin.y + (y + 1) * GRID_SIZE - displayHeight,
+          assetKey,
+          frame,
+        )
+        .setOrigin(0, 0)
+        .setDisplaySize(displayWidth, displayHeight)
+        .setDepth(depth);
+      if (theme.walls.tint !== undefined) partition.setTint(theme.walls.tint);
+      this.mapTiles.push(partition);
     });
   }
 
@@ -513,7 +622,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private drawWallKit(
-    map: Readonly<{ width: number; height: number }>,
+    map: Readonly<{ width: number; height: number; floorTiles?: ReadonlySet<string> }>,
     theme: ChapterVisualTheme,
   ): void {
     const wall = theme.walls;
@@ -521,7 +630,13 @@ export class GameScene extends Phaser.Scene {
     const doorObject = this.gameState.objects.find((object) => object.id === wall.doorwayObjectId);
     const doorwayStartX = this.validSectionStart(doorObject?.position.x, map.width);
     if (wall.perspectiveBoundary) {
+      if (wall.followFloorSilhouette && map.floorTiles) {
+        this.drawFloorSilhouetteWall(map, wall);
+        return;
+      }
       this.drawPerspectiveWall(map, doorwayStartX);
+      this.drawInteriorBottomBoundaries(map, wall);
+      this.drawInteriorSideBoundaries(map, wall);
       return;
     }
 
@@ -573,6 +688,132 @@ export class GameScene extends Phaser.Scene {
           undefined,
           WALL_BOTTOM_ALPHA,
         );
+      }
+    }
+  }
+
+  private drawFloorSilhouetteWall(
+    map: Readonly<{
+      width: number;
+      height: number;
+      floorTiles?: ReadonlySet<string>;
+      partitionWalls?: ReadonlySet<string>;
+    }>,
+    wall: ChapterVisualTheme['walls'],
+  ): void {
+    const hasFloor = (x: number, y: number) => map.floorTiles?.has(`${x},${y}`) ?? false;
+    const partitionSpans = new Map<number, { minX: number; maxX: number }>();
+    for (const key of map.partitionWalls ?? []) {
+      const [partitionX, partitionY] = key.split(',').map(Number);
+      if (partitionX === undefined || partitionY === undefined) continue;
+      const span = partitionSpans.get(partitionY);
+      if (span) {
+        span.minX = Math.min(span.minX, partitionX);
+        span.maxX = Math.max(span.maxX, partitionX);
+      } else {
+        partitionSpans.set(partitionY, { minX: partitionX, maxX: partitionX });
+      }
+    }
+    const isCoveredByPartition = (x: number, y: number): boolean => {
+      const span = partitionSpans.get(y);
+      return span !== undefined && x >= span.minX && x <= span.maxX;
+    };
+    const render = (assetKey: string, x: number, y: number) =>
+      this.renderPerspectiveBoundaryAsset(assetKey, x, y);
+
+    for (const key of map.floorTiles ?? []) {
+      const [x, y] = key.split(',').map(Number);
+      if (x === undefined || y === undefined) continue;
+      // A full partition already supplies the visible wall face and doorway.
+      // Do not draw a second silhouette wall directly underneath that span.
+      const north =
+        !hasFloor(x, y - 1) && !isCoveredByPartition(x, y) && !isCoveredByPartition(x, y - 1);
+      const south = !hasFloor(x, y + 1);
+      const west = !hasFloor(x - 1, y);
+      const east = !hasFloor(x + 1, y);
+      const pixelX = x * GRID_SIZE;
+      const pixelY = y * GRID_SIZE;
+
+      if (north && west) {
+        render(wall.cornerTopLeft, pixelX, pixelY);
+        continue;
+      }
+      if (north && east) {
+        render(
+          wall.cornerTopRight,
+          pixelX + GRID_SIZE - this.assetWidth(wall.cornerTopRight),
+          pixelY,
+        );
+        continue;
+      }
+      if (south && west) {
+        render(
+          wall.cornerBottomLeft,
+          pixelX,
+          pixelY + GRID_SIZE - this.assetHeight(wall.cornerBottomLeft),
+        );
+        continue;
+      }
+      if (south && east) {
+        render(
+          wall.cornerBottomRight,
+          pixelX + GRID_SIZE - this.assetWidth(wall.cornerBottomRight),
+          pixelY + GRID_SIZE - this.assetHeight(wall.cornerBottomRight),
+        );
+        continue;
+      }
+      if (north) render(wall.top, pixelX, pixelY);
+      if (south) render(wall.bottom, pixelX, pixelY + GRID_SIZE - this.assetHeight(wall.bottom));
+      if (west) render(wall.left, pixelX, pixelY);
+      if (east) render(wall.right, pixelX + GRID_SIZE - this.assetWidth(wall.right), pixelY);
+    }
+  }
+
+  private drawInteriorSideBoundaries(
+    map: Readonly<{ width: number; height: number }>,
+    wall: ChapterVisualTheme['walls'],
+  ): void {
+    for (const boundary of wall.interiorSideBoundaries ?? []) {
+      if (
+        boundary.x < 0 ||
+        boundary.x > map.width ||
+        boundary.startY < 0 ||
+        boundary.endY >= map.height
+      )
+        continue;
+      const assetKey = boundary.side === 'left' ? wall.left : wall.right;
+      const offsetX =
+        boundary.side === 'left'
+          ? boundary.x * GRID_SIZE - this.assetWidth(assetKey)
+          : boundary.x * GRID_SIZE;
+      for (let y = boundary.startY; y <= boundary.endY; y += 1) {
+        this.renderPerspectiveBoundaryAsset(assetKey, offsetX, y * GRID_SIZE);
+      }
+    }
+  }
+
+  private drawInteriorBottomBoundaries(
+    map: Readonly<{ width: number; height: number }>,
+    wall: ChapterVisualTheme['walls'],
+  ): void {
+    for (const boundary of wall.interiorBottomBoundaries ?? []) {
+      if (boundary.y < 0 || boundary.y >= map.height) continue;
+      for (let x = boundary.startX; x <= boundary.endX; x += 1) {
+        const isDoorway =
+          boundary.doorwayStartX !== undefined &&
+          x >= boundary.doorwayStartX &&
+          x < boundary.doorwayStartX + 3;
+        if (!isDoorway)
+          this.renderPerspectiveBoundaryAsset(wall.bottom, x * GRID_SIZE, boundary.y * GRID_SIZE);
+      }
+      if (boundary.doorwayStartX !== undefined && wall.bottomDoorway) {
+        this.renderPerspectiveBoundaryAsset(
+          wall.bottomDoorway,
+          boundary.doorwayStartX * GRID_SIZE,
+          boundary.y * GRID_SIZE,
+          WALL_OPENING_DEPTH,
+        );
+        this.renderDoorwayForeground(wall.bottomDoorway, boundary.doorwayStartX, boundary.y + 1);
       }
     }
   }
@@ -647,12 +888,14 @@ export class GameScene extends Phaser.Scene {
     depth = WALL_DEPTH + 0.01,
   ): void {
     if (!this.currentTheme().assets[assetKey] || !this.textures.exists(assetKey)) return;
-    this.mapTiles.push(
-      this.add
-        .image(this.mapOrigin.x + offsetX, this.mapOrigin.y + offsetY, assetKey)
-        .setOrigin(0, 0)
-        .setDepth(depth),
-    );
+    const boundary = this.add
+      .image(this.mapOrigin.x + offsetX, this.mapOrigin.y + offsetY, assetKey)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    if (this.currentTheme().walls.tint !== undefined) {
+      boundary.setTint(this.currentTheme().walls.tint);
+    }
+    this.mapTiles.push(boundary);
   }
 
   private renderBoundaryHalf(
@@ -669,14 +912,16 @@ export class GameScene extends Phaser.Scene {
     const cropWidth = Math.min(GRID_SIZE / 2, asset.width);
     const cropX = side === 'left' ? 0 : asset.width - cropWidth;
     const pixelX = gridX * GRID_SIZE + (side === 'right' ? GRID_SIZE - cropWidth : 0);
-    this.mapTiles.push(
-      this.add
-        .image(this.mapOrigin.x + pixelX, this.mapOrigin.y + gridY * GRID_SIZE + offsetY, assetKey)
-        .setOrigin(0, 0)
-        .setCrop(cropX, 0, cropWidth, asset.height)
-        .setDisplaySize(cropWidth, asset.height)
-        .setDepth(depth),
-    );
+    const corner = this.add
+      .image(this.mapOrigin.x + pixelX, this.mapOrigin.y + gridY * GRID_SIZE + offsetY, assetKey)
+      .setOrigin(0, 0)
+      .setCrop(cropX, 0, cropWidth, asset.height)
+      .setDisplaySize(cropWidth, asset.height)
+      .setDepth(depth);
+    if (this.currentTheme().walls.tint !== undefined) {
+      corner.setTint(this.currentTheme().walls.tint);
+    }
+    this.mapTiles.push(corner);
   }
 
   private renderDoorwayForeground(
@@ -728,6 +973,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(depth);
     if (crop) image.setCrop(0, crop.y, manifestEntry.width, crop.height);
     if (displaySize) image.setDisplaySize(displaySize.width, displaySize.height);
+    if (this.currentTheme().walls.tint !== undefined) image.setTint(this.currentTheme().walls.tint);
     this.mapTiles.push(image);
   }
 
@@ -754,9 +1000,9 @@ export class GameScene extends Phaser.Scene {
     this.add
       .rectangle(
         0,
-        this.scale.height - BOTTOM_HUD_SAFE_MARGIN,
+        this.scale.height - BOTTOM_HUD_MASK_HEIGHT,
         this.scale.width,
-        BOTTOM_HUD_SAFE_MARGIN,
+        BOTTOM_HUD_MASK_HEIGHT,
         0x0d0c13,
         1,
       )
@@ -764,7 +1010,7 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(HUD_MASK_DEPTH);
 
-    const instructions = this.add
+    this.instructionsHud = this.add
       .text(
         this.scale.width / 2,
         12,
@@ -780,9 +1026,10 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(HUD_CONTENT_DEPTH);
     const availableWidth = this.scale.width - 32;
-    if (instructions.width > availableWidth) {
-      instructions.setScale(availableWidth / instructions.width);
+    if (this.instructionsHud.width > availableWidth) {
+      this.instructionsHud.setScale(availableWidth / this.instructionsHud.width);
     }
+    this.updateInstructionsHud();
 
     this.resetHud = this.add
       .text(this.scale.width / 2, this.scale.height - 1, '', {
@@ -795,8 +1042,19 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(HUD_CONTENT_DEPTH);
     this.updateResetHud();
+    this.objectiveHud = this.add
+      .text(this.scale.width / 2, this.scale.height - 17, '', {
+        color: '#aaa1b5',
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        letterSpacing: 1,
+      })
+      .setOrigin(0.5, 1)
+      .setScrollFactor(0)
+      .setDepth(HUD_CONTENT_DEPTH);
+    this.updateObjectiveHud();
     this.feedbackHud = this.add
-      .text(this.scale.width / 2, this.scale.height - 15, '', {
+      .text(this.scale.width / 2, this.scale.height - 32, '', {
         color: '#d8b65a',
         fontFamily: 'monospace',
         fontSize: '13px',
@@ -805,15 +1063,31 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 1)
       .setScrollFactor(0)
       .setDepth(HUD_CONTENT_DEPTH);
+    this.phaseHudPanel = this.add
+      .rectangle(
+        this.scale.width / 2,
+        this.scale.height - 70,
+        this.scale.width - 64,
+        104,
+        0x120e16,
+        0.94,
+      )
+      .setStrokeStyle(2, 0x8b6a4c, 0.95)
+      .setScrollFactor(0)
+      .setDepth(HUD_CONTENT_DEPTH - 0.1)
+      .setVisible(false);
     this.phaseHud = this.add
-      .text(this.scale.width / 2, this.scale.height / 2, '', {
+      .text(56, this.scale.height - 106, '', {
         color: '#f1ded2',
         fontFamily: 'serif',
-        fontSize: '32px',
+        fontSize: '22px',
+        lineSpacing: 8,
+        wordWrap: { width: this.scale.width - 112 },
       })
-      .setOrigin(0.5)
+      .setOrigin(0, 0)
       .setScrollFactor(0)
-      .setDepth(5);
+      .setDepth(HUD_CONTENT_DEPTH)
+      .setVisible(false);
     this.clockHud = this.add
       .text(this.scale.width - 20, 18, '', {
         color: '#d8b65a',
@@ -825,17 +1099,30 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(HUD_CONTENT_DEPTH);
     this.endingHud = this.add
-      .text(this.scale.width / 2, this.scale.height / 2, '', {
+      .text(this.scale.width / 2, this.scale.height - 55, '', {
         align: 'center',
         color: '#f1ded2',
         fontFamily: 'serif',
-        fontSize: '24px',
-        lineSpacing: 14,
-        wordWrap: { width: this.scale.width - 180 },
+        fontSize: '20px',
+        lineSpacing: 8,
+        wordWrap: { width: this.scale.width - 120 },
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(10)
+      .setVisible(false);
+    this.endingCaptionPanel = this.add
+      .rectangle(
+        this.scale.width / 2,
+        this.scale.height - 55,
+        this.scale.width - 72,
+        86,
+        0x0b0910,
+        0.88,
+      )
+      .setStrokeStyle(1, 0x8b6a4c, 0.9)
+      .setScrollFactor(0)
+      .setDepth(9.5)
       .setVisible(false);
     this.updateClockHud();
   }
@@ -928,9 +1215,10 @@ export class GameScene extends Phaser.Scene {
       this.setPlayerFrame('idle');
       this.updatePlayerDepth();
     }
-    if (result.chapterCompleted) this.phaseHud.setText('CHAPTER CLEAR');
+    if (result.chapterCompleted) this.setPhaseMessage('CHAPTER CLEAR');
 
     if (result.resetPerformed) {
+      if (result.feedbackMessage) this.showFeedback(result.feedbackMessage);
       if (result.echoCreationBlocked === 'occupied') {
         this.showFeedback(FEEDBACK_MESSAGES.echoSpaceOccupied);
       } else if (result.echoCreationBlocked === 'limit') {
@@ -1364,6 +1652,7 @@ export class GameScene extends Phaser.Scene {
     this.chapter4ClockTween = undefined;
     this.objectSprites.forEach((object) => object.destroy());
     this.objectSprites = [];
+    this.finalClockMinuteHand = undefined;
     this.gameState.objects.forEach((object) => {
       const pixel = this.gridToPixel(object.position);
       const visual = this.objectVisual(
@@ -1450,9 +1739,10 @@ export class GameScene extends Phaser.Scene {
           visual.displaySize,
         );
         if (switchSprites.length > 0) {
-          if (object.active && !visual.stateAssetKeys?.active) {
+          if ((object.active || pendingMemory) && !visual.stateAssetKeys?.active) {
+            const tint = object.active ? 0xb9efff : 0xf2c66d;
             switchSprites.forEach((sprite) => {
-              if (sprite instanceof Phaser.GameObjects.Image) sprite.setTint(0xb9efff);
+              if (sprite instanceof Phaser.GameObjects.Image) sprite.setTint(tint);
             });
           }
           this.objectSprites.push(...switchSprites);
@@ -1480,12 +1770,22 @@ export class GameScene extends Phaser.Scene {
         );
       }
       if (object.type === 'box') {
-        this.objectSprites.push(
-          this.add
-            .rectangle(pixel.x, pixel.y, GRID_SIZE - 6, GRID_SIZE - 6, 0x9a754f)
-            .setStrokeStyle(2, 0xd8b65a)
-            .setDepth(0.65),
+        const boxSprites = this.renderAssetObject(
+          visual.assetKey,
+          visualPosition,
+          visual.depth ?? 0.65,
+          visualOffset,
+          visual.displaySize,
         );
+        if (boxSprites.length > 0) this.objectSprites.push(...boxSprites);
+        else {
+          this.objectSprites.push(
+            this.add
+              .rectangle(pixel.x, pixel.y, GRID_SIZE - 6, GRID_SIZE - 6, 0x9a754f)
+              .setStrokeStyle(2, 0xd8b65a)
+              .setDepth(0.65),
+          );
+        }
       }
       if (object.type === 'lever') {
         const leverSprites = this.renderAssetObject(
@@ -1540,7 +1840,7 @@ export class GameScene extends Phaser.Scene {
           ),
         );
       }
-      if (object.type === 'exit') {
+      if (object.type === 'exit' && import.meta.env.VITE_DEBUG_EXIT_TRIGGER === 'true') {
         this.objectSprites.push(
           this.add
             .rectangle(pixel.x, pixel.y, GRID_SIZE - 10, GRID_SIZE - 10, 0x6b8f71, 0.55)
@@ -1549,6 +1849,7 @@ export class GameScene extends Phaser.Scene {
         );
       }
     });
+    this.createFinalClockHands();
   }
 
   private renderAssetObject(
@@ -1744,6 +2045,14 @@ export class GameScene extends Phaser.Scene {
   private setGameState(state: GameState): void {
     this.gameState = state;
     this.session = updateSessionState(this.session, state);
+    this.updateObjectiveHud();
+  }
+
+  private updateObjectiveHud(): void {
+    if (!this.objectiveHud) return;
+    this.objectiveHud.setText(
+      chapterObjective(currentLevel(this.session).chapterId, this.gameState),
+    );
   }
 
   private startChapterTransition(): void {
@@ -1782,14 +2091,19 @@ export class GameScene extends Phaser.Scene {
     this.echoSprites = [];
     this.objectSprites.forEach((object) => object.destroy());
     this.objectSprites = [];
+    this.finalWallMessageText?.destroy();
+    this.finalWallMessageText = undefined;
 
     this.mapOrigin = this.currentMapCameraLayout().mapOrigin;
     this.drawMap();
     this.createPlayer();
     this.configureMapCamera();
     this.createObjects();
+    this.createFinalWallMessage();
     this.updateResetHud();
-    this.phaseHud.setText('');
+    this.updateInstructionsHud();
+    this.updateObjectiveHud();
+    this.setPhaseMessage('');
     this.feedbackHud.setText('');
     this.updateClockHud();
     this.cameras.main.fadeIn(CHAPTER_FADE_IN_MS, 8, 7, 12);
@@ -1820,6 +2134,7 @@ export class GameScene extends Phaser.Scene {
     const layout = this.currentMapCameraLayout();
     const camera = this.cameras.main;
     camera.stopFollow();
+    camera.setZoom(this.currentTheme().cameraZoom ?? 1);
     camera.setBounds(0, 0, layout.worldWidth, layout.worldHeight);
     camera.setScroll(0, 0);
     camera.roundPixels = true;
@@ -1833,6 +2148,11 @@ export class GameScene extends Phaser.Scene {
     const ending = createEndingSequence(this.gameState.worldMemory);
     this.endingPages = ending.pages;
     this.endingPageIndex = 0;
+    this.isEndingPageTransitioning = false;
+    this.endingImage?.destroy();
+    this.endingImage = undefined;
+    this.endingCaptionPanel.setVisible(false);
+    this.endingHud.setVisible(false);
     this.player.setVisible(false);
     this.mapTiles.forEach((tile) => tile.setVisible(false));
     this.objectSprites.forEach((object) => object.destroy());
@@ -1840,11 +2160,14 @@ export class GameScene extends Phaser.Scene {
     this.echoSprites.forEach((echo) => echo.destroy());
     this.echoSprites = [];
     this.resetHud.setVisible(false);
+    this.instructionsHud.setVisible(false);
+    this.objectiveHud.setVisible(false);
     this.feedbackHud.setVisible(false);
     this.phaseHud.setVisible(false);
+    this.phaseHudPanel.setVisible(false);
     this.clockHud.setVisible(false);
     const revealEnding = () => {
-      this.cameras.main.fadeIn(600, 8, 7, 12);
+      this.cameras.main.fadeIn(ENDING_REVEAL_FADE_MS, 8, 7, 12);
       this.renderEndingPage();
       this.isChapterTransitioning = false;
     };
@@ -1857,20 +2180,50 @@ export class GameScene extends Phaser.Scene {
   }
 
   private advanceEndingPage(): void {
-    if (!this.endingHud.visible || this.endingPageIndex >= this.endingPages.length - 1) return;
-    this.endingPageIndex += 1;
-    this.cameras.main.fadeOut(220, 8, 7, 12);
-    this.time.delayedCall(240, () => {
+    if (
+      !this.endingHud.visible ||
+      this.isEndingPageTransitioning ||
+      this.endingPageIndex >= this.endingPages.length - 1
+    )
+      return;
+    this.isEndingPageTransitioning = true;
+    this.endingPageIndex = nextEndingPageIndex(this.endingPageIndex, this.endingPages.length);
+    this.cameras.main.fadeOut(ENDING_PAGE_FADE_OUT_MS, 8, 7, 12);
+    this.time.delayedCall(ENDING_PAGE_SWAP_DELAY_MS, () => {
       this.renderEndingPage();
-      this.cameras.main.fadeIn(320, 8, 7, 12);
+      this.cameras.main.fadeIn(ENDING_PAGE_FADE_IN_MS, 8, 7, 12);
+      this.time.delayedCall(ENDING_PAGE_FADE_IN_MS, () => {
+        this.isEndingPageTransitioning = false;
+      });
     });
   }
 
   private renderEndingPage(): void {
     const page = this.endingPages[this.endingPageIndex];
     if (!page) return;
-    const prompt = this.endingPageIndex < this.endingPages.length - 1 ? '\n\n[ ENTER ]' : '';
-    this.endingHud.setText(`${page.heading}\n\n${page.body}${prompt}`).setVisible(true);
+    this.endingImage?.destroy();
+    this.endingImage = this.add.image(this.scale.width / 2, this.scale.height / 2, page.assetKey);
+    const asset = ENDING_ASSET_MANIFEST[page.assetKey];
+    const bounds =
+      page.id === 'title'
+        ? {
+            width: this.scale.width - ENDING_TITLE_SAFE_MARGIN * 2,
+            height: this.scale.height - ENDING_TITLE_SAFE_MARGIN * 2,
+          }
+        : { width: this.scale.width, height: this.scale.height };
+    const displaySize = asset
+      ? containDisplaySize({ width: asset.width, height: asset.height }, bounds)
+      : bounds;
+    this.endingImage.setDisplaySize(displaySize.width, displaySize.height);
+    this.endingImage.setScrollFactor(0).setDepth(9);
+    if (page.id === 'title') {
+      this.endingHud.setVisible(false);
+      this.endingCaptionPanel.setVisible(false);
+      return;
+    }
+    const heading = page.heading ? `${page.heading}\n` : '';
+    this.endingHud.setText(`${heading}${page.body}`).setVisible(true);
+    this.endingCaptionPanel.setVisible(true);
   }
 
   private playFinaleSequence(): void {
@@ -1879,7 +2232,7 @@ export class GameScene extends Phaser.Scene {
     this.isMoving = false;
     this.renderObjects();
     this.renderEchoes();
-    this.phaseHud.setText('DONG—\nLET TIME GO');
+    this.setPhaseMessage('');
     this.cameras.main.shake(260, 0.004);
     this.cameras.main.flash(350, 225, 216, 180, false);
 
@@ -1902,7 +2255,7 @@ export class GameScene extends Phaser.Scene {
       this.renderEchoes();
       this.renderObjects();
       this.updateResetHud();
-      this.phaseHud.setText('');
+      this.setPhaseMessage('');
       this.feedbackHud.setText(FEEDBACK_MESSAGES.doorOpen);
     });
   }
@@ -1915,11 +2268,94 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateClockHud(): void {
-    const startSeconds = currentLevel(this.session).finalClockStartSeconds;
-    this.clockHud.setVisible(startSeconds !== undefined);
-    if (startSeconds === undefined) return;
+    const level = currentLevel(this.session);
+    const startSeconds = level.finalClockStartSeconds;
+    const visible = startSeconds !== undefined && level.chapterId !== 'chapter-05';
+    this.clockHud.setVisible(visible);
+    if (!visible || startSeconds === undefined) return;
 
     this.clockHud.setText(formatClockTime(startSeconds, this.gameState.finalClockElapsedMs));
+  }
+
+  private updateInstructionsHud(): void {
+    this.instructionsHud.setVisible(currentLevel(this.session).chapterId !== 'chapter-05');
+  }
+
+  private setPhaseMessage(message: string): void {
+    const visible = message.length > 0;
+    this.phaseHud.setText(message).setVisible(visible);
+    this.phaseHudPanel.setVisible(visible);
+  }
+
+  private handleFinalClockStageChange(): void {
+    if (this.gameState.finalClockStage === 'wall-message') {
+      this.setPhaseMessage('“언제까지 같은 페이지를 읽을 거니?”');
+      return;
+    }
+    if (this.gameState.finalClockStage === 'clock-moving') this.setPhaseMessage('');
+  }
+
+  private createFinalClockHands(): void {
+    const level = currentLevel(this.session);
+    if (level.chapterId !== 'chapter-05') return;
+    const clock = this.gameState.objects.find((object) => object.id === 'final-grand-clock');
+    if (!clock) return;
+    const visual = this.objectVisual(clock.id, clock.type, clock.position);
+    const offset = visual.offset ?? { x: 0, y: 0 };
+    const center = {
+      x: this.mapOrigin.x + clock.position.x * GRID_SIZE + offset.x + FINAL_CLOCK_FACE_CENTER.x,
+      y: this.mapOrigin.y + clock.position.y * GRID_SIZE + offset.y + FINAL_CLOCK_FACE_CENTER.y,
+    };
+    this.finalClockMinuteHand = this.add
+      .image(center.x, center.y, FINAL_CLOCK_MINUTE_HAND_ASSET_KEY)
+      .setOrigin(0.5, FINAL_CLOCK_MINUTE_HAND_ORIGIN_Y)
+      .setDisplaySize(60, 90)
+      .setDepth((visual.depth ?? 0.55) + 0.01);
+    this.objectSprites.push(this.finalClockMinuteHand);
+    this.updateFinalClockHands();
+  }
+
+  private updateFinalClockHands(): void {
+    if (!this.finalClockMinuteHand) return;
+    const level = currentLevel(this.session);
+    if (
+      level.finalClockDurationMs === undefined ||
+      level.finalWallMessageAtMs === undefined ||
+      level.finalClockMotionAtMs === undefined
+    )
+      return;
+    const angles = calculateFinalClockHandAngles(
+      this.gameState.finalClockElapsedMs,
+      level.finalWallMessageAtMs,
+      level.finalClockMotionAtMs,
+      level.finalClockDurationMs,
+    );
+    this.finalClockMinuteHand.setAngle(angles.minute);
+  }
+
+  private createFinalWallMessage(): void {
+    this.finalWallMessageText?.destroy();
+    this.finalWallMessageText = undefined;
+    if (currentLevel(this.session).chapterId !== 'final') return;
+
+    const position = this.gridToPixel({ x: 6, y: 7 });
+    this.finalWallMessageText = this.add
+      .text(position.x, position.y, '', {
+        align: 'center',
+        color: '#d8c7b6',
+        fontFamily: 'serif',
+        fontSize: '18px',
+        fontStyle: 'italic',
+        lineSpacing: 6,
+        wordWrap: { width: 300 },
+      })
+      .setOrigin(0.5)
+      .setDepth(0.62);
+    this.updateFinalWallMessage();
+  }
+
+  private updateFinalWallMessage(): void {
+    this.finalWallMessageText?.setText(finalWallMessage(this.gameState.finalClockElapsedMs));
   }
 
   private renderLoadError(error: Error): void {

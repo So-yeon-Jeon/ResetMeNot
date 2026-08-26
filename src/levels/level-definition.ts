@@ -21,6 +21,8 @@ export type LevelDefinition = Readonly<{
   objects: readonly WorldObjectState[];
   finalClockStartSeconds?: number;
   finalClockDurationMs?: number;
+  finalWallMessageAtMs?: number;
+  finalClockMotionAtMs?: number;
   finalDoorId?: string;
 }>;
 
@@ -35,6 +37,8 @@ export function createLevelGameState(level: LevelDefinition, worldMemory?: World
     echoLimit: level.echoLimit,
     objects: level.objects,
     finalClockDurationMs: level.finalClockDurationMs,
+    finalWallMessageAtMs: level.finalWallMessageAtMs,
+    finalClockMotionAtMs: level.finalClockMotionAtMs,
     finalDoorId: level.finalDoorId,
     worldMemory,
   });

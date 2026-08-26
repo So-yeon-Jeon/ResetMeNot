@@ -112,6 +112,19 @@ describe('loadTiledLevel', () => {
     expect(level.objects.find((object) => object.id === 'switch-a')).toBeDefined();
   });
 
+  it('바닥 실루엣 경계를 이동 불가 영역으로 만들 수 있다', () => {
+    const map = validMap();
+    const properties = map.properties as Array<Record<string, unknown>>;
+    properties.push(property('blockFloorBoundary', true));
+
+    const level = loadTiledLevel(map);
+
+    expect(level.map.walls.has('0,0')).toBe(true);
+    expect(level.map.walls.has('1,1')).toBe(false);
+    expect(level.map.walls.has('2,2')).toBe(false);
+    expect(level.map.walls.has('3,3')).toBe(true);
+  });
+
   it('floor가 없는 셀을 void로 보존하고 내부 partition을 별도 벽으로 읽는다', () => {
     const map = validMap();
     const layers = map.layers as Array<Record<string, unknown>>;

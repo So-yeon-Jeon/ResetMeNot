@@ -1,5 +1,6 @@
 import { CHAPTER1_ASSET_MANIFEST } from '../assets/chapter1/manifest';
 import type { ChapterVisualTheme } from './chapter-visual-theme';
+import { WALL_ATTACHED_BOOKSHELF_VISUAL } from './manor-shared-visuals';
 
 export const CHAPTER1_VISUAL_THEME: ChapterVisualTheme = {
   chapterId: 'chapter-01',
@@ -45,9 +46,8 @@ export const CHAPTER1_VISUAL_THEME: ChapterVisualTheme = {
     'chapter1-nightstand': { offset: { x: 0, y: 8 } },
     'chapter1-chair': { depth: 0.5 },
     'chapter1-bookshelf': {
-      offset: { x: -4, y: -32 },
+      ...WALL_ATTACHED_BOOKSHELF_VISUAL,
       offsetsByState: { fallen: { x: -4, y: 0 } },
-      displaySize: { width: 112, height: 84 },
       stateTransition: {
         from: 'standing',
         to: 'fallen',
