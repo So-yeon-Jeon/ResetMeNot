@@ -339,14 +339,23 @@ export class GameScene extends Phaser.Scene {
   }
 
   private drawFloorPlanBoundary(map: GridMap, theme: ChapterVisualTheme): void {
-    const structuralWalls = map.structuralWalls;
-    const floorCells = map.floorCells;
-    if (!structuralWalls || !floorCells) return;
+    const floorCells = map.floorTiles ?? map.floorCells;
+    if (!floorCells) return;
+
+    const boundaryCells = new Set(map.structuralWalls ?? []);
+    floorCells.forEach((key) => {
+      const [x, y] = key.split(',').map(Number);
+      if (x === undefined || y === undefined) return;
+      const touchesVoid = [`${x},${y - 1}`, `${x},${y + 1}`, `${x - 1},${y}`, `${x + 1},${y}`].some(
+        (neighbor) => !floorCells.has(neighbor),
+      );
+      if (touchesVoid) boundaryCells.add(key);
+    });
 
     const hasFloor = (x: number, y: number): boolean => floorCells.has(`${x},${y}`);
-    const hasOuterWall = (x: number, y: number): boolean => structuralWalls.has(`${x},${y}`);
+    const hasOuterWall = (x: number, y: number): boolean => boundaryCells.has(`${x},${y}`);
 
-    structuralWalls.forEach((key) => {
+    boundaryCells.forEach((key) => {
       const [x, y] = key.split(',').map(Number);
       if (x === undefined || y === undefined) return;
 
@@ -434,6 +443,32 @@ export class GameScene extends Phaser.Scene {
       const [x, y] = key.split(',').map(Number);
       if (x === undefined || y === undefined) return;
       const depth = gridRowDepth(INTERNAL_WALL_DEPTH_BASE, y);
+      const hasHorizontalNeighbor =
+        partitionWalls.has(`${x - 1},${y}`) || partitionWalls.has(`${x + 1},${y}`);
+      const hasVerticalNeighbor =
+        partitionWalls.has(`${x},${y - 1}`) || partitionWalls.has(`${x},${y + 1}`);
+      if (!hasHorizontalNeighbor && hasVerticalNeighbor && theme.walls.partitionVertical) {
+        const verticalAssetKey = theme.walls.partitionVertical;
+        if (
+          !this.currentTheme().assets[verticalAssetKey] ||
+          !this.textures.exists(verticalAssetKey)
+        )
+          return;
+        const displayWidth = theme.walls.partitionVerticalDisplayWidth ?? GRID_SIZE;
+        const displayHeight = theme.walls.partitionVerticalDisplayHeight ?? GRID_SIZE;
+        this.mapTiles.push(
+          this.add
+            .image(
+              this.mapOrigin.x + x * GRID_SIZE + (GRID_SIZE - displayWidth) / 2,
+              this.mapOrigin.y + (y + 1) * GRID_SIZE - displayHeight,
+              verticalAssetKey,
+            )
+            .setOrigin(0, 0)
+            .setDisplaySize(displayWidth, displayHeight)
+            .setDepth(depth),
+        );
+        return;
+      }
       const assetKey = theme.walls.partition ?? theme.walls.internalTop ?? theme.walls.bottom;
       if (!this.currentTheme().assets[assetKey] || !this.textures.exists(assetKey)) return;
       let frame = theme.walls.partitionStraightFrame ?? 0;
@@ -931,6 +966,7 @@ export class GameScene extends Phaser.Scene {
     if (result.chapterCompleted) this.phaseHud.setText('CHAPTER CLEAR');
 
     if (result.resetPerformed) {
+      if (result.feedbackMessage) this.showFeedback(result.feedbackMessage);
       if (result.echoCreationBlocked === 'occupied') {
         this.showFeedback(FEEDBACK_MESSAGES.echoSpaceOccupied);
       } else if (result.echoCreationBlocked === 'limit') {
@@ -1450,9 +1486,10 @@ export class GameScene extends Phaser.Scene {
           visual.displaySize,
         );
         if (switchSprites.length > 0) {
-          if (object.active && !visual.stateAssetKeys?.active) {
+          if ((object.active || pendingMemory) && !visual.stateAssetKeys?.active) {
+            const tint = object.active ? 0xb9efff : 0xf2c66d;
             switchSprites.forEach((sprite) => {
-              if (sprite instanceof Phaser.GameObjects.Image) sprite.setTint(0xb9efff);
+              if (sprite instanceof Phaser.GameObjects.Image) sprite.setTint(tint);
             });
           }
           this.objectSprites.push(...switchSprites);
@@ -1480,12 +1517,22 @@ export class GameScene extends Phaser.Scene {
         );
       }
       if (object.type === 'box') {
-        this.objectSprites.push(
-          this.add
-            .rectangle(pixel.x, pixel.y, GRID_SIZE - 6, GRID_SIZE - 6, 0x9a754f)
-            .setStrokeStyle(2, 0xd8b65a)
-            .setDepth(0.65),
+        const boxSprites = this.renderAssetObject(
+          visual.assetKey,
+          visualPosition,
+          visual.depth ?? 0.65,
+          visualOffset,
+          visual.displaySize,
         );
+        if (boxSprites.length > 0) this.objectSprites.push(...boxSprites);
+        else {
+          this.objectSprites.push(
+            this.add
+              .rectangle(pixel.x, pixel.y, GRID_SIZE - 6, GRID_SIZE - 6, 0x9a754f)
+              .setStrokeStyle(2, 0xd8b65a)
+              .setDepth(0.65),
+          );
+        }
       }
       if (object.type === 'lever') {
         const leverSprites = this.renderAssetObject(
@@ -1820,6 +1867,7 @@ export class GameScene extends Phaser.Scene {
     const layout = this.currentMapCameraLayout();
     const camera = this.cameras.main;
     camera.stopFollow();
+    camera.setZoom(this.currentTheme().cameraZoom ?? 1);
     camera.setBounds(0, 0, layout.worldWidth, layout.worldHeight);
     camera.setScroll(0, 0);
     camera.roundPixels = true;
