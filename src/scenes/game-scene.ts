@@ -18,7 +18,7 @@ import {
   restartChapter,
   type GameState,
 } from '../game/game-state';
-import type { Direction, GridPosition } from '../game/grid';
+import type { Direction, GridMap, GridPosition } from '../game/grid';
 import type { PuzzleObjectState } from '../game/world-object';
 import { GAME_LEVELS_LOAD_RESULT } from '../levels/level-catalog';
 import type {
@@ -42,13 +42,15 @@ const ECHO_CHARACTER_TEXTURE = 'echo-character';
 const PLAYER_CHARACTER_SCALE = 0.3;
 const PLAYER_CHARACTER_ORIGIN_Y = 0.95;
 const CHARACTER_FOOT_OFFSET_Y = GRID_SIZE / 2;
-const PLAYER_CHARACTER_DEPTH = 1.2;
-const ECHO_CHARACTER_DEPTH = 1.15;
+const PLAYER_CHARACTER_DEPTH = 1.02;
+const ECHO_CHARACTER_DEPTH = 1.015;
 const WALL_DEPTH = 0.1;
 const WALL_OPENING_DEPTH = 0.12;
 const WALL_SIDE_ALPHA = 0.78;
 const WALL_BOTTOM_ALPHA = 0.8;
 const FOREGROUND_DEPTH_OFFSET = 0.03;
+const GRID_DEPTH_STEP = 0.02;
+const INTERNAL_WALL_DEPTH_BASE = 1.01;
 
 type MovementKeys = Readonly<{
   up: Phaser.Input.Keyboard.Key[];
@@ -65,6 +67,10 @@ const CHARACTER_DIRECTION_COLUMN: Readonly<Record<Direction, number>> = {
   left: 2,
   up: 3,
 };
+
+function gridRowDepth(base: number, row: number): number {
+  return base + row * GRID_DEPTH_STEP;
+}
 
 function characterFrame(
   asset: typeof PLAYER_CHARACTER_ASSET | typeof ECHO_CHARACTER_ASSET,
@@ -261,7 +267,8 @@ export class GameScene extends Phaser.Scene {
 
     for (let y = 0; y < map.height; y += 1) {
       for (let x = 0; x < map.width; x += 1) {
-        if (map.floorTiles && !map.floorTiles.has(`${x},${y}`)) continue;
+        const floorTiles = map.floorTiles ?? map.floorCells;
+        if (floorTiles !== undefined && !floorTiles.has(`${x},${y}`)) continue;
         const pixelX = this.mapOrigin.x + x * GRID_SIZE;
         const pixelY = this.mapOrigin.y + y * GRID_SIZE;
 
@@ -279,7 +286,157 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    map.structuralWalls?.forEach((key) => {
+    if (theme.walls.floorPlanBoundary) {
+      this.drawFloorPlanBoundary(map, theme);
+      this.drawPartitions(map, theme);
+    } else {
+      this.drawInternalStructuralWalls(map, theme);
+      this.drawWallKit(map, theme);
+    }
+  }
+
+  private drawFloorPlanBoundary(map: GridMap, theme: ChapterVisualTheme): void {
+    const structuralWalls = map.structuralWalls;
+    const floorCells = map.floorCells;
+    if (!structuralWalls || !floorCells) return;
+
+    const hasFloor = (x: number, y: number): boolean => floorCells.has(`${x},${y}`);
+    const hasOuterWall = (x: number, y: number): boolean => structuralWalls.has(`${x},${y}`);
+
+    structuralWalls.forEach((key) => {
+      const [x, y] = key.split(',').map(Number);
+      if (x === undefined || y === undefined) return;
+
+      const floorAbove = hasFloor(x, y - 1);
+      const floorBelow = hasFloor(x, y + 1);
+      const floorLeft = hasFloor(x - 1, y);
+      const floorRight = hasFloor(x + 1, y);
+      const floorAboveLeft = hasFloor(x - 1, y - 1);
+      const floorAboveRight = hasFloor(x + 1, y - 1);
+      const floorBelowLeft = hasFloor(x - 1, y + 1);
+      const floorBelowRight = hasFloor(x + 1, y + 1);
+
+      // A stepped outline can place two rooms diagonally across the same grid cell.
+      // Render one half-corner for each room so the alcove seam closes cleanly.
+      if (floorAboveRight && floorBelowLeft) {
+        this.renderBoundaryHalf(theme.walls.cornerTopRight, x, y, 'left', WALL_DEPTH + 0.01);
+        this.renderBoundaryHalf(
+          theme.walls.cornerBottomLeft,
+          x,
+          y,
+          'right',
+          gridRowDepth(INTERNAL_WALL_DEPTH_BASE, y),
+        );
+        return;
+      }
+
+      let assetKey = theme.walls.top;
+      let offsetX = x * GRID_SIZE;
+      const offsetY = y * GRID_SIZE;
+      let depth = WALL_DEPTH + 0.01;
+
+      if (floorBelow) assetKey = theme.walls.top;
+      else if (floorAbove) {
+        assetKey = theme.walls.bottom;
+        depth = gridRowDepth(INTERNAL_WALL_DEPTH_BASE, y);
+      } else if (floorRight) {
+        assetKey = theme.walls.left;
+        offsetX += GRID_SIZE - this.assetWidth(assetKey);
+      } else if (floorLeft) assetKey = theme.walls.right;
+      else if (floorBelowRight) {
+        this.renderBoundaryHalf(theme.walls.cornerTopLeft, x, y, 'right', depth);
+        return;
+      } else if (floorBelowLeft) {
+        this.renderBoundaryHalf(theme.walls.cornerTopRight, x, y, 'left', depth);
+        return;
+      } else if (floorAboveRight) {
+        this.renderBoundaryHalf(
+          theme.walls.cornerBottomLeft,
+          x,
+          y,
+          'right',
+          gridRowDepth(INTERNAL_WALL_DEPTH_BASE, y),
+          -(this.assetHeight(theme.walls.cornerBottomLeft) - this.assetHeight(theme.walls.bottom)),
+        );
+        return;
+      } else if (floorAboveLeft) {
+        this.renderBoundaryHalf(
+          theme.walls.cornerBottomRight,
+          x,
+          y,
+          'left',
+          gridRowDepth(INTERNAL_WALL_DEPTH_BASE, y),
+          -(this.assetHeight(theme.walls.cornerBottomRight) - this.assetHeight(theme.walls.bottom)),
+        );
+        return;
+      } else {
+        const horizontal = hasOuterWall(x - 1, y) || hasOuterWall(x + 1, y);
+        const vertical = hasOuterWall(x, y - 1) || hasOuterWall(x, y + 1);
+        if (vertical && !horizontal) assetKey = theme.walls.right;
+      }
+
+      this.renderPerspectiveBoundaryAsset(assetKey, offsetX, offsetY, depth);
+    });
+  }
+
+  private drawPartitions(map: GridMap, theme: ChapterVisualTheme): void {
+    const partitionWalls = map.partitionWalls;
+    if (!partitionWalls || partitionWalls.size === 0) return;
+
+    const doorway = theme.walls.doorwayObjectId
+      ? this.gameState.objects.find((object) => object.id === theme.walls.doorwayObjectId)
+      : undefined;
+
+    partitionWalls.forEach((key) => {
+      const [x, y] = key.split(',').map(Number);
+      if (x === undefined || y === undefined) return;
+      const depth = gridRowDepth(INTERNAL_WALL_DEPTH_BASE, y);
+      const assetKey = theme.walls.partition ?? theme.walls.internalTop ?? theme.walls.bottom;
+      if (!this.currentTheme().assets[assetKey] || !this.textures.exists(assetKey)) return;
+      let frame = theme.walls.partitionStraightFrame ?? 0;
+      if (!partitionWalls.has(`${x - 1},${y}`)) {
+        frame = theme.walls.partitionLeftEndFrame ?? frame;
+      } else if (!partitionWalls.has(`${x + 1},${y}`)) {
+        frame = theme.walls.partitionRightEndFrame ?? frame;
+      }
+      let doorwaySide: 'left' | 'right' | undefined;
+      if (doorway && y === doorway.position.y) {
+        if (x === doorway.position.x - 1) {
+          frame = theme.walls.partitionDoorwayLeftFrame ?? frame;
+          doorwaySide = 'left';
+        } else if (x === doorway.position.x + 3) {
+          frame = theme.walls.partitionDoorwayRightFrame ?? frame;
+          doorwaySide = 'right';
+        }
+      }
+      const displayHeight = theme.walls.partitionDisplayHeight ?? GRID_SIZE;
+      const doorwayOverlap = doorwaySide ? (theme.walls.partitionDoorwayOverlap ?? 0) : 0;
+      const displayWidth = GRID_SIZE + doorwayOverlap;
+      const offsetX = doorwaySide === 'right' ? -doorwayOverlap : 0;
+      this.mapTiles.push(
+        this.add
+          .image(
+            this.mapOrigin.x + x * GRID_SIZE + offsetX,
+            this.mapOrigin.y + (y + 1) * GRID_SIZE - displayHeight,
+            assetKey,
+            frame,
+          )
+          .setOrigin(0, 0)
+          .setDisplaySize(displayWidth, displayHeight)
+          .setDepth(depth),
+      );
+    });
+  }
+
+  private drawInternalStructuralWalls(
+    map: Readonly<{ width: number; height: number; structuralWalls?: ReadonlySet<string> }>,
+    theme: ChapterVisualTheme,
+  ): void {
+    const structuralWalls = map.structuralWalls;
+    if (!structuralWalls) return;
+
+    const hasWall = (x: number, y: number): boolean => structuralWalls.has(`${x},${y}`);
+    structuralWalls.forEach((key) => {
       const [x, y] = key.split(',').map(Number);
       if (
         x === undefined ||
@@ -291,21 +448,25 @@ export class GameScene extends Phaser.Scene {
       ) {
         return;
       }
-      this.mapTiles.push(
-        this.add
-          .rectangle(
-            this.mapOrigin.x + x * GRID_SIZE + GRID_SIZE / 2,
-            this.mapOrigin.y + y * GRID_SIZE + GRID_SIZE / 2,
-            GRID_SIZE,
-            GRID_SIZE,
-            0x24212b,
-          )
-          .setStrokeStyle(1, 0x51495d)
-          .setDepth(0.08),
+
+      const horizontalNeighbor = hasWall(x - 1, y) || hasWall(x + 1, y);
+      const verticalNeighbor = hasWall(x, y - 1) || hasWall(x, y + 1);
+      const isHorizontalWall = horizontalNeighbor || !verticalNeighbor;
+      const assetKey = isHorizontalWall
+        ? (theme.walls.internalTop ?? theme.walls.top)
+        : (theme.walls.internalLeft ?? theme.walls.left);
+      this.renderWallAsset(
+        assetKey,
+        x,
+        y,
+        gridRowDepth(INTERNAL_WALL_DEPTH_BASE, y),
+        undefined,
+        1,
+        isHorizontalWall
+          ? { y: 0, height: Math.min(GRID_SIZE, this.assetHeight(assetKey)) }
+          : undefined,
       );
     });
-
-    this.drawWallKit(map, theme);
   }
 
   private drawWallKit(
@@ -451,6 +612,30 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
+  private renderBoundaryHalf(
+    assetKey: string,
+    gridX: number,
+    gridY: number,
+    side: 'left' | 'right',
+    depth: number,
+    offsetY = 0,
+  ): void {
+    const asset = this.currentTheme().assets[assetKey];
+    if (!asset || !this.textures.exists(assetKey)) return;
+
+    const cropWidth = Math.min(GRID_SIZE / 2, asset.width);
+    const cropX = side === 'left' ? 0 : asset.width - cropWidth;
+    const pixelX = gridX * GRID_SIZE + (side === 'right' ? GRID_SIZE - cropWidth : 0);
+    this.mapTiles.push(
+      this.add
+        .image(this.mapOrigin.x + pixelX, this.mapOrigin.y + gridY * GRID_SIZE + offsetY, assetKey)
+        .setOrigin(0, 0)
+        .setCrop(cropX, 0, cropWidth, asset.height)
+        .setDisplaySize(cropWidth, asset.height)
+        .setDepth(depth),
+    );
+  }
+
   private renderDoorwayForeground(
     assetKey: string,
     doorwayStartX: number,
@@ -484,6 +669,7 @@ export class GameScene extends Phaser.Scene {
     depth: number,
     displaySize?: Readonly<{ width: number; height: number }>,
     alpha = 1,
+    crop?: Readonly<{ y: number; height: number }>,
   ): void {
     const manifestEntry = this.currentTheme().assets[assetKey];
     if (!manifestEntry || !this.textures.exists(assetKey)) return;
@@ -497,6 +683,7 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setAlpha(alpha)
       .setDepth(depth);
+    if (crop) image.setCrop(0, crop.y, manifestEntry.width, crop.height);
     if (displaySize) image.setDisplaySize(displaySize.width, displaySize.height);
     this.mapTiles.push(image);
   }
@@ -512,7 +699,7 @@ export class GameScene extends Phaser.Scene {
       )
       .setOrigin(0.5, PLAYER_CHARACTER_ORIGIN_Y)
       .setScale(PLAYER_CHARACTER_SCALE)
-      .setDepth(PLAYER_CHARACTER_DEPTH);
+      .setDepth(gridRowDepth(PLAYER_CHARACTER_DEPTH, this.gameState.player.y));
   }
 
   private createInstructions(): void {
@@ -770,7 +957,7 @@ export class GameScene extends Phaser.Scene {
         .setOrigin(0.5, PLAYER_CHARACTER_ORIGIN_Y)
         .setScale(PLAYER_CHARACTER_SCALE)
         .setAlpha(0.78)
-        .setDepth(ECHO_CHARACTER_DEPTH);
+        .setDepth(gridRowDepth(ECHO_CHARACTER_DEPTH, echo.position.y));
     });
   }
 
@@ -927,15 +1114,34 @@ export class GameScene extends Phaser.Scene {
           );
         const fillColor = object.active ? 0x73c8df : pendingMemory ? 0xb58a45 : 0x625b70;
         const strokeColor = object.active ? 0xb9efff : pendingMemory ? 0xf2c66d : 0x8e849c;
-        this.objectSprites.push(
-          this.add
-            .rectangle(pixel.x, pixel.y, GRID_SIZE - 8, GRID_SIZE - 8, fillColor)
-            .setStrokeStyle(2, strokeColor)
-            .setDepth(0.25),
+        const switchState = object.active ? 'active' : 'inactive';
+        const switchAssetKey = visual.stateAssetKeys?.[switchState] ?? visual.assetKey;
+        const switchSprites = this.renderAssetObject(
+          switchAssetKey,
+          visualPosition,
+          visual.depth ?? 0.22,
+          visualOffset,
+          visual.displaySize,
         );
+        if (switchSprites.length > 0) {
+          if (object.active && !visual.stateAssetKeys?.active) {
+            switchSprites.forEach((sprite) => {
+              if (sprite instanceof Phaser.GameObjects.Image) sprite.setTint(0xb9efff);
+            });
+          }
+          this.objectSprites.push(...switchSprites);
+        } else {
+          this.objectSprites.push(
+            this.add
+              .rectangle(pixel.x, pixel.y, GRID_SIZE - 8, GRID_SIZE - 8, fillColor)
+              .setStrokeStyle(2, strokeColor)
+              .setDepth(0.25),
+          );
+        }
       }
       if (object.type === 'door') {
-        const assetKey = object.assetKeys?.[object.open ? 'open' : 'closed'];
+        const doorState = object.open ? 'open' : 'closed';
+        const assetKey = visual.stateAssetKeys?.[doorState] ?? object.assetKeys?.[doorState];
         this.objectSprites.push(
           ...this.renderAssetObject(
             assetKey,
@@ -956,22 +1162,41 @@ export class GameScene extends Phaser.Scene {
         );
       }
       if (object.type === 'lever') {
-        this.objectSprites.push(
-          this.add
-            .triangle(
-              pixel.x,
-              pixel.y,
-              0,
-              GRID_SIZE / 2,
-              GRID_SIZE / 2,
-              0,
-              GRID_SIZE,
-              GRID_SIZE / 2,
-              object.active ? 0x73c8df : 0xb8a08c,
-            )
-            .setStrokeStyle(2, 0xe7d4bb)
-            .setDepth(0.65),
+        const leverSprites = this.renderAssetObject(
+          visual.assetKey,
+          visualPosition,
+          visual.depth ?? 0.65,
+          visualOffset,
+          visual.displaySize,
         );
+        if (leverSprites.length > 0) {
+          this.objectSprites.push(...leverSprites);
+          if (object.active) {
+            this.objectSprites.push(
+              this.add
+                .circle(pixel.x, pixel.y, 5, 0x73c8df, 0.9)
+                .setStrokeStyle(2, 0xb9efff)
+                .setDepth((visual.depth ?? 0.65) + 0.02),
+            );
+          }
+        } else {
+          this.objectSprites.push(
+            this.add
+              .triangle(
+                pixel.x,
+                pixel.y,
+                0,
+                GRID_SIZE / 2,
+                GRID_SIZE / 2,
+                0,
+                GRID_SIZE,
+                GRID_SIZE / 2,
+                object.active ? 0x73c8df : 0xb8a08c,
+              )
+              .setStrokeStyle(2, 0xe7d4bb)
+              .setDepth(0.65),
+          );
+        }
       }
       if (
         object.type === 'key' &&
@@ -1084,7 +1309,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updatePlayerDepth(): void {
-    this.player.setDepth(PLAYER_CHARACTER_DEPTH);
+    this.player.setDepth(gridRowDepth(PLAYER_CHARACTER_DEPTH, this.gameState.player.y));
   }
 
   private setGameState(state: GameState): void {
