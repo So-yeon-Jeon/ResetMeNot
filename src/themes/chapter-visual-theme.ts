@@ -36,10 +36,15 @@ export type ObjectVisual = Readonly<{
 }>;
 
 export type WallVisualTheme = Readonly<{
+  tint?: number;
   doorwayObjectId?: string;
   perspectiveBoundary?: boolean;
+  followFloorSilhouette?: boolean;
   floorPlanBoundary?: boolean;
   partition?: string;
+  partitionVertical?: string;
+  partitionVerticalDisplayWidth?: number;
+  partitionVerticalDisplayHeight?: number;
   partitionStraightFrame?: number;
   partitionLeftEndFrame?: number;
   partitionRightEndFrame?: number;
@@ -57,16 +62,30 @@ export type WallVisualTheme = Readonly<{
   cornerBottomLeft: string;
   cornerBottomRight: string;
   bottomDoorway?: string;
+  interiorBottomBoundaries?: readonly Readonly<{
+    y: number;
+    startX: number;
+    endX: number;
+    doorwayStartX?: number;
+  }>[];
+  interiorSideBoundaries?: readonly Readonly<{
+    side: 'left' | 'right';
+    x: number;
+    startY: number;
+    endY: number;
+  }>[];
   internalTop?: string;
   internalLeft?: string;
 }>;
 
 export type ChapterVisualTheme = Readonly<{
   chapterId: string;
+  cameraZoom?: number;
   assets: AssetManifest;
   floor: Readonly<{
     assetKey: string;
     frameCount?: number;
+    tint?: number;
   }>;
   walls: WallVisualTheme;
   objectVisuals?: Readonly<Record<string, ObjectVisual>>;

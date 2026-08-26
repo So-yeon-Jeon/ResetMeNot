@@ -38,4 +38,17 @@ describe('chapter visual theme catalog', () => {
       '등록되지 않은 챕터 비주얼 테마입니다: chapter-missing',
     );
   });
+
+  it('Chapter 2~4는 각 챕터 전용 바닥과 조명 팔레트를 사용한다', () => {
+    const laterThemes = ['chapter-02', 'chapter-03', 'chapter-04'].map((chapterId) =>
+      getChapterVisualTheme(chapterId),
+    );
+
+    expect(new Set(laterThemes.map((theme) => theme.floor.assetKey)).size).toBe(3);
+    laterThemes.forEach((theme) => {
+      expect(theme.floor.tint).toBeDefined();
+      expect(theme.walls.tint).toBeDefined();
+    });
+    expect(getChapterVisualTheme('chapter-05').chapterId).toBe('chapter-05');
+  });
 });

@@ -66,9 +66,11 @@ describe('Final flow', () => {
     expect(session.state.worldMemory.events).toContain('level-cleared:final-clock-room');
 
     const ending = createEndingSequence(session.state.worldMemory);
+    expect(ending.pages[0]).toMatchObject({ id: 'room', assetKey: 'ending-room' });
     expect(ending.pages.at(-1)).toMatchObject({
       id: 'title',
-      heading: 'RESET ME NOT',
+      assetKey: 'ending-title',
+      body: 'The world remembers.',
     });
     expect(ending.totalResetCount).toBe(1);
     expect(ending.resetCountsByLevel).toEqual({ 'final-clock-room': 1 });
