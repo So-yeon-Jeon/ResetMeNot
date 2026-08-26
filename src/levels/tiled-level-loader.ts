@@ -178,7 +178,12 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     const key = positionKey(position);
     const floorTiles = gridMap.floorTiles ?? gridMap.floorCells;
     if (!floorTiles?.has(key)) fail(`${name}이(가) 바닥이 없는 위치에 있습니다.`);
-    if (type !== 'PlayerSpawn' && (structuralWalls.has(key) || partitionWalls.has(key))) {
+    const canOccupyAuthoredDoorway = type === 'Door' || type === 'Exit';
+    if (
+      type !== 'PlayerSpawn' &&
+      !canOccupyAuthoredDoorway &&
+      (structuralWalls.has(key) || partitionWalls.has(key))
+    ) {
       fail(`${name}이(가) 벽 위에 있습니다.`);
     }
     const props = readProperties(item.properties, `${label}.properties`);
@@ -286,10 +291,11 @@ function validateInitialOccupancy(
         y: item.position.y + cell.y,
       };
       const key = positionKey(occupiedPosition);
+      const canOccupyAuthoredDoorway = item.type === 'door';
       if (
         !(map.floorTiles ?? map.floorCells)?.has(key) ||
-        map.structuralWalls?.has(key) ||
-        map.partitionWalls?.has(key)
+        (!canOccupyAuthoredDoorway &&
+          (map.structuralWalls?.has(key) || map.partitionWalls?.has(key)))
       ) {
         fail(`${item.id}의 충돌 영역 ${key}이(가) 이동 가능한 바닥을 벗어났습니다.`);
       }
@@ -326,7 +332,7 @@ function initialCollisionCells(object: WorldObjectState): readonly GridPosition[
   if (object.type === 'key') {
     return object.collectible && !object.collected ? [{ x: 0, y: 0 }] : [];
   }
-  if (object.type === 'door') return object.open ? [] : object.interactionCells;
+  if (object.type === 'door') return object.open ? [] : object.collisionCells;
   if (object.type === 'box' || object.type === 'lever') return [{ x: 0, y: 0 }];
   return [];
 }
@@ -371,6 +377,7 @@ function createLevelObject(
       'leverIds',
       'activationMode',
       'interactionCells',
+      'collisionCells',
       'keyId',
       'consumesKey',
       'clearOnOpen',
@@ -478,6 +485,10 @@ function createDoorFromProperties(
     props.interactionCells === undefined
       ? undefined
       : parseCollisionCells(props.interactionCells, `${id}.interactionCells`);
+  const collisionCells =
+    props.collisionCells === undefined
+      ? undefined
+      : parseCollisionCells(props.collisionCells, `${id}.collisionCells`);
   const keyId = optionalText(props.keyId);
   const consumesKey = boolean(props.consumesKey, false, `${id}.consumesKey`);
   const clearOnOpen = boolean(props.clearOnOpen, false, `${id}.clearOnOpen`);
@@ -498,6 +509,7 @@ function createDoorFromProperties(
       `${id}.activationMode`,
     ),
     interactionCells,
+    collisionCells,
     keyId,
     consumesKey,
     clearOnOpen,

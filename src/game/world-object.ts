@@ -98,6 +98,7 @@ export type DoorState = Readonly<{
   type: 'door';
   position: GridPosition;
   interactionCells: readonly GridPosition[];
+  collisionCells: readonly GridPosition[];
   open: boolean;
   switchIds: readonly string[];
   leverIds: readonly string[];
@@ -270,17 +271,20 @@ export function createDoor(
     leverIds?: readonly string[];
     activationMode?: 'all' | 'any';
     interactionCells?: readonly GridPosition[];
+    collisionCells?: readonly GridPosition[];
     keyId?: string;
     consumesKey?: boolean;
     clearOnOpen?: boolean;
     assetKeys?: Readonly<{ closed: string; open: string }>;
   }> = {},
 ): DoorState {
+  const interactionCells = options.interactionCells ?? [{ x: 0, y: 0 }];
   return {
     id,
     type: 'door',
     position: { ...position },
-    interactionCells: [...(options.interactionCells ?? [{ x: 0, y: 0 }])],
+    interactionCells: [...interactionCells],
+    collisionCells: [...(options.collisionCells ?? interactionCells)],
     open: false,
     switchIds: [...switchIds],
     leverIds: [...(options.leverIds ?? [])],
@@ -377,6 +381,7 @@ export function cloneWorldObject(object: WorldObjectState): WorldObjectState {
       ...object,
       position: { ...object.position },
       interactionCells: object.interactionCells.map((cell) => ({ ...cell })),
+      collisionCells: object.collisionCells.map((cell) => ({ ...cell })),
       switchIds: [...object.switchIds],
       leverIds: [...object.leverIds],
       assetKeys: object.assetKeys ? { ...object.assetKeys } : undefined,

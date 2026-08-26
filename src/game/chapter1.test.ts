@@ -318,25 +318,61 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('does not open or clear the door without the key', () => {
-    const state = interact(createLevelGameState(level), { x: 1, y: 7 }, 'down');
+    const state = interact(createLevelGameState(level), { x: 1, y: 8 }, 'down');
 
     expect(state.phase).toBe('playing');
     expect(object(state, 'chapter1-door')).toMatchObject({ open: false, unlocked: false });
   });
 
-  it('opens the door and clears Chapter 1 after the key is collected', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
-    const reset = resetAfterAction(interact(acquired, { x: 9, y: 2 }, 'up'));
-    const withKey = interact(reset, { x: 9, y: 4 }, 'up');
-    const result = applyAction(
-      at(withKey, { x: 1, y: 7 }, 'down'),
-      { type: 'interact' },
+  it('allows standing at the closed door while blocking the step beyond it', () => {
+    const initial = at(createLevelGameState(level), { x: 2, y: 8 }, 'down');
+    const atDoor = applyAction(initial, { type: 'move', direction: 'down' }, level.map);
+    const blockedBeyond = applyAction(atDoor.state, { type: 'move', direction: 'down' }, level.map);
+
+    expect(atDoor.state.player).toEqual({ x: 2, y: 9 });
+    expect(atDoor.chapterCompleted).toBe(false);
+    expect(blockedBeyond.state.player).toEqual({ x: 2, y: 9 });
+    expect(blockedBeyond.chapterCompleted).toBe(false);
+  });
+
+  it('allows horizontal movement in the hidden row behind the bottom boundary', () => {
+    const initial = at(createLevelGameState(level), { x: 5, y: 8 }, 'down');
+    const entered = applyAction(initial, { type: 'move', direction: 'down' }, level.map);
+    const movedSideways = applyAction(
+      entered.state,
+      { type: 'move', direction: 'right' },
       level.map,
     );
 
-    expect(result.chapterCompleted).toBe(true);
-    expect(result.state.phase).toBe('completed');
-    expect(object(result.state, 'chapter1-door')).toMatchObject({ open: true, unlocked: true });
+    expect(entered.state.player).toEqual({ x: 5, y: 9 });
+    expect(entered.chapterCompleted).toBe(false);
+    expect(movedSideways.state.player).toEqual({ x: 6, y: 9 });
+    expect(movedSideways.chapterCompleted).toBe(false);
+  });
+
+  it('opens the door and clears Chapter 1 after stepping through it', () => {
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
+    const reset = resetAfterAction(interact(acquired, { x: 9, y: 2 }, 'up'));
+    const withKey = interact(reset, { x: 9, y: 4 }, 'up');
+    const opened = applyAction(
+      at(withKey, { x: 2, y: 8 }, 'down'),
+      { type: 'interact' },
+      level.map,
+    );
+    const result = applyAction(opened.state, { type: 'move', direction: 'down' }, level.map);
+    const completed = applyAction(result.state, { type: 'move', direction: 'down' }, level.map);
+
+    expect(opened.chapterCompleted).toBe(false);
+    expect(opened.state.phase).toBe('playing');
+    expect(result.chapterCompleted).toBe(false);
+    expect(result.state.player).toEqual({ x: 2, y: 9 });
+    expect(completed.chapterCompleted).toBe(true);
+    expect(completed.state.player).toEqual({ x: 2, y: 10 });
+    expect(completed.state.phase).toBe('completed');
+    expect(object(completed.state, 'chapter1-door')).toMatchObject({
+      open: true,
+      unlocked: true,
+    });
   });
 
   it('opens the visual three-tile door from any front tile', () => {
@@ -345,9 +381,10 @@ describe('Chapter 1 room 1', () => {
     const withKey = interact(reset, { x: 9, y: 4 }, 'up');
 
     for (const x of [1, 2, 3]) {
-      const result = applyAction(at(withKey, { x, y: 7 }, 'down'), { type: 'interact' }, level.map);
+      const result = applyAction(at(withKey, { x, y: 8 }, 'down'), { type: 'interact' }, level.map);
 
-      expect(result.chapterCompleted).toBe(true);
+      expect(result.chapterCompleted).toBe(false);
+      expect(result.state.phase).toBe('playing');
       expect(object(result.state, 'chapter1-door')).toMatchObject({ open: true, unlocked: true });
     }
   });

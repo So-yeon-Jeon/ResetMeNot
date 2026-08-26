@@ -36,7 +36,7 @@
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+        0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
       ]
     },
     {
@@ -249,14 +249,15 @@
           "name": "chapter1-door",
           "class": "Door",
           "x": 32,
-          "y": 256,
+          "y": 288,
           "width": 32,
           "height": 32,
           "properties": [
             { "name": "keyId", "type": "string", "value": "chapter1-key" },
             { "name": "consumesKey", "type": "bool", "value": false },
-            { "name": "clearOnOpen", "type": "bool", "value": true },
+            { "name": "clearOnOpen", "type": "bool", "value": false },
             { "name": "interactionCells", "type": "string", "value": "0,0|1,0|2,0" },
+            { "name": "collisionCells", "type": "string", "value": "" },
             {
               "name": "closedAssetKey",
               "type": "string",
@@ -264,6 +265,14 @@
             },
             { "name": "openAssetKey", "type": "string", "value": "chapter1-door-open" }
           ]
+        },
+        {
+          "name": "chapter1-exit",
+          "class": "Exit",
+          "x": 64,
+          "y": 288,
+          "width": 32,
+          "height": 32
         }
       ]
     }

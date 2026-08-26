@@ -18,6 +18,12 @@ export const CHAPTER1_VISUAL_THEME: ChapterVisualTheme = {
     cornerBottomLeft: 'chapter1-wall-unified-corner-bl',
     cornerBottomRight: 'chapter1-wall-unified-corner-br',
     bottomDoorway: 'chapter1-wall-bottom-doorway',
+    bottomFace: 'chapter1-wall-unified-top',
+    bottomFaceOverlap: 16,
+    bottomFaceHeight: 80,
+    bottomFaceDoorwayGapTiles: 1,
+    bottomBoundaryDoorwayGapTiles: 1,
+    bottomBoundaryForeground: true,
   },
   typeVisuals: {
     prop: { depth: 0.35 },
@@ -25,7 +31,7 @@ export const CHAPTER1_VISUAL_THEME: ChapterVisualTheme = {
     'pocket-watch': { depth: 0.75 },
     door: {
       depth: 1.1,
-      offset: { x: 8, y: -12 },
+      offset: { x: 8, y: 16 },
       displaySize: { width: 80, height: 76 },
       foregroundCrop: { y: 70, height: 26, depth: 2 },
     },

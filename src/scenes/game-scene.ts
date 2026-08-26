@@ -892,6 +892,31 @@ export class GameScene extends Phaser.Scene {
       );
     }
 
+    if (wall.bottomFace) {
+      const overlap = wall.bottomFaceOverlap ?? this.assetHeight(wall.bottom);
+      const doorwayGapTiles = wall.bottomFaceDoorwayGapTiles ?? 3;
+      const doorwayGapStart =
+        doorwayStartX === undefined
+          ? undefined
+          : doorwayStartX + Math.floor((3 - doorwayGapTiles) / 2);
+      for (let x = 0; x < map.width; x += 1) {
+        const isDoorway =
+          doorwayGapStart !== undefined &&
+          x >= doorwayGapStart &&
+          x < doorwayGapStart + doorwayGapTiles;
+        if (isDoorway) continue;
+        this.renderPerspectiveBoundaryAsset(
+          wall.bottomFace,
+          x * GRID_SIZE,
+          map.height * GRID_SIZE - overlap,
+          WALL_DEPTH - 0.01,
+          wall.bottomFaceHeight === undefined
+            ? undefined
+            : { width: GRID_SIZE, height: wall.bottomFaceHeight },
+        );
+      }
+    }
+
     this.renderPerspectiveBoundaryAsset(
       wall.cornerBottomLeft,
       0,
@@ -902,7 +927,12 @@ export class GameScene extends Phaser.Scene {
       map.width * GRID_SIZE - this.assetWidth(wall.cornerBottomRight),
       map.height * GRID_SIZE - this.assetHeight(wall.cornerBottomRight),
     );
-    if (doorwayStartX !== undefined && wall.bottomDoorway) {
+    const boundaryDoorwayGapTiles = wall.bottomBoundaryDoorwayGapTiles ?? 3;
+    const boundaryDoorwayGapStart =
+      doorwayStartX === undefined
+        ? undefined
+        : doorwayStartX + Math.floor((3 - boundaryDoorwayGapTiles) / 2);
+    if (doorwayStartX !== undefined && wall.bottomDoorway && boundaryDoorwayGapTiles === 3) {
       this.renderPerspectiveBoundaryAsset(
         wall.bottomDoorway,
         doorwayStartX * GRID_SIZE,
@@ -912,13 +942,24 @@ export class GameScene extends Phaser.Scene {
       this.renderDoorwayForeground(wall.bottomDoorway, doorwayStartX, map.height);
     }
     for (let x = 1; x < map.width - 1; x += 1) {
-      const isDoorway = doorwayStartX !== undefined && x >= doorwayStartX && x < doorwayStartX + 3;
+      const isDoorway =
+        boundaryDoorwayGapStart !== undefined &&
+        x >= boundaryDoorwayGapStart &&
+        x < boundaryDoorwayGapStart + boundaryDoorwayGapTiles;
       if (!isDoorway) {
         this.renderPerspectiveBoundaryAsset(
           wall.bottom,
           x * GRID_SIZE,
           map.height * GRID_SIZE - this.assetHeight(wall.bottom),
         );
+        if (wall.bottomBoundaryForeground) {
+          this.renderPerspectiveBoundaryAsset(
+            wall.bottom,
+            x * GRID_SIZE,
+            map.height * GRID_SIZE - this.assetHeight(wall.bottom),
+            1.25,
+          );
+        }
       }
     }
   }
@@ -936,12 +977,14 @@ export class GameScene extends Phaser.Scene {
     offsetX: number,
     offsetY: number,
     depth = WALL_DEPTH + 0.01,
+    displaySize?: Readonly<{ width: number; height: number }>,
   ): void {
     if (!this.currentTheme().assets[assetKey] || !this.textures.exists(assetKey)) return;
     const boundary = this.add
       .image(this.mapOrigin.x + offsetX, this.mapOrigin.y + offsetY, assetKey)
       .setOrigin(0, 0)
       .setDepth(depth);
+    if (displaySize) boundary.setDisplaySize(displaySize.width, displaySize.height);
     if (this.currentTheme().walls.tint !== undefined) {
       boundary.setTint(this.currentTheme().walls.tint);
     }

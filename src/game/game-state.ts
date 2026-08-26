@@ -397,7 +397,33 @@ export function rememberLevelObjects(state: GameState, levelId: string): GameSta
 }
 
 function applyMove(state: GameState, direction: Direction, map: GridMap): ActionResult {
-  const candidate = tryMove(state.player, direction, map);
+  const boundaryExit = state.objects.find(
+    (object) =>
+      object.type === 'exit' && object.mode === 'enter' && object.position.y === map.height - 1,
+  );
+  const boundaryDoor =
+    boundaryExit === undefined
+      ? undefined
+      : state.objects.find(
+          (object) =>
+            object.type === 'door' &&
+            relativeCellsContain(object.position, object.interactionCells, boundaryExit.position),
+        );
+  const boundaryDoorOpen =
+    boundaryDoor?.type === 'door'
+      ? boundaryDoor.open
+      : state.finalDoorId === undefined ||
+        state.objects.some(
+          (object) => object.type === 'door' && object.id === state.finalDoorId && object.open,
+        );
+  const rawCandidate = positionInDirection(state.player, direction);
+  const enteringBeyondBoundary =
+    boundaryExit !== undefined &&
+    boundaryDoorOpen &&
+    direction === 'down' &&
+    samePosition(state.player, boundaryExit.position) &&
+    rawCandidate.y === map.height;
+  const candidate = enteringBeyondBoundary ? rawCandidate : tryMove(state.player, direction, map);
   if (candidate === state.player) return facingResult(state, direction);
 
   let objects = state.objects;
@@ -442,13 +468,13 @@ function applyMove(state: GameState, direction: Direction, map: GridMap): Action
     objects.some(
       (object) => object.type === 'door' && object.id === state.finalDoorId && object.open,
     );
-  const completed = objects.some(
-    (object) =>
-      object.type === 'exit' &&
-      object.mode === 'enter' &&
-      positionKey(object.position) === positionKey(candidate) &&
-      finalDoorOpen,
-  );
+  const completed = objects.some((object) => {
+    if (object.type !== 'exit' || object.mode !== 'enter' || !finalDoorOpen) return false;
+    if (object.position.y === map.height - 1) {
+      return candidate.x === object.position.x && candidate.y === map.height;
+    }
+    return positionKey(object.position) === positionKey(candidate);
+  });
   const nextState: GameState = {
     ...state,
     player: candidate,
@@ -962,7 +988,7 @@ function recalculateDerivedObjects(
 
 function blocksPosition(object: WorldObjectState, position: GridPosition): boolean {
   if (object.type === 'door') {
-    return !object.open && relativeCellsContain(object.position, object.interactionCells, position);
+    return !object.open && relativeCellsContain(object.position, object.collisionCells, position);
   }
   if (object.type === 'box') return samePosition(object.position, position);
   if (object.type === 'key')
