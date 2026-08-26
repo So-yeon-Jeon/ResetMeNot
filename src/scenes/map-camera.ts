@@ -6,8 +6,8 @@ export type MapCameraLayout = Readonly<{
 }>;
 
 const HORIZONTAL_SAFE_MARGIN = 32;
-const TOP_HUD_SAFE_MARGIN = 30;
-const BOTTOM_HUD_SAFE_MARGIN = 30;
+export const TOP_HUD_SAFE_MARGIN = 30;
+export const BOTTOM_HUD_SAFE_MARGIN = 30;
 
 export function calculateMapCameraLayout(
   viewportWidth: number,
@@ -26,7 +26,9 @@ export function calculateMapCameraLayout(
     x: scrollsHorizontally
       ? HORIZONTAL_SAFE_MARGIN
       : Math.floor((viewportWidth - mapPixelWidth) / 2),
-    y: scrollsVertically ? TOP_HUD_SAFE_MARGIN : Math.floor((viewportHeight - mapPixelHeight) / 2),
+    y: scrollsVertically
+      ? TOP_HUD_SAFE_MARGIN
+      : TOP_HUD_SAFE_MARGIN + Math.floor((availableHeight - mapPixelHeight) / 2),
   };
 
   return {

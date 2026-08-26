@@ -1,34 +1,12 @@
 import { CHAPTER1_ASSET_MANIFEST } from '../assets/chapter1/manifest';
-import { CHAPTER2_ASSET_MANIFEST } from '../assets/chapter2/manifest';
 import type { ChapterVisualTheme } from './chapter-visual-theme';
 
 export const CHAPTER3_VISUAL_THEME: ChapterVisualTheme = {
   chapterId: 'chapter-03',
-  cameraZoom: 0.9,
-  assets: {
-    ...CHAPTER1_ASSET_MANIFEST,
-    ...CHAPTER2_ASSET_MANIFEST,
-    'chapter3-memory-cube': {
-      path: new URL('../assets/chapter3/puzzle/memory-cube.png', import.meta.url).href,
-      width: 64,
-      height: 64,
-      placeholderColor: 0x344052,
-      sourceAvailable: true,
-    },
-  },
+  assets: CHAPTER1_ASSET_MANIFEST,
   floor: { assetKey: 'chapter1-floor-tileset', frameCount: 8 },
   walls: {
     renderBoundary: false,
-    floorPlanBoundary: true,
-    doorwayObjectId: 'chapter3-central-gate',
-    partition: 'chapter2-partition-tileset',
-    partitionStraightFrame: 1,
-    partitionLeftEndFrame: 4,
-    partitionRightEndFrame: 0,
-    partitionDoorwayLeftFrame: 0,
-    partitionDoorwayRightFrame: 4,
-    partitionDisplayHeight: 32,
-    partitionDoorwayOverlap: 0,
     top: 'chapter1-wall-unified-top',
     bottom: 'chapter1-wall-unified-bottom',
     left: 'chapter1-wall-unified-left',
@@ -38,89 +16,11 @@ export const CHAPTER3_VISUAL_THEME: ChapterVisualTheme = {
     cornerBottomLeft: 'chapter1-wall-unified-corner-bl',
     cornerBottomRight: 'chapter1-wall-unified-corner-br',
   },
-  objectVisuals: {
-    'chapter3-left-bed': { offset: { x: -12, y: 8 } },
-    'chapter3-left-window': {
-      positionOverride: { y: 0 },
-      offset: { x: 4, y: 28 },
-      displaySize: { width: 48, height: 32 },
-      depth: 0.18,
-    },
-    'chapter3-left-clock': {
-      offset: { x: 16, y: -32 },
-      displaySize: { width: 54, height: 84 },
-    },
-    'chapter3-left-bookshelf': {
-      offset: { x: -4, y: -32 },
-      displaySize: { width: 112, height: 84 },
-    },
-    'chapter3-right-window': {
-      positionOverride: { y: 0 },
-      offset: { x: 4, y: 28 },
-      displaySize: { width: 48, height: 32 },
-      depth: 0.18,
-    },
-    'chapter3-right-desk': { offset: { x: 8, y: 0 } },
-    'chapter3-right-chair': { depth: 0.5 },
-    'chapter3-right-portrait': { offset: { x: 0, y: -16 }, depth: 0.12 },
-    'chapter3-bottom-rug': {
-      depth: 0.18,
-      displaySize: { width: 128, height: 64 },
-    },
-    'chapter3-bottom-crates': { offset: { x: 16, y: 8 } },
-    'chapter3-bottom-barrel': { offset: { x: 8, y: 16 } },
-    'chapter3-bottom-left-plant': { offset: { x: -8, y: 0 } },
-    'chapter3-bottom-right-plant': {},
-    'chapter3-memory-box': {
-      assetKey: 'chapter3-memory-cube',
-      offset: { x: -2, y: -4 },
-      displaySize: { width: 36, height: 36 },
-      depth: 0.65,
-    },
-    'chapter3-memory-socket': {
-      assetKey: 'chapter2-memory-socket',
-      depth: 0.22,
-      offset: { x: -12, y: -12 },
-      displaySize: { width: 56, height: 56 },
-    },
-    'chapter3-hold-lever': {
-      assetKey: 'chapter2-lever',
-      depth: 0.66,
-      offset: { x: -16, y: -16 },
-      displaySize: { width: 64, height: 64 },
-    },
-    'chapter3-final-lever': {
-      assetKey: 'chapter2-lever',
-      depth: 0.66,
-      offset: { x: -16, y: -16 },
-      displaySize: { width: 64, height: 64 },
-    },
-    'chapter3-central-gate': {
-      stateAssetKeys: {
-        closed: 'chapter2-central-gate-closed',
-        open: 'chapter2-central-gate-open',
-      },
-      depth: 1.14,
-      offset: { x: -32, y: -64 },
-      displaySize: { width: 96, height: 96 },
-    },
-    'chapter3-exit-door': {
-      stateAssetKeys: {
-        closed: 'chapter1-door-closed',
-        open: 'chapter1-door-open',
-      },
-      depth: 1.1,
-      offset: { x: -64, y: -12 },
-      displaySize: { width: 80, height: 76 },
-      foregroundCrop: { y: 70, height: 26, depth: 1.3 },
-    },
-  },
   typeVisuals: {
     door: {
-      depth: 1.1,
-      offset: { x: 8, y: -12 },
-      displaySize: { width: 80, height: 76 },
-      foregroundCrop: { y: 70, height: 26, depth: 1.3 },
+      depth: 0.7,
+      offset: { x: 0, y: -16 },
+      displaySize: { width: 32, height: 48 },
     },
   },
 };

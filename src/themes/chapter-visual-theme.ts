@@ -40,9 +40,6 @@ export type WallVisualTheme = Readonly<{
   perspectiveBoundary?: boolean;
   floorPlanBoundary?: boolean;
   partition?: string;
-  partitionVertical?: string;
-  partitionVerticalDisplayWidth?: number;
-  partitionVerticalDisplayHeight?: number;
   partitionStraightFrame?: number;
   partitionLeftEndFrame?: number;
   partitionRightEndFrame?: number;
@@ -66,7 +63,6 @@ export type WallVisualTheme = Readonly<{
 
 export type ChapterVisualTheme = Readonly<{
   chapterId: string;
-  cameraZoom?: number;
   assets: AssetManifest;
   floor: Readonly<{
     assetKey: string;

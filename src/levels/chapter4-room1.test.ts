@@ -13,18 +13,19 @@ function at(state: GameState, player: GridPosition, facing: Direction): GameStat
 
 describe('Chapter 4 room 1', () => {
   it('uses a larger corridor-and-puzzle-room layout', () => {
-    expect(level.map).toMatchObject({ width: 20, height: 14 });
-    expect(level.playerStart).toEqual({ x: 2, y: 3 });
+    expect(level.map).toMatchObject({ width: 24, height: 18 });
+    expect(level.playerStart).toEqual({ x: 2, y: 4 });
     expect(level.resetLimit).toBe(4);
   });
 
-  it('places the three clue objects and code lock on walkable regions', () => {
+  it('places the three clues, wall clock, and code lock on walkable regions', () => {
     const floorTiles = level.map.floorTiles;
     expect(floorTiles).toBeDefined();
     expect(level.objects.map((object) => object.id)).toEqual([
       'chapter4-portrait-clue',
       'chapter4-book-clue',
       'chapter4-missing-picture-clue',
+      'chapter4-wall-clock',
       'chapter4-code-lock',
       'chapter4-code-key',
       'chapter4-exit-door',
@@ -36,9 +37,44 @@ describe('Chapter 4 room 1', () => {
   });
 
   it('keeps the upper corridor connected to the lower puzzle room', () => {
-    expect(level.map.floorTiles?.has('15,5')).toBe(true);
-    expect(level.map.floorTiles?.has('15,6')).toBe(true);
-    expect(level.map.floorTiles?.has('15,7')).toBe(true);
+    expect(level.map.floorTiles?.has('19,5')).toBe(true);
+    expect(level.map.floorTiles?.has('19,6')).toBe(true);
+    expect(level.map.floorTiles?.has('19,8')).toBe(true);
+    expect(level.map.floorTiles?.has('19,9')).toBe(true);
+    expect(level.map.floorTiles?.has('8,9')).toBe(false);
+  });
+
+  it('follows the clue order 9, 2, 4, then the fourth-reset wall clock', () => {
+    const positions = Object.fromEntries(
+      level.objects.map((object) => [object.id, object.position] as const),
+    );
+
+    expect(positions['chapter4-portrait-clue']).toEqual({ x: 7, y: 1 });
+    expect(positions['chapter4-book-clue']).toEqual({ x: 11, y: 1 });
+    expect(positions['chapter4-missing-picture-clue']).toEqual({ x: 15, y: 1 });
+    expect(positions['chapter4-wall-clock']).toEqual({ x: 18, y: 1 });
+    expect(positions['chapter4-code-lock']).toEqual({ x: 17, y: 11 });
+    expect(positions['chapter4-exit-door']).toEqual({ x: 20, y: 12 });
+  });
+
+  it('allows trying the code lock before discovering any clue', () => {
+    let state = createLevelGameState(level, {
+      totalResetCount: 0,
+      chapterRestartCount: 0,
+      pocketWatchCollected: true,
+      events: [],
+    });
+
+    const interaction = applyAction(
+      at(state, { x: 17, y: 12 }, 'up'),
+      { type: 'interact' },
+      level.map,
+    );
+    expect(interaction.state.codeEntryActive).toBe(true);
+    expect(interaction.feedbackMessage).toContain('단서는 부족하지만');
+
+    state = applyAction(interaction.state, { type: 'input-code', digit: 9 }, level.map).state;
+    expect(state.chapter4Puzzle?.codeInput).toBe('9');
   });
 
   it('connects clue inspection, 924, the fourth RESET, and Exit', () => {
@@ -49,14 +85,14 @@ describe('Chapter 4 room 1', () => {
       events: [],
     });
 
-    state = applyAction(at(state, { x: 5, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
+    state = applyAction(at(state, { x: 7, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
     state = applyAction(state, { type: 'interact' }, level.map).state;
-    state = applyAction(at(state, { x: 9, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
+    state = applyAction(at(state, { x: 11, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
     state = applyAction(state, { type: 'interact' }, level.map).state;
-    state = applyAction(at(state, { x: 13, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
+    state = applyAction(at(state, { x: 15, y: 2 }, 'up'), { type: 'reset' }, level.map).state;
     state = applyAction(state, { type: 'interact' }, level.map).state;
 
-    state = applyAction(at(state, { x: 10, y: 10 }, 'up'), { type: 'interact' }, level.map).state;
+    state = applyAction(at(state, { x: 17, y: 12 }, 'up'), { type: 'interact' }, level.map).state;
     state = applyAction(state, { type: 'input-code', digit: 9 }, level.map).state;
     state = applyAction(state, { type: 'input-code', digit: 2 }, level.map).state;
     state = applyAction(state, { type: 'input-code', digit: 4 }, level.map).state;
@@ -69,7 +105,7 @@ describe('Chapter 4 room 1', () => {
     });
 
     state = applyAction(
-      at(state, { x: 16, y: 9 }, 'right'),
+      at(state, { x: 19, y: 12 }, 'right'),
       { type: 'move', direction: 'right' },
       level.map,
     ).state;

@@ -30,6 +30,17 @@ export type Chapter4ResetResult = Readonly<{
   blocked?: 'code-required' | 'completed';
 }>;
 
+export function chapter4ResetFeedback(resetStage: Chapter4PuzzleState['resetStage']): string {
+  const feedback: Readonly<Record<Chapter4PuzzleState['resetStage'], string>> = {
+    0: '',
+    1: '방 어딘가에서 시선이 움직인 듯하다.',
+    2: '책장이 저절로 넘어간다. 펼쳐진 페이지가 달라졌다.',
+    3: '벽에서 작은 마찰음이 들린다. 그림 하나가 사라졌다.',
+    4: '째깍— 멈춰 있던 벽시계가 움직이고 출구가 열린다.',
+  };
+  return feedback[resetStage];
+}
+
 export function createChapter4PuzzleState(): Chapter4PuzzleState {
   return {
     resetStage: 0,
@@ -42,7 +53,7 @@ export function createChapter4PuzzleState(): Chapter4PuzzleState {
 }
 
 export function inputChapter4Digit(state: Chapter4PuzzleState, digit: number): Chapter4PuzzleState {
-  if (!Number.isInteger(digit) || digit < 0 || digit > 9 || state.resetStage < 3) return state;
+  if (!Number.isInteger(digit) || digit < 0 || digit > 9) return state;
   if (state.exitOpen) return state;
 
   const codeInput = `${state.codeInput}${digit}`.slice(-CHAPTER4_CODE.length);
