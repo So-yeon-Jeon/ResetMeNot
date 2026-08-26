@@ -6,8 +6,8 @@ export type MapCameraLayout = Readonly<{
 }>;
 
 const HORIZONTAL_SAFE_MARGIN = 32;
-const TOP_HUD_SAFE_MARGIN = 64;
-const BOTTOM_HUD_SAFE_MARGIN = 64;
+const TOP_HUD_SAFE_MARGIN = 30;
+const BOTTOM_HUD_SAFE_MARGIN = 30;
 
 export function calculateMapCameraLayout(
   viewportWidth: number,

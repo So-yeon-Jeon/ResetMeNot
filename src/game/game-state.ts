@@ -865,7 +865,9 @@ function recalculateDerivedObjects(
 }
 
 function blocksPosition(object: WorldObjectState, position: GridPosition): boolean {
-  if (object.type === 'door') return !object.open && samePosition(object.position, position);
+  if (object.type === 'door') {
+    return !object.open && relativeCellsContain(object.position, object.interactionCells, position);
+  }
   if (object.type === 'box') return samePosition(object.position, position);
   if (object.type === 'key')
     return (
