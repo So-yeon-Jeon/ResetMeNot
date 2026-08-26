@@ -34,6 +34,30 @@ describe('Chapter 4 room 1', () => {
     expect(level.map.floorTiles?.has('14,12')).toBe(true);
   });
 
+  it('maps Chapter 4 puzzle states to their image assets', () => {
+    expect(level.objects.find((item) => item.id === 'chapter4-portrait-clue')).toMatchObject({
+      assetKey: 'chapter4-portrait-normal',
+      states: {
+        normal: { assetKey: 'chapter4-portrait-normal' },
+        changed: { assetKey: 'chapter4-portrait-changed' },
+      },
+    });
+    expect(level.objects.find((item) => item.id === 'chapter4-book-clue')).toMatchObject({
+      states: {
+        normal: { assetKey: 'chapter4-book-normal' },
+        changed: { assetKey: 'chapter4-book-changed' },
+      },
+    });
+    expect(level.objects.find((item) => item.id === 'chapter4-missing-picture-clue')).toMatchObject(
+      {
+        states: {
+          normal: { assetKey: 'chapter4-painting-normal' },
+          changed: { assetKey: 'chapter4-painting-missing' },
+        },
+      },
+    );
+  });
+
   it('keeps every interaction, exit threshold, and decorative collision on floor cells', () => {
     const floorTiles = level.map.floorTiles;
     expect(floorTiles).toBeDefined();

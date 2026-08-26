@@ -203,7 +203,7 @@
             {
               "name": "stateAssets",
               "type": "string",
-              "value": "normal=chapter4-portrait-normal;changed=chapter4-portrait-changed"
+              "value": "normal=chapter4-portrait-normal,changed=chapter4-portrait-changed"
             },
             {
               "name": "stateCollision",
@@ -258,7 +258,7 @@
             {
               "name": "stateAssets",
               "type": "string",
-              "value": "normal=chapter4-book-normal;changed=chapter4-book-changed"
+              "value": "normal=chapter4-book-normal,changed=chapter4-book-changed"
             },
             {
               "name": "stateCollision",
@@ -333,7 +333,7 @@
             {
               "name": "stateAssets",
               "type": "string",
-              "value": "normal=chapter4-painting-normal;changed=chapter4-painting-missing"
+              "value": "normal=chapter4-painting-normal,changed=chapter4-painting-missing"
             },
             {
               "name": "stateCollision",
@@ -368,7 +368,7 @@
             {
               "name": "stateAssets",
               "type": "string",
-              "value": "static=chapter4-clock-static;moved=chapter4-clock-static"
+              "value": "static=chapter4-clock-static,moved=chapter4-clock-static"
             },
             {
               "name": "stateCollision",
@@ -438,7 +438,7 @@
             {
               "name": "stateAssets",
               "type": "string",
-              "value": "locked=chapter4-code-lock;active=chapter4-code-lock"
+              "value": "locked=chapter4-code-lock,active=chapter4-code-lock"
             },
             {
               "name": "stateCollision",
