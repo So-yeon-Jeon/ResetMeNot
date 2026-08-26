@@ -36,6 +36,7 @@ export type ObjectVisual = Readonly<{
 }>;
 
 export type WallVisualTheme = Readonly<{
+  tint?: number;
   doorwayObjectId?: string;
   perspectiveBoundary?: boolean;
   followFloorSilhouette?: boolean;
@@ -84,6 +85,7 @@ export type ChapterVisualTheme = Readonly<{
   floor: Readonly<{
     assetKey: string;
     frameCount?: number;
+    tint?: number;
   }>;
   walls: WallVisualTheme;
   objectVisuals?: Readonly<Record<string, ObjectVisual>>;

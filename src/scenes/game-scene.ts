@@ -31,12 +31,9 @@ import type {
 } from '../themes/chapter-visual-theme';
 import { CHAPTER_VISUAL_THEMES, getChapterVisualTheme } from '../themes/theme-catalog';
 import { actionFeedback, FEEDBACK_MESSAGES, resetBlockedFeedback } from '../ui/feedback-messages';
-import {
-  BOTTOM_HUD_SAFE_MARGIN,
-  calculateMapCameraLayout,
-  TOP_HUD_SAFE_MARGIN,
-} from './map-camera';
+import { calculateMapCameraLayout, TOP_HUD_SAFE_MARGIN } from './map-camera';
 import { containDisplaySize } from './cinematic-layout';
+import { chapterObjective } from '../ui/chapter-objective';
 
 const MOVE_DURATION_MS = 110;
 const RESET_LOCK_MS = 100;
@@ -69,6 +66,7 @@ const ENDING_TITLE_SAFE_MARGIN = 16;
 const FINAL_CLOCK_MINUTE_HAND_ASSET_KEY = 'chapter5-final-clock-minute-hand';
 const FINAL_CLOCK_FACE_CENTER = { x: 96, y: 80 };
 const FINAL_CLOCK_MINUTE_HAND_ORIGIN_Y = 0.7;
+const BOTTOM_HUD_MASK_HEIGHT = 48;
 
 type MovementKeys = Readonly<{
   up: Phaser.Input.Keyboard.Key[];
@@ -113,6 +111,7 @@ export class GameScene extends Phaser.Scene {
   private codeClearKey!: Phaser.Input.Keyboard.Key;
   private inspectionCloseKey!: Phaser.Input.Keyboard.Key;
   private resetHud!: Phaser.GameObjects.Text;
+  private objectiveHud!: Phaser.GameObjects.Text;
   private feedbackHud!: Phaser.GameObjects.Text;
   private instructionsHud!: Phaser.GameObjects.Text;
   private phaseHud!: Phaser.GameObjects.Text;
@@ -341,17 +340,12 @@ export class GameScene extends Phaser.Scene {
         const pixelX = this.mapOrigin.x + x * GRID_SIZE;
         const pixelY = this.mapOrigin.y + y * GRID_SIZE;
 
-        this.mapTiles.push(
-          this.add
-            .image(
-              pixelX,
-              pixelY,
-              theme.floor.assetKey,
-              (x + y * 3) % (theme.floor.frameCount ?? 1),
-            )
-            .setOrigin(0, 0)
-            .setDepth(0),
-        );
+        const floorTile = this.add
+          .image(pixelX, pixelY, theme.floor.assetKey, (x + y * 3) % (theme.floor.frameCount ?? 1))
+          .setOrigin(0, 0)
+          .setDepth(0);
+        if (theme.floor.tint !== undefined) floorTile.setTint(theme.floor.tint);
+        this.mapTiles.push(floorTile);
       }
     }
 
@@ -359,8 +353,11 @@ export class GameScene extends Phaser.Scene {
       this.drawFloorPlanBoundary(map, theme);
       this.drawPartitions(map, theme);
     } else {
-      this.drawInternalStructuralWalls(map, theme);
+      if (!theme.walls.followFloorSilhouette) {
+        this.drawInternalStructuralWalls(map, theme);
+      }
       this.drawWallKit(map, theme);
+      this.drawPartitions(map, theme);
     }
   }
 
@@ -369,14 +366,22 @@ export class GameScene extends Phaser.Scene {
     if (!floorCells) return;
 
     const boundaryCells = new Set(map.structuralWalls ?? []);
-    floorCells.forEach((key) => {
-      const [x, y] = key.split(',').map(Number);
-      if (x === undefined || y === undefined) return;
-      const touchesVoid = [`${x},${y - 1}`, `${x},${y + 1}`, `${x - 1},${y}`, `${x + 1},${y}`].some(
-        (neighbor) => !floorCells.has(neighbor),
-      );
-      if (touchesVoid) boundaryCells.add(key);
-    });
+    const hasAuthoredBoundary = boundaryCells.size > 0;
+    // Authored wall cells already describe the intended outline. Deriving another
+    // outline from the floor on top of them produces doubled, chunky borders.
+    if (boundaryCells.size === 0) {
+      floorCells.forEach((key) => {
+        const [x, y] = key.split(',').map(Number);
+        if (x === undefined || y === undefined) return;
+        const touchesVoid = [
+          `${x},${y - 1}`,
+          `${x},${y + 1}`,
+          `${x - 1},${y}`,
+          `${x + 1},${y}`,
+        ].some((neighbor) => !floorCells.has(neighbor));
+        if (touchesVoid) boundaryCells.add(key);
+      });
+    }
 
     const hasFloor = (x: number, y: number): boolean => floorCells.has(`${x},${y}`);
     const hasOuterWall = (x: number, y: number): boolean => boundaryCells.has(`${x},${y}`);
@@ -393,10 +398,53 @@ export class GameScene extends Phaser.Scene {
       const floorAboveRight = hasFloor(x + 1, y - 1);
       const floorBelowLeft = hasFloor(x - 1, y + 1);
       const floorBelowRight = hasFloor(x + 1, y + 1);
+      const wallAbove = hasOuterWall(x, y - 1);
+      const wallBelow = hasOuterWall(x, y + 1);
+      const wallLeft = hasOuterWall(x - 1, y);
+      const wallRight = hasOuterWall(x + 1, y);
+
+      // Explicit wall layers describe complete corners. Half-corners are only
+      // needed for boundaries inferred from a stepped floor silhouette.
+      if (hasAuthoredBoundary && !floorAbove && !floorBelow && !floorLeft && !floorRight) {
+        let authoredCorner: string | undefined;
+        if (wallRight && wallBelow) authoredCorner = theme.walls.cornerTopLeft;
+        else if (wallLeft && wallBelow) authoredCorner = theme.walls.cornerTopRight;
+        else if (wallRight && wallAbove) authoredCorner = theme.walls.cornerBottomLeft;
+        else if (wallLeft && wallAbove) authoredCorner = theme.walls.cornerBottomRight;
+
+        if (authoredCorner) {
+          const cornerDepth = wallAbove
+            ? gridRowDepth(INTERNAL_WALL_DEPTH_BASE, y)
+            : WALL_DEPTH + 0.01;
+          this.renderPerspectiveBoundaryAsset(
+            authoredCorner,
+            x * GRID_SIZE,
+            y * GRID_SIZE,
+            cornerDepth,
+          );
+          return;
+        }
+
+        if ((wallAbove || wallBelow) && !wallLeft && !wallRight) {
+          const floorIsLeft = floorAboveLeft || floorBelowLeft;
+          const verticalAsset = floorIsLeft ? theme.walls.right : theme.walls.left;
+          const verticalOffset =
+            verticalAsset === theme.walls.left
+              ? x * GRID_SIZE + GRID_SIZE - this.assetWidth(verticalAsset)
+              : x * GRID_SIZE;
+          this.renderPerspectiveBoundaryAsset(
+            verticalAsset,
+            verticalOffset,
+            y * GRID_SIZE,
+            WALL_DEPTH + 0.01,
+          );
+          return;
+        }
+      }
 
       // A stepped outline can place two rooms diagonally across the same grid cell.
       // Render one half-corner for each room so the alcove seam closes cleanly.
-      if (floorAboveRight && floorBelowLeft) {
+      if (!hasAuthoredBoundary && floorAboveRight && floorBelowLeft) {
         this.renderBoundaryHalf(theme.walls.cornerTopRight, x, y, 'left', WALL_DEPTH + 0.01);
         this.renderBoundaryHalf(
           theme.walls.cornerBottomLeft,
@@ -517,18 +565,18 @@ export class GameScene extends Phaser.Scene {
       const doorwayOverlap = doorwaySide ? (theme.walls.partitionDoorwayOverlap ?? 0) : 0;
       const displayWidth = GRID_SIZE + doorwayOverlap;
       const offsetX = doorwaySide === 'right' ? -doorwayOverlap : 0;
-      this.mapTiles.push(
-        this.add
-          .image(
-            this.mapOrigin.x + x * GRID_SIZE + offsetX,
-            this.mapOrigin.y + (y + 1) * GRID_SIZE - displayHeight,
-            assetKey,
-            frame,
-          )
-          .setOrigin(0, 0)
-          .setDisplaySize(displayWidth, displayHeight)
-          .setDepth(depth),
-      );
+      const partition = this.add
+        .image(
+          this.mapOrigin.x + x * GRID_SIZE + offsetX,
+          this.mapOrigin.y + (y + 1) * GRID_SIZE - displayHeight,
+          assetKey,
+          frame,
+        )
+        .setOrigin(0, 0)
+        .setDisplaySize(displayWidth, displayHeight)
+        .setDepth(depth);
+      if (theme.walls.tint !== undefined) partition.setTint(theme.walls.tint);
+      this.mapTiles.push(partition);
     });
   }
 
@@ -645,17 +693,41 @@ export class GameScene extends Phaser.Scene {
   }
 
   private drawFloorSilhouetteWall(
-    map: Readonly<{ width: number; height: number; floorTiles?: ReadonlySet<string> }>,
+    map: Readonly<{
+      width: number;
+      height: number;
+      floorTiles?: ReadonlySet<string>;
+      partitionWalls?: ReadonlySet<string>;
+    }>,
     wall: ChapterVisualTheme['walls'],
   ): void {
     const hasFloor = (x: number, y: number) => map.floorTiles?.has(`${x},${y}`) ?? false;
+    const partitionSpans = new Map<number, { minX: number; maxX: number }>();
+    for (const key of map.partitionWalls ?? []) {
+      const [partitionX, partitionY] = key.split(',').map(Number);
+      if (partitionX === undefined || partitionY === undefined) continue;
+      const span = partitionSpans.get(partitionY);
+      if (span) {
+        span.minX = Math.min(span.minX, partitionX);
+        span.maxX = Math.max(span.maxX, partitionX);
+      } else {
+        partitionSpans.set(partitionY, { minX: partitionX, maxX: partitionX });
+      }
+    }
+    const isCoveredByPartition = (x: number, y: number): boolean => {
+      const span = partitionSpans.get(y);
+      return span !== undefined && x >= span.minX && x <= span.maxX;
+    };
     const render = (assetKey: string, x: number, y: number) =>
       this.renderPerspectiveBoundaryAsset(assetKey, x, y);
 
     for (const key of map.floorTiles ?? []) {
       const [x, y] = key.split(',').map(Number);
       if (x === undefined || y === undefined) continue;
-      const north = !hasFloor(x, y - 1);
+      // A full partition already supplies the visible wall face and doorway.
+      // Do not draw a second silhouette wall directly underneath that span.
+      const north =
+        !hasFloor(x, y - 1) && !isCoveredByPartition(x, y) && !isCoveredByPartition(x, y - 1);
       const south = !hasFloor(x, y + 1);
       const west = !hasFloor(x - 1, y);
       const east = !hasFloor(x + 1, y);
@@ -816,12 +888,14 @@ export class GameScene extends Phaser.Scene {
     depth = WALL_DEPTH + 0.01,
   ): void {
     if (!this.currentTheme().assets[assetKey] || !this.textures.exists(assetKey)) return;
-    this.mapTiles.push(
-      this.add
-        .image(this.mapOrigin.x + offsetX, this.mapOrigin.y + offsetY, assetKey)
-        .setOrigin(0, 0)
-        .setDepth(depth),
-    );
+    const boundary = this.add
+      .image(this.mapOrigin.x + offsetX, this.mapOrigin.y + offsetY, assetKey)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    if (this.currentTheme().walls.tint !== undefined) {
+      boundary.setTint(this.currentTheme().walls.tint);
+    }
+    this.mapTiles.push(boundary);
   }
 
   private renderBoundaryHalf(
@@ -838,14 +912,16 @@ export class GameScene extends Phaser.Scene {
     const cropWidth = Math.min(GRID_SIZE / 2, asset.width);
     const cropX = side === 'left' ? 0 : asset.width - cropWidth;
     const pixelX = gridX * GRID_SIZE + (side === 'right' ? GRID_SIZE - cropWidth : 0);
-    this.mapTiles.push(
-      this.add
-        .image(this.mapOrigin.x + pixelX, this.mapOrigin.y + gridY * GRID_SIZE + offsetY, assetKey)
-        .setOrigin(0, 0)
-        .setCrop(cropX, 0, cropWidth, asset.height)
-        .setDisplaySize(cropWidth, asset.height)
-        .setDepth(depth),
-    );
+    const corner = this.add
+      .image(this.mapOrigin.x + pixelX, this.mapOrigin.y + gridY * GRID_SIZE + offsetY, assetKey)
+      .setOrigin(0, 0)
+      .setCrop(cropX, 0, cropWidth, asset.height)
+      .setDisplaySize(cropWidth, asset.height)
+      .setDepth(depth);
+    if (this.currentTheme().walls.tint !== undefined) {
+      corner.setTint(this.currentTheme().walls.tint);
+    }
+    this.mapTiles.push(corner);
   }
 
   private renderDoorwayForeground(
@@ -897,6 +973,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(depth);
     if (crop) image.setCrop(0, crop.y, manifestEntry.width, crop.height);
     if (displaySize) image.setDisplaySize(displaySize.width, displaySize.height);
+    if (this.currentTheme().walls.tint !== undefined) image.setTint(this.currentTheme().walls.tint);
     this.mapTiles.push(image);
   }
 
@@ -923,9 +1000,9 @@ export class GameScene extends Phaser.Scene {
     this.add
       .rectangle(
         0,
-        this.scale.height - BOTTOM_HUD_SAFE_MARGIN,
+        this.scale.height - BOTTOM_HUD_MASK_HEIGHT,
         this.scale.width,
-        BOTTOM_HUD_SAFE_MARGIN,
+        BOTTOM_HUD_MASK_HEIGHT,
         0x0d0c13,
         1,
       )
@@ -965,8 +1042,19 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(HUD_CONTENT_DEPTH);
     this.updateResetHud();
+    this.objectiveHud = this.add
+      .text(this.scale.width / 2, this.scale.height - 17, '', {
+        color: '#aaa1b5',
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        letterSpacing: 1,
+      })
+      .setOrigin(0.5, 1)
+      .setScrollFactor(0)
+      .setDepth(HUD_CONTENT_DEPTH);
+    this.updateObjectiveHud();
     this.feedbackHud = this.add
-      .text(this.scale.width / 2, this.scale.height - 15, '', {
+      .text(this.scale.width / 2, this.scale.height - 32, '', {
         color: '#d8b65a',
         fontFamily: 'monospace',
         fontSize: '13px',
@@ -1957,6 +2045,14 @@ export class GameScene extends Phaser.Scene {
   private setGameState(state: GameState): void {
     this.gameState = state;
     this.session = updateSessionState(this.session, state);
+    this.updateObjectiveHud();
+  }
+
+  private updateObjectiveHud(): void {
+    if (!this.objectiveHud) return;
+    this.objectiveHud.setText(
+      chapterObjective(currentLevel(this.session).chapterId, this.gameState),
+    );
   }
 
   private startChapterTransition(): void {
@@ -2006,6 +2102,7 @@ export class GameScene extends Phaser.Scene {
     this.createFinalWallMessage();
     this.updateResetHud();
     this.updateInstructionsHud();
+    this.updateObjectiveHud();
     this.setPhaseMessage('');
     this.feedbackHud.setText('');
     this.updateClockHud();
@@ -2064,6 +2161,7 @@ export class GameScene extends Phaser.Scene {
     this.echoSprites = [];
     this.resetHud.setVisible(false);
     this.instructionsHud.setVisible(false);
+    this.objectiveHud.setVisible(false);
     this.feedbackHud.setVisible(false);
     this.phaseHud.setVisible(false);
     this.phaseHudPanel.setVisible(false);

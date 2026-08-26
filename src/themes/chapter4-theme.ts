@@ -6,6 +6,16 @@ export const CHAPTER4_VISUAL_THEME: ChapterVisualTheme = {
   chapterId: 'chapter-04',
   assets: {
     ...CHAPTER1_ASSET_MANIFEST,
+    'chapter4-floor-tileset': {
+      path: new URL('../assets/chapter4/tiles/floor_tileset.png', import.meta.url).href,
+      width: 256,
+      height: 32,
+      placeholderColor: 0x302820,
+      sourceAvailable: true,
+      kind: 'spritesheet',
+      frameWidth: 32,
+      frameHeight: 32,
+    },
     'chapter4-portrait-normal': {
       path: new URL('../assets/chapter4/portrait_normal.png', import.meta.url).href,
       width: 48,
@@ -154,8 +164,9 @@ export const CHAPTER4_VISUAL_THEME: ChapterVisualTheme = {
       sourceAvailable: true,
     },
   },
-  floor: { assetKey: 'chapter1-floor-tileset', frameCount: 8 },
+  floor: { assetKey: 'chapter4-floor-tileset', frameCount: 8, tint: 0xc5b9aa },
   walls: {
+    tint: 0xb9b0a5,
     perspectiveBoundary: true,
     followFloorSilhouette: true,
     top: 'chapter1-wall-unified-top',

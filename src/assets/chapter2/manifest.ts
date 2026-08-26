@@ -12,7 +12,16 @@ function alias(assetKey: keyof typeof CHAPTER1_ASSET_MANIFEST): AssetDefinition 
 }
 
 export const CHAPTER2_ASSET_MANIFEST: AssetManifest = {
-  'chapter2-floor-tileset': alias('chapter1-floor-tileset'),
+  'chapter2-floor-tileset': {
+    path: new URL('./tiles/floor_tileset.png', import.meta.url).href,
+    width: 256,
+    height: 32,
+    placeholderColor: 0x171820,
+    sourceAvailable: true,
+    kind: 'spritesheet',
+    frameWidth: 32,
+    frameHeight: 32,
+  },
   'chapter2-partition-tileset': {
     path: new URL('../chapter1/tiles/wall_tileset_room.png', import.meta.url).href,
     width: 256,
@@ -40,7 +49,13 @@ export const CHAPTER2_ASSET_MANIFEST: AssetManifest = {
   'chapter2-wall-unified-corner-tr': alias('chapter1-wall-unified-corner-tr'),
   'chapter2-wall-unified-corner-bl': alias('chapter1-wall-unified-corner-bl'),
   'chapter2-wall-unified-corner-br': alias('chapter1-wall-unified-corner-br'),
-  'chapter2-bed': alias('chapter1-bed'),
+  'chapter2-bed': {
+    path: new URL('./furniture/bed_navy.png', import.meta.url).href,
+    width: 96,
+    height: 128,
+    placeholderColor: 0x172848,
+    sourceAvailable: true,
+  },
   'chapter2-nightstand': alias('chapter1-nightstand'),
   'chapter2-window': alias('chapter1-window'),
   'chapter2-portrait': alias('chapter1-portrait'),
