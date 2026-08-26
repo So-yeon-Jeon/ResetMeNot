@@ -41,11 +41,11 @@ describe('Chapter 1 room 1', () => {
     const state = createLevelGameState(level);
 
     const blockedByNightstand = applyAction(
-      at(state, { x: 3, y: 2 }, 'up'),
+      at(state, { x: 3, y: 3 }, 'up'),
       { type: 'move', direction: 'up' },
       level.map,
     ).state;
-    expect(blockedByNightstand.player).toEqual({ x: 3, y: 2 });
+    expect(blockedByNightstand.player).toEqual({ x: 3, y: 3 });
 
     const blockedByClock = applyAction(
       at(state, { x: 6, y: 3 }, 'up'),
@@ -60,6 +60,13 @@ describe('Chapter 1 room 1', () => {
       level.map,
     ).state;
     expect(blockedByWindow.player).toEqual({ x: 4, y: 2 });
+
+    const blockedByWindowRightEdge = applyAction(
+      at(state, { x: 5, y: 2 }, 'up'),
+      { type: 'move', direction: 'up' },
+      level.map,
+    ).state;
+    expect(blockedByWindowRightEdge.player).toEqual({ x: 5, y: 2 });
 
     const blockedByPlant = applyAction(
       at(state, { x: 2, y: 4 }, 'left'),
@@ -111,6 +118,36 @@ describe('Chapter 1 room 1', () => {
     expect(blockedByBarrel.player).toEqual({ x: 9, y: 7 });
   });
 
+  it('keeps the front tiles of the bed and grandfather clock reachable from the start', () => {
+    const state = createLevelGameState(level);
+    const reachable = (target: GridPosition): boolean => {
+      const queue: GridPosition[] = [state.player];
+      const visited = new Set<string>();
+      while (queue.length > 0) {
+        const current = queue.shift();
+        if (!current) break;
+        const key = `${current.x},${current.y}`;
+        if (visited.has(key)) continue;
+        if (current.x === target.x && current.y === target.y) return true;
+        visited.add(key);
+        (['up', 'down', 'left', 'right'] as const).forEach((direction) => {
+          const moved = applyAction(
+            at(state, current, direction),
+            { type: 'move', direction },
+            level.map,
+          ).state.player;
+          if (`${moved.x},${moved.y}` !== key && !visited.has(`${moved.x},${moved.y}`)) {
+            queue.push(moved);
+          }
+        });
+      }
+      return false;
+    };
+
+    expect(reachable({ x: 3, y: 3 })).toBe(true);
+    expect(reachable({ x: 6, y: 3 })).toBe(true);
+  });
+
   it('does not allow RESET before the pocket watch is acquired', () => {
     const state = createLevelGameState(level);
     const result = applyAction(state, { type: 'reset' }, level.map);
@@ -122,7 +159,7 @@ describe('Chapter 1 room 1', () => {
 
   it('acquires the hidden pocket watch through the nightstand and unlocks RESET only', () => {
     const state = createLevelGameState(level);
-    const acquired = interact(state, { x: 3, y: 2 }, 'up');
+    const acquired = interact(state, { x: 3, y: 3 }, 'up');
 
     expect(object(acquired, 'chapter1-pocket-watch')).toMatchObject({
       collected: true,
@@ -135,7 +172,7 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('allows RESET after the pocket watch but does not create an Echo in Chapter 1', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const result = applyAction(acquired, { type: 'reset' }, level.map);
 
     expect(result.resetPerformed).toBe(true);
@@ -146,7 +183,7 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('turns the bookshelf fallen and leaves the key trapped until RESET', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const fallen = interact(acquired, { x: 9, y: 2 }, 'up');
     const blocked = applyAction(at(fallen, { x: 9, y: 4 }, 'up'), { type: 'interact' }, level.map);
 
@@ -166,7 +203,7 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('requires a new RESET after the bookshelf falls even if RESET was used earlier', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const resetBeforeShelf = resetAfterAction(acquired);
     const fallen = interact(resetBeforeShelf, { x: 9, y: 2 }, 'up');
     const trapped = interact(fallen, { x: 9, y: 4 }, 'up');
@@ -214,7 +251,7 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('does not allow side access to the key while the bookshelf is fallen', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const fallen = interact(acquired, { x: 9, y: 2 }, 'up');
     const blocked = applyAction(
       at(fallen, { x: 8, y: 3 }, 'right'),
@@ -227,7 +264,7 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('lets the player escape after falling the bookshelf while keeping the key blocked', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const fallen = interact(acquired, { x: 9, y: 2 }, 'up');
     const movedLeft = applyAction(
       at(fallen, { x: 9, y: 3 }, 'left'),
@@ -246,7 +283,7 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('restores the bookshelf but preserves the dropped key position and collectible state', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const fallen = interact(acquired, { x: 9, y: 2 }, 'up');
     const reset = resetAfterAction(fallen);
 
@@ -263,7 +300,7 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('still allows the player to collect the dropped key after RESET', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const reset = resetAfterAction(interact(acquired, { x: 9, y: 2 }, 'up'));
     const collected = interact(reset, { x: 9, y: 4 }, 'up');
 
@@ -272,7 +309,7 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('allows collecting the dropped key while standing on its tile', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const reset = resetAfterAction(interact(acquired, { x: 9, y: 2 }, 'up'));
     const collected = interact(reset, { x: 9, y: 3 }, 'left');
 
@@ -288,7 +325,7 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('opens the door and clears Chapter 1 after the key is collected', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const reset = resetAfterAction(interact(acquired, { x: 9, y: 2 }, 'up'));
     const withKey = interact(reset, { x: 9, y: 4 }, 'up');
     const result = applyAction(
@@ -303,7 +340,7 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('opens the visual three-tile door from any front tile', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const reset = resetAfterAction(interact(acquired, { x: 9, y: 2 }, 'up'));
     const withKey = interact(reset, { x: 9, y: 4 }, 'up');
 
@@ -316,7 +353,7 @@ describe('Chapter 1 room 1', () => {
   });
 
   it('restarts the Chapter 1 puzzle state from its initial data', () => {
-    const acquired = interact(createLevelGameState(level), { x: 3, y: 2 }, 'up');
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const fallen = interact(acquired, { x: 9, y: 2 }, 'up');
     const restarted = restartChapter(fallen);
 

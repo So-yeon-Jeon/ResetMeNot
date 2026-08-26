@@ -1267,7 +1267,10 @@ export class GameScene extends Phaser.Scene {
       this.setPlayerFrame('idle');
       this.updatePlayerDepth();
     }
-    if (result.chapterCompleted) this.setPhaseMessage('CHAPTER CLEAR');
+    if (result.chapterCompleted) {
+      this.setPhaseMessage('CHAPTER CLEAR\nENTER · CONTINUE');
+      this.time.delayedCall(2_200, () => this.startChapterTransition());
+    }
 
     if (result.resetPerformed) {
       if (result.feedbackMessage) this.showFeedback(result.feedbackMessage);
@@ -1849,14 +1852,6 @@ export class GameScene extends Phaser.Scene {
         );
         if (leverSprites.length > 0) {
           this.objectSprites.push(...leverSprites);
-          if (object.active) {
-            this.objectSprites.push(
-              this.add
-                .circle(pixel.x, pixel.y, 5, 0x73c8df, 0.9)
-                .setStrokeStyle(2, 0xb9efff)
-                .setDepth((visual.depth ?? 0.65) + 0.02),
-            );
-          }
         } else {
           this.objectSprites.push(
             this.add

@@ -119,11 +119,10 @@ describe('Chapter 2 room 1', () => {
     expect(current.player).toEqual({ x: 11, y: 5 });
 
     current = move(current, ['up', 'right', 'right', 'right', 'right', 'right', 'up', 'up']);
-    expect(current.player).toEqual({ x: 16, y: 2 });
-    current = applyAction(current, { type: 'move', direction: 'up' }, level.map).state;
+    expect(current.player).toEqual({ x: 16, y: 3 });
     current = applyAction(current, { type: 'interact' }, level.map).state;
     expect(object(current, 'chapter2-final-lever')).toMatchObject({
-      position: { x: 16, y: 1 },
+      position: { x: 16, y: 2 },
       active: true,
     });
     expect(object(current, 'chapter2-exit-door')).toMatchObject({
@@ -131,7 +130,7 @@ describe('Chapter 2 room 1', () => {
       open: true,
     });
 
-    current = move(current, ['right', 'right']);
+    current = move(current, ['right', 'right', 'up']);
     expect(current.player).toEqual({ x: 18, y: 2 });
     const exited = applyAction(current, { type: 'move', direction: 'right' }, level.map);
 
@@ -146,7 +145,7 @@ describe('Chapter 2 room 1', () => {
     expect(state.player).toEqual({ x: 11, y: 12 });
     expect(object(state, 'chapter2-echo-switch').position).toEqual({ x: 6, y: 10 });
     expect(object(state, 'chapter2-passage-door').position).toEqual({ x: 11, y: 6 });
-    expect(object(state, 'chapter2-final-lever').position).toEqual({ x: 16, y: 1 });
+    expect(object(state, 'chapter2-final-lever').position).toEqual({ x: 16, y: 2 });
     expect(object(state, 'chapter2-exit-door').position).toEqual({ x: 19, y: 2 });
     expect(object(state, 'chapter2-exit').position).toEqual({ x: 19, y: 2 });
   });

@@ -93,8 +93,8 @@
           "width": 32,
           "height": 32,
           "properties": [
-            { "name": "assetKey", "type": "string", "value": "chapter2-bookshelf-standing" },
-            { "name": "collisionCells", "type": "string", "value": "0,0|1,0|0,1|1,1" }
+            { "name": "assetKey", "type": "string", "value": "chapter2-bed" },
+            { "name": "collisionCells", "type": "string", "value": "0,0|1,0|0,1|1,1|0,2|1,2" }
           ]
         },
         {
@@ -232,7 +232,7 @@
         {
           "name": "chapter3-bottom-right-plant",
           "class": "Prop",
-          "x": 512,
+          "x": 480,
           "y": 352,
           "width": 32,
           "height": 32,

@@ -178,7 +178,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
     const key = positionKey(position);
     const floorTiles = gridMap.floorTiles ?? gridMap.floorCells;
     if (!floorTiles?.has(key)) fail(`${name}이(가) 바닥이 없는 위치에 있습니다.`);
-    if (structuralWalls.has(key) || partitionWalls.has(key)) {
+    if (type !== 'PlayerSpawn' && (structuralWalls.has(key) || partitionWalls.has(key))) {
       fail(`${name}이(가) 벽 위에 있습니다.`);
     }
     const props = readProperties(item.properties, `${label}.properties`);
@@ -198,13 +198,17 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
   });
   if (!playerStart) fail('PlayerSpawn이 필요합니다.');
 
-  if (blockFloorBoundary) {
-    for (const item of objects) {
-      if (item.type !== 'door') continue;
-      for (const cell of item.interactionCells) {
-        walls.delete(positionKey({ x: item.position.x + cell.x, y: item.position.y + cell.y }));
-      }
+  // A closed door supplies its own collision footprint.  Keep its cells out of
+  // the static wall map so opening the door genuinely creates a passage.
+  for (const item of objects) {
+    if (item.type !== 'door') continue;
+    for (const cell of item.interactionCells) {
+      walls.delete(positionKey({ x: item.position.x + cell.x, y: item.position.y + cell.y }));
     }
+  }
+
+  if (gridMap.walls.has(positionKey(playerStart))) {
+    fail(`PlayerSpawn이 이동 불가 위치 ${positionKey(playerStart)}에 있습니다.`);
   }
 
   validateInitialOccupancy(objects, playerStart, gridMap);

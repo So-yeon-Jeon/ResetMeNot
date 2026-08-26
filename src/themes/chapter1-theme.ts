@@ -27,7 +27,7 @@ export const CHAPTER1_VISUAL_THEME: ChapterVisualTheme = {
       depth: 1.1,
       offset: { x: 8, y: -12 },
       displaySize: { width: 80, height: 76 },
-      foregroundCrop: { y: 70, height: 26, depth: 1.3 },
+      foregroundCrop: { y: 70, height: 26, depth: 2 },
     },
     key: { depth: 0.8, displaySize: { width: 24, height: 24 } },
   },
@@ -39,10 +39,17 @@ export const CHAPTER1_VISUAL_THEME: ChapterVisualTheme = {
       depth: 0.18,
     },
     'chapter1-grandfather-clock': {
-      offset: { x: 16, y: -32 },
-      displaySize: { width: 54, height: 84 },
+      // Keep the visual body aligned with the authored 2×2 collision footprint.
+      // The previous upward shift made the reachable front tile look detached.
+      offset: { x: 0, y: -8 },
+      displaySize: { width: 64, height: 72 },
     },
-    'chapter1-bed': { offset: { x: -12, y: 8 } },
+    'chapter1-bed': {
+      // Match the 2×3 collision footprint instead of rendering the source
+      // image a tile taller than the furniture it occupies.
+      offset: { x: 0, y: 0 },
+      displaySize: { width: 64, height: 96 },
+    },
     'chapter1-nightstand': { offset: { x: 0, y: 8 } },
     'chapter1-chair': { depth: 0.5 },
     'chapter1-bookshelf': {
@@ -61,7 +68,7 @@ export const CHAPTER1_VISUAL_THEME: ChapterVisualTheme = {
         shakeIntensity: 0.004,
       },
     },
-    'chapter1-left-plant': { offset: { x: -8, y: 0 } },
+    'chapter1-left-plant': { offset: { x: 0, y: -16 } },
     'chapter1-desk': { offset: { x: 8, y: 0 } },
     'chapter1-crates': { offset: { x: 16, y: 8 } },
     'chapter1-barrel': { offset: { x: 8, y: 16 } },

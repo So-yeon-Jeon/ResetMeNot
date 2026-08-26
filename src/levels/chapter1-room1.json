@@ -40,18 +40,6 @@
       ]
     },
     {
-      "name": "movement-blockers",
-      "type": "tilelayer",
-      "width": 12,
-      "height": 10,
-      "data": [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-      ]
-    },
-    {
       "name": "objects",
       "type": "objectgroup",
       "objects": [
@@ -86,7 +74,8 @@
           "properties": [
             { "name": "initialState", "type": "string", "value": "default" },
             { "name": "stateAssets", "type": "string", "value": "default=chapter1-nightstand" },
-            { "name": "stateCollision", "type": "string", "value": "default=0,0" },
+            { "name": "stateCollision", "type": "string", "value": "default=0,0|0,1" },
+            { "name": "stateInteraction", "type": "string", "value": "default=0,1" },
             {
               "name": "onInteractEffects",
               "type": "string",
@@ -128,7 +117,7 @@
           "height": 32,
           "properties": [
             { "name": "assetKey", "type": "string", "value": "chapter1-window" },
-            { "name": "collisionCells", "type": "string", "value": "0,0" }
+            { "name": "collisionCells", "type": "string", "value": "0,0|1,0" }
           ]
         },
         {
@@ -205,7 +194,7 @@
           "height": 32,
           "properties": [
             { "name": "assetKey", "type": "string", "value": "chapter1-chair" },
-            { "name": "collisionCells", "type": "string", "value": "0,0|0,1" }
+            { "name": "collisionCells", "type": "string", "value": "0,0" }
           ]
         },
         {
