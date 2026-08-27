@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import { ECHO_CHARACTER_ASSET, PLAYER_CHARACTER_ASSET } from '../assets/characters/manifest';
+import { BGM_ASSET_MANIFEST } from '../assets/audio/manifest';
 import { ENDING_ASSET_MANIFEST } from '../assets/ending/manifest';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
+import { bgmAssetKeyForChapter } from '../game/bgm';
 import { chapter4ResetFeedback } from '../game/chapter4-puzzle';
 import { calculateFinalClockHandAngles, formatClockTime } from '../game/clock';
 import { finalWallMessage } from '../game/final-wall-message';
@@ -139,6 +141,8 @@ export class GameScene extends Phaser.Scene {
   private chapter4ClockTween?: Phaser.Tweens.Tween;
   private finalWallMessageText?: Phaser.GameObjects.Text;
   private finalClockMinuteHand?: Phaser.GameObjects.Image;
+  private bgm?: Phaser.Sound.BaseSound;
+  private bgmAssetKey?: string;
 
   constructor() {
     super('game');
@@ -175,6 +179,9 @@ export class GameScene extends Phaser.Scene {
       }
       this.load.image(assetKey, asset.path);
     });
+    Object.entries(BGM_ASSET_MANIFEST).forEach(([assetKey, asset]) => {
+      this.load.audio(assetKey, asset.path);
+    });
   }
 
   create(): void {
@@ -191,10 +198,12 @@ export class GameScene extends Phaser.Scene {
     this.createFinalWallMessage();
     this.createInstructions();
     this.createKeyboardControls();
+    this.syncBgmForCurrentChapter();
   }
 
   update(_time: number, delta: number): void {
     if (this.loadError) return;
+    this.syncBgmForCurrentChapter();
     const previousPhase = this.gameState.phase;
     const previousClockWarning = this.gameState.finalClockWarning;
     const previousClockStage = this.gameState.finalClockStage;
@@ -2145,6 +2154,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startEndingSequence(cameraAlreadyFaded = false): void {
+    this.stopBgm();
     const ending = createEndingSequence(this.gameState.worldMemory);
     this.endingPages = ending.pages;
     this.endingPageIndex = 0;
@@ -2275,6 +2285,28 @@ export class GameScene extends Phaser.Scene {
     if (!visible || startSeconds === undefined) return;
 
     this.clockHud.setText(formatClockTime(startSeconds, this.gameState.finalClockElapsedMs));
+  }
+
+  private syncBgmForCurrentChapter(): void {
+    if (this.session.completed || this.sound.locked) return;
+
+    const assetKey = bgmAssetKeyForChapter(currentLevel(this.session).chapterId);
+    if (!assetKey || !this.cache.audio.exists(assetKey)) return;
+    if (this.bgmAssetKey === assetKey && this.bgm?.isPlaying) return;
+
+    this.stopBgm();
+    this.bgmAssetKey = assetKey;
+    this.bgm = this.sound.add(assetKey, { loop: true, volume: 0.55 });
+    this.bgm.play();
+  }
+
+  private stopBgm(): void {
+    if (this.bgm) {
+      this.bgm.stop();
+      this.bgm.destroy();
+    }
+    this.bgm = undefined;
+    this.bgmAssetKey = undefined;
   }
 
   private updateInstructionsHud(): void {
