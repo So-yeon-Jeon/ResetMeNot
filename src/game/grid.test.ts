@@ -60,9 +60,9 @@ describe('shared map specification', () => {
     expect(demoMap.height).toBe(10);
   });
 
-  it('surrounds the playable area with wall tiles', () => {
+  it('keeps the outer walls while exposing Chapter 1 hidden exit row movement', () => {
     expect(demoMapRows[0]).toBe('############');
-    expect(demoMapRows.at(-1)).toBe('############');
+    expect(demoMapRows.at(-1)).toBe('#..........#');
     expect(demoMapRows.slice(1, -1).every((row) => row.startsWith('#') && row.endsWith('#'))).toBe(
       true,
     );

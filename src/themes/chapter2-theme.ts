@@ -38,7 +38,7 @@ export const CHAPTER2_VISUAL_THEME: ChapterVisualTheme = {
       depth: 0.24,
     },
     'chapter2-bed': {
-      offset: { x: 10, y: 18 },
+      offset: { x: 10, y: 36 },
       displaySize: { width: 64, height: 96 },
       depth: 0.34,
     },
@@ -61,7 +61,7 @@ export const CHAPTER2_VISUAL_THEME: ChapterVisualTheme = {
       displaySize: { width: 28, height: 56 },
       depth: 0.5,
     },
-    'chapter2-left-plant': { offset: { x: 10, y: 0 } },
+    'chapter2-left-plant': { offset: { x: 0, y: 8 } },
     'chapter2-right-plant': { offset: { x: -14, y: 0 } },
     'chapter2-crates': { offset: { x: 16, y: 8 } },
     'chapter2-barrel': { offset: { x: -4, y: 0 } },
@@ -101,6 +101,12 @@ export const CHAPTER2_VISUAL_THEME: ChapterVisualTheme = {
       displaySize: { width: 64, height: 96 },
     },
     'chapter2-passage-door': {
+      stableStateFrameAssetKey: 'chapter2-central-gate-open',
+      closedOverlay: {
+        assetKey: 'chapter2-central-gate-bars',
+        offset: { x: 32, y: 28 },
+        displaySize: { width: 32, height: 60 },
+      },
       stateAssetKeys: {
         closed: 'chapter2-central-gate-closed',
         open: 'chapter2-central-gate-open',
@@ -111,12 +117,13 @@ export const CHAPTER2_VISUAL_THEME: ChapterVisualTheme = {
     },
     'chapter2-exit-door': {
       stateAssetKeys: {
-        closed: 'chapter2-door-right-closed',
-        open: 'chapter2-door-right-open',
+        closed: 'chapter2-door-closed',
+        open: 'chapter2-door-open',
       },
-      offset: { x: -28, y: -4 },
-      displaySize: { width: 88, height: 88 },
+      offset: { x: 8, y: 0 },
+      displaySize: { width: 80, height: 76 },
       depth: 1.06,
+      foregroundCrop: { y: 70, height: 26, depth: 2 },
     },
     'chapter2-echo-switch': {
       assetKey: 'chapter2-pressure-plate-inactive',
@@ -131,8 +138,10 @@ export const CHAPTER2_VISUAL_THEME: ChapterVisualTheme = {
     'chapter2-final-lever': {
       assetKey: 'chapter2-lever',
       depth: 0.66,
-      offset: { x: 0, y: 24 },
+      offset: { x: 0, y: 20 },
       displaySize: { width: 64, height: 64 },
+      activeTint: 0xf2c66d,
+      activeFlipX: true,
     },
   },
   typeVisuals: {
