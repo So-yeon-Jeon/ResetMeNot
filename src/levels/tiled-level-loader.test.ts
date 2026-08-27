@@ -306,6 +306,16 @@ describe('loadTiledLevel', () => {
     expect(() => loadTiledLevel(map)).toThrow(/PlayerSpawn.*spawn-blocking-box/);
   });
 
+  it('PlayerSpawn이 이동 불가 벽 칸에 있으면 거부한다', () => {
+    const map = validMap();
+    const layers = map.layers as Array<Record<string, unknown>>;
+    const objects = layers[2]!.objects as Array<Record<string, unknown>>;
+    objects[0]!.x = 0;
+    objects[0]!.y = 0;
+
+    expect(() => loadTiledLevel(map)).toThrow(/PlayerSpawn.*이동 불가 위치 0,0/);
+  });
+
   it('PlayerSpawn이 압력 스위치나 통로형 출구 위에 있는 것은 허용한다', () => {
     const map = validMap();
     const layers = map.layers as Array<Record<string, unknown>>;

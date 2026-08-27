@@ -77,6 +77,8 @@ export type LeverState = Readonly<{
   active: boolean;
   mode: 'toggle' | 'hold';
   acceptedActors: readonly AcceptedActor[];
+  interactionCells: readonly GridPosition[];
+  collisionCells: readonly GridPosition[];
 }>;
 
 export type KeyState = Readonly<{
@@ -98,6 +100,7 @@ export type DoorState = Readonly<{
   type: 'door';
   position: GridPosition;
   interactionCells: readonly GridPosition[];
+  collisionCells: readonly GridPosition[];
   open: boolean;
   switchIds: readonly string[];
   leverIds: readonly string[];
@@ -226,6 +229,8 @@ export function createLever(
   position: GridPosition,
   mode: 'toggle' | 'hold' = 'toggle',
   acceptedActors: readonly AcceptedActor[] = ['player', 'echo'],
+  interactionCells: readonly GridPosition[] = [{ x: 0, y: 0 }],
+  collisionCells: readonly GridPosition[] = [{ x: 0, y: 0 }],
 ): LeverState {
   return {
     id,
@@ -234,6 +239,8 @@ export function createLever(
     active: false,
     mode,
     acceptedActors: [...acceptedActors],
+    interactionCells: interactionCells.map((cell) => ({ ...cell })),
+    collisionCells: collisionCells.map((cell) => ({ ...cell })),
   };
 }
 
@@ -270,17 +277,20 @@ export function createDoor(
     leverIds?: readonly string[];
     activationMode?: 'all' | 'any';
     interactionCells?: readonly GridPosition[];
+    collisionCells?: readonly GridPosition[];
     keyId?: string;
     consumesKey?: boolean;
     clearOnOpen?: boolean;
     assetKeys?: Readonly<{ closed: string; open: string }>;
   }> = {},
 ): DoorState {
+  const interactionCells = options.interactionCells ?? [{ x: 0, y: 0 }];
   return {
     id,
     type: 'door',
     position: { ...position },
-    interactionCells: [...(options.interactionCells ?? [{ x: 0, y: 0 }])],
+    interactionCells: [...interactionCells],
+    collisionCells: [...(options.collisionCells ?? interactionCells)],
     open: false,
     switchIds: [...switchIds],
     leverIds: [...(options.leverIds ?? [])],
@@ -362,11 +372,20 @@ export function restoreWorldObjects(
 }
 
 export function cloneWorldObject(object: WorldObjectState): WorldObjectState {
-  if (object.type === 'pressure-switch' || object.type === 'lever') {
+  if (object.type === 'pressure-switch') {
     return {
       ...object,
       position: { ...object.position },
       acceptedActors: [...object.acceptedActors],
+    };
+  }
+  if (object.type === 'lever') {
+    return {
+      ...object,
+      position: { ...object.position },
+      acceptedActors: [...object.acceptedActors],
+      interactionCells: object.interactionCells.map((cell) => ({ ...cell })),
+      collisionCells: object.collisionCells.map((cell) => ({ ...cell })),
     };
   }
   if (object.type === 'pocket-watch') {
@@ -377,6 +396,7 @@ export function cloneWorldObject(object: WorldObjectState): WorldObjectState {
       ...object,
       position: { ...object.position },
       interactionCells: object.interactionCells.map((cell) => ({ ...cell })),
+      collisionCells: object.collisionCells.map((cell) => ({ ...cell })),
       switchIds: [...object.switchIds],
       leverIds: [...object.leverIds],
       assetKeys: object.assetKeys ? { ...object.assetKeys } : undefined,

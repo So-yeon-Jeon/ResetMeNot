@@ -24,12 +24,21 @@ export type ForegroundCrop = Readonly<{
 
 export type ObjectVisual = Readonly<{
   assetKey?: string;
+  stableStateFrameAssetKey?: string;
+  closedOverlay?: Readonly<{
+    assetKey: string;
+    offset: GridPosition;
+    displaySize?: DisplaySize;
+  }>;
   stateAssetKeys?: Readonly<Partial<Record<'inactive' | 'active' | 'closed' | 'open', string>>>;
   positionOverride?: Readonly<Partial<GridPosition>>;
   offset?: GridPosition;
   offsetsByPosition?: Readonly<Record<string, GridPosition>>;
   offsetsByState?: Readonly<Record<string, GridPosition>>;
   displaySize?: DisplaySize;
+  flipX?: boolean;
+  activeTint?: number;
+  activeFlipX?: boolean;
   depth?: number;
   foregroundCrop?: ForegroundCrop;
   stateTransition?: StateTransitionVisual;
@@ -62,6 +71,18 @@ export type WallVisualTheme = Readonly<{
   cornerBottomLeft: string;
   cornerBottomRight: string;
   bottomDoorway?: string;
+  /** Optional wall face rendered below the bottom boundary. */
+  bottomFace?: string;
+  /** How far the bottom face overlaps the map edge. Defaults to the bottom cap height. */
+  bottomFaceOverlap?: number;
+  /** Rendered height of the bottom wall face. Defaults to the source asset height. */
+  bottomFaceHeight?: number;
+  /** Number of centered tiles left open behind a three-tile doorway. Defaults to three. */
+  bottomFaceDoorwayGapTiles?: 1 | 3;
+  /** Number of centered bottom-boundary tiles replaced by the doorway. Defaults to three. */
+  bottomBoundaryDoorwayGapTiles?: 1 | 3;
+  /** Draw the bottom boundary again above characters walking in its hidden row. */
+  bottomBoundaryForeground?: boolean;
   interiorBottomBoundaries?: readonly Readonly<{
     y: number;
     startX: number;

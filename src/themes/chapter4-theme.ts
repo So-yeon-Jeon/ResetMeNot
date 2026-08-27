@@ -188,24 +188,41 @@ export const CHAPTER4_VISUAL_THEME: ChapterVisualTheme = {
   objectVisuals: {
     'chapter4-entry-bookshelf': WALL_ATTACHED_BOOKSHELF_VISUAL,
     'chapter4-archive-bookshelf-center': WALL_ATTACHED_BOOKSHELF_VISUAL,
-    'chapter4-portrait-clue': { depth: 0.65 },
-    'chapter4-book-clue': { depth: 0.65 },
-    'chapter4-missing-picture-clue': { depth: 0.65 },
+    'chapter4-portrait-clue': {
+      offset: { x: 6, y: -40 },
+      displaySize: { width: 36, height: 48 },
+      depth: 0.65,
+    },
+    'chapter4-book-clue': {
+      offset: { x: 8, y: -43 },
+      displaySize: { width: 48, height: 39 },
+      depth: 0.65,
+    },
+    'chapter4-missing-picture-clue': {
+      offset: { x: 8, y: -40 },
+      displaySize: { width: 48, height: 48 },
+      depth: 0.65,
+    },
     'chapter4-wall-clock': {
-      offset: { x: 0, y: -24 },
+      offset: { x: 0, y: -56 },
       displaySize: { width: 32, height: 64 },
       depth: 0.65,
       offsetsByState: { moved: { x: -8, y: 8 } },
     },
     'chapter4-exit-door': {
-      positionOverride: { x: 26, y: 11 },
-      offset: { x: -16, y: -16 },
+      positionOverride: { x: 25, y: 12 },
+      offset: { x: 16, y: -16 },
       displaySize: { width: 48, height: 64 },
     },
     'chapter4-entry-arch': {
-      positionOverride: { x: 0, y: 2 },
-      offset: { x: 0, y: -16 },
+      positionOverride: { x: 1, y: 3 },
+      offset: { x: -16, y: -16 },
       displaySize: { width: 48, height: 64 },
+    },
+    'chapter4-code-lock': {
+      offset: { x: 0, y: -2 },
+      displaySize: { width: 48, height: 36 },
+      depth: 0.65,
     },
   },
 };

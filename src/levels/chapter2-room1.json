@@ -14,7 +14,12 @@
     { "name": "resetPolicy", "type": "string", "value": "disable" },
     { "name": "echoUnlocked", "type": "bool", "value": true },
     { "name": "blockFloorBoundary", "type": "bool", "value": true },
-    { "name": "movementBlockers", "type": "string", "value": "10,6|12,6" }
+    {
+      "name": "movementBlockers",
+      "type": "string",
+      "value": "6,1|7,1|8,1|9,1|10,1|11,1|12,1|13,1|14,1|15,1|16,1|17,1|19,1|6,2|7,2|8,2|9,2|10,2|11,2|12,2|13,2|14,2|15,2|17,2|19,2|10,6|12,6"
+    },
+    { "name": "movementPassages", "type": "string", "value": "16,5|17,5" }
   ],
   "layers": [
     {
@@ -290,23 +295,26 @@
           "name": "chapter2-final-lever",
           "class": "Lever",
           "x": 512,
-          "y": 32,
+          "y": 96,
           "width": 32,
           "height": 32,
           "properties": [
             { "name": "mode", "type": "string", "value": "toggle" },
-            { "name": "acceptedActors", "type": "string", "value": "player" }
+            { "name": "acceptedActors", "type": "string", "value": "player" },
+            { "name": "interactionCells", "type": "string", "value": "0,1|1,1" },
+            { "name": "collisionCells", "type": "string", "value": "0,1|1,1" }
           ]
         },
         {
           "name": "chapter2-exit-door",
           "class": "Door",
-          "x": 608,
-          "y": 64,
+          "x": 544,
+          "y": 32,
           "width": 32,
           "height": 32,
           "properties": [
             { "name": "leverIds", "type": "string", "value": "chapter2-final-lever" },
+            { "name": "interactionCells", "type": "string", "value": "0,0|1,0|2,0" },
             { "name": "closedAssetKey", "type": "string", "value": "chapter2-door-closed" },
             { "name": "openAssetKey", "type": "string", "value": "chapter2-door-open" }
           ]
@@ -314,7 +322,7 @@
         {
           "name": "chapter2-exit",
           "class": "Exit",
-          "x": 608,
+          "x": 576,
           "y": 64,
           "width": 32,
           "height": 32

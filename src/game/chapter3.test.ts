@@ -226,7 +226,7 @@ describe('Chapter 3 room 1', () => {
       'down',
       'right',
     ]);
-    state = at(state, state.player, 'up');
+    state = at(state, state.player, 'down');
     const finalLever = applyAction(state, { type: 'interact' }, level.map);
     expect(finalLever.changed).toBe(true);
     expect(object(finalLever.state, 'chapter3-exit-door')).toMatchObject({ open: true });
@@ -302,7 +302,7 @@ describe('Chapter 3 room 1', () => {
     expect(object(holdReset.state, 'chapter3-central-gate')).toMatchObject({ open: true });
 
     state = applyAction(
-      at(holdReset.state, { x: 14, y: 4 }, 'up'),
+      at(holdReset.state, { x: 14, y: 4 }, 'down'),
       { type: 'interact' },
       level.map,
     ).state;
@@ -342,7 +342,7 @@ describe('Chapter 3 room 1', () => {
     let state = createLevelGameState(level, previousMemory);
     state = applyAction(at(state, { x: 15, y: 10 }, 'up'), { type: 'interact' }, level.map).state;
     state = applyAction(state, { type: 'reset' }, level.map).state;
-    state = applyAction(at(state, { x: 14, y: 4 }, 'up'), { type: 'interact' }, level.map).state;
+    state = applyAction(at(state, { x: 14, y: 4 }, 'down'), { type: 'interact' }, level.map).state;
 
     expect(object(state, 'chapter3-memory-socket')).toMatchObject({ active: false });
     expect(object(state, 'chapter3-hold-lever')).toMatchObject({ active: true });

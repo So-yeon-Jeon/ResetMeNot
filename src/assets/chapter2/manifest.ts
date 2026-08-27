@@ -82,6 +82,13 @@ export const CHAPTER2_ASSET_MANIFEST: AssetManifest = {
     placeholderColor: 0x5f422d,
     sourceAvailable: true,
   },
+  'chapter2-central-gate-bars': {
+    path: new URL('./puzzle/central_gate_bars.png', import.meta.url).href,
+    width: 32,
+    height: 60,
+    placeholderColor: 0x473426,
+    sourceAvailable: true,
+  },
   'chapter2-door-right-closed': {
     path: new URL('./puzzle/door_right_closed.png', import.meta.url).href,
     width: 96,

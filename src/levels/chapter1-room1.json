@@ -36,19 +36,7 @@
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-      ]
-    },
-    {
-      "name": "movement-blockers",
-      "type": "tilelayer",
-      "width": 12,
-      "height": 10,
-      "data": [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
       ]
     },
     {
@@ -86,7 +74,8 @@
           "properties": [
             { "name": "initialState", "type": "string", "value": "default" },
             { "name": "stateAssets", "type": "string", "value": "default=chapter1-nightstand" },
-            { "name": "stateCollision", "type": "string", "value": "default=0,0" },
+            { "name": "stateCollision", "type": "string", "value": "default=0,0|0,1" },
+            { "name": "stateInteraction", "type": "string", "value": "default=0,1" },
             {
               "name": "onInteractEffects",
               "type": "string",
@@ -128,7 +117,7 @@
           "height": 32,
           "properties": [
             { "name": "assetKey", "type": "string", "value": "chapter1-window" },
-            { "name": "collisionCells", "type": "string", "value": "0,0" }
+            { "name": "collisionCells", "type": "string", "value": "0,0|1,0" }
           ]
         },
         {
@@ -205,7 +194,7 @@
           "height": 32,
           "properties": [
             { "name": "assetKey", "type": "string", "value": "chapter1-chair" },
-            { "name": "collisionCells", "type": "string", "value": "0,0|0,1" }
+            { "name": "collisionCells", "type": "string", "value": "0,0" }
           ]
         },
         {
@@ -260,14 +249,19 @@
           "name": "chapter1-door",
           "class": "Door",
           "x": 32,
-          "y": 256,
+          "y": 288,
           "width": 32,
           "height": 32,
           "properties": [
             { "name": "keyId", "type": "string", "value": "chapter1-key" },
             { "name": "consumesKey", "type": "bool", "value": false },
-            { "name": "clearOnOpen", "type": "bool", "value": true },
-            { "name": "interactionCells", "type": "string", "value": "0,0|1,0|2,0" },
+            { "name": "clearOnOpen", "type": "bool", "value": false },
+            {
+              "name": "interactionCells",
+              "type": "string",
+              "value": "0,-1|1,-1|2,-1|0,0|1,0|2,0"
+            },
+            { "name": "collisionCells", "type": "string", "value": "" },
             {
               "name": "closedAssetKey",
               "type": "string",
@@ -275,6 +269,14 @@
             },
             { "name": "openAssetKey", "type": "string", "value": "chapter1-door-open" }
           ]
+        },
+        {
+          "name": "chapter1-exit",
+          "class": "Exit",
+          "x": 64,
+          "y": 288,
+          "width": 32,
+          "height": 32
         }
       ]
     }

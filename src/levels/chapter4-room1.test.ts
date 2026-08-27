@@ -116,7 +116,7 @@ describe('Chapter 4 room 1', () => {
     state = applyAction(at(state, { x: 16, y: 3 }, 'up'), { type: 'reset' }, level.map).state;
     expect(object(state, 'chapter4-missing-picture-clue')).toMatchObject({ state: 'changed' });
 
-    state = applyAction(at(state, { x: 14, y: 13 }, 'up'), { type: 'interact' }, level.map).state;
+    state = applyAction(at(state, { x: 22, y: 13 }, 'up'), { type: 'interact' }, level.map).state;
     for (const digit of [9, 2, 4]) {
       state = applyAction(state, { type: 'input-code', digit }, level.map).state;
     }
@@ -140,7 +140,7 @@ describe('Chapter 4 room 1', () => {
     expect(inspected.feedbackMessage).toContain('숫자 4');
 
     state = applyAction(inspected.state, { type: 'interact' }, level.map).state;
-    state = applyAction(at(state, { x: 14, y: 13 }, 'up'), { type: 'interact' }, level.map).state;
+    state = applyAction(at(state, { x: 22, y: 13 }, 'up'), { type: 'interact' }, level.map).state;
     for (const digit of [9, 2, 4])
       state = applyAction(state, { type: 'input-code', digit }, level.map).state;
     expect(state.chapter4Puzzle).toMatchObject({
