@@ -2266,6 +2266,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startOpeningSequence(): void {
+    this.stopBgm();
+    this.stopTitleBgm();
     this.openingPages = createOpeningSequence();
     this.openingPageIndex = 0;
     this.isOpeningActive = true;
@@ -2284,6 +2286,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startTitleScreen(): void {
+    this.stopBgm();
+    this.stopOpeningBgm();
     this.isTitleActive = true;
     this.hudMasks.forEach((mask) => mask.setVisible(false));
     this.resetHud.setVisible(false);
@@ -2438,6 +2442,7 @@ export class GameScene extends Phaser.Scene {
     this.openingContinueHud?.destroy();
     this.openingContinueHud = undefined;
     this.stopOpeningBgm();
+    this.stopTitleBgm();
     this.isOpeningActive = false;
     this.isOpeningPageTransitioning = false;
 
@@ -2460,11 +2465,12 @@ export class GameScene extends Phaser.Scene {
     if (
       !this.isOpeningActive ||
       this.sound.locked ||
-      this.openingBgm?.isPlaying ||
       !this.cache.audio.exists(OPENING_BGM_ASSET_KEY)
     )
       return;
+    if (this.openingBgm?.isPlaying) return;
 
+    this.stopOpeningBgm();
     this.openingBgm = this.sound.add(OPENING_BGM_ASSET_KEY, {
       loop: true,
       volume: OPENING_BGM_VOLUME,
@@ -2473,14 +2479,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private tryStartTitleBgm(): void {
-    if (
-      !this.isTitleActive ||
-      this.sound.locked ||
-      this.titleBgm?.isPlaying ||
-      !this.cache.audio.exists(TITLE_BGM_ASSET_KEY)
-    )
+    if (!this.isTitleActive || this.sound.locked || !this.cache.audio.exists(TITLE_BGM_ASSET_KEY))
       return;
+    if (this.titleBgm?.isPlaying) return;
 
+    this.stopTitleBgm();
     this.titleBgm = this.sound.add(TITLE_BGM_ASSET_KEY, {
       loop: true,
       volume: OPENING_BGM_VOLUME,
@@ -2502,6 +2505,8 @@ export class GameScene extends Phaser.Scene {
 
   private startEndingSequence(cameraAlreadyFaded = false): void {
     this.stopBgm();
+    this.stopTitleBgm();
+    this.stopOpeningBgm();
     const ending = createEndingSequence(this.gameState.worldMemory);
     this.endingPages = ending.pages;
     this.endingPageIndex = 0;
@@ -2639,6 +2644,8 @@ export class GameScene extends Phaser.Scene {
 
     const assetKey = bgmAssetKeyForChapter(currentLevel(this.session).chapterId);
     if (!assetKey || !this.cache.audio.exists(assetKey)) return;
+    this.stopTitleBgm();
+    this.stopOpeningBgm();
     if (this.bgmAssetKey === assetKey && this.bgm?.isPlaying) return;
 
     this.stopBgm();
