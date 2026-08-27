@@ -3,7 +3,7 @@ import chapter2Room1Json from '../levels/chapter2-room1.json';
 import { createLevelGameState } from '../levels/level-definition';
 import { loadTiledLevel } from '../levels/tiled-level-loader';
 import { applyAction, type GameState, type WorldMemory } from './game-state';
-import { tryMove, type Direction, type GridPosition } from './grid';
+import { positionKey, tryMove, type Direction, type GridPosition } from './grid';
 
 const level = loadTiledLevel(chapter2Room1Json);
 const chapter1Memory: WorldMemory = {
@@ -118,25 +118,93 @@ describe('Chapter 2 room 1', () => {
     current = move(current, ['up', 'up', 'up', 'up', 'up', 'up', 'up']);
     expect(current.player).toEqual({ x: 11, y: 5 });
 
-    current = move(current, ['up', 'right', 'right', 'right', 'right', 'right', 'up', 'up']);
+    current = move(current, [
+      'up',
+      'right',
+      'right',
+      'right',
+      'right',
+      'right',
+      'up',
+      'up',
+      'right',
+      'down',
+    ]);
     expect(current.player).toEqual({ x: 16, y: 3 });
     current = applyAction(current, { type: 'interact' }, level.map).state;
     expect(object(current, 'chapter2-final-lever')).toMatchObject({
-      position: { x: 16, y: 2 },
+      position: { x: 16, y: 3 },
       active: true,
     });
     expect(object(current, 'chapter2-exit-door')).toMatchObject({
-      position: { x: 19, y: 2 },
+      position: { x: 17, y: 1 },
       open: true,
     });
 
-    current = move(current, ['right', 'right', 'up']);
-    expect(current.player).toEqual({ x: 18, y: 2 });
-    const exited = applyAction(current, { type: 'move', direction: 'right' }, level.map);
+    current = move(current, ['right', 'right']);
+    expect(current.player).toEqual({ x: 18, y: 3 });
+    const exited = applyAction(current, { type: 'move', direction: 'up' }, level.map);
 
-    expect(exited.state.player).toEqual({ x: 19, y: 2 });
+    expect(exited.state.player).toEqual({ x: 18, y: 2 });
     expect(exited.chapterCompleted).toBe(true);
     expect(exited.state.phase).toBe('completed');
+  });
+
+  it('allows operating the final lever from every adjacent direction', () => {
+    const approaches = [
+      { player: { x: 16, y: 3 }, facing: 'down' },
+      { player: { x: 16, y: 5 }, facing: 'up' },
+      { player: { x: 15, y: 4 }, facing: 'right' },
+      { player: { x: 18, y: 4 }, facing: 'left' },
+    ] as const;
+
+    for (const approach of approaches) {
+      expect(level.map.walls.has(positionKey(approach.player))).toBe(false);
+      expect(level.map.floorTiles?.has(positionKey(approach.player))).toBe(true);
+      const state = at(
+        createLevelGameState(level, chapter1Memory),
+        approach.player,
+        approach.facing,
+      );
+      const activated = applyAction(state, { type: 'interact' }, level.map).state;
+
+      expect(object(activated, 'chapter2-final-lever')).toMatchObject({ active: true });
+    }
+  });
+
+  it('keeps the row above the lever open and blocks the visible lever base', () => {
+    const state = createLevelGameState(level, chapter1Memory);
+
+    expect(
+      applyAction(
+        at(state, { x: 16, y: 2 }, 'down'),
+        { type: 'move', direction: 'down' },
+        level.map,
+      ).state.player,
+    ).toEqual({ x: 16, y: 3 });
+    expect(
+      applyAction(
+        at(state, { x: 16, y: 3 }, 'down'),
+        { type: 'move', direction: 'down' },
+        level.map,
+      ).state.player,
+    ).toEqual({ x: 16, y: 3 });
+  });
+
+  it('blocks the upper wall face while preserving the exit doorway', () => {
+    for (let x = 6; x <= 19; x += 1) {
+      expect(level.map.walls.has(positionKey({ x, y: 2 }))).toBe(x !== 16 && x !== 18);
+    }
+
+    for (const position of [
+      { x: 16, y: 2 },
+      { x: 16, y: 4 },
+      { x: 15, y: 3 },
+      { x: 17, y: 3 },
+    ]) {
+      expect(level.map.walls.has(positionKey(position))).toBe(false);
+      expect(level.map.floorTiles?.has(positionKey(position))).toBe(true);
+    }
   });
 
   it('keeps all fixed puzzle coordinates unchanged', () => {
@@ -145,9 +213,9 @@ describe('Chapter 2 room 1', () => {
     expect(state.player).toEqual({ x: 11, y: 12 });
     expect(object(state, 'chapter2-echo-switch').position).toEqual({ x: 6, y: 10 });
     expect(object(state, 'chapter2-passage-door').position).toEqual({ x: 11, y: 6 });
-    expect(object(state, 'chapter2-final-lever').position).toEqual({ x: 16, y: 2 });
-    expect(object(state, 'chapter2-exit-door').position).toEqual({ x: 19, y: 2 });
-    expect(object(state, 'chapter2-exit').position).toEqual({ x: 19, y: 2 });
+    expect(object(state, 'chapter2-final-lever').position).toEqual({ x: 16, y: 3 });
+    expect(object(state, 'chapter2-exit-door').position).toEqual({ x: 17, y: 1 });
+    expect(object(state, 'chapter2-exit').position).toEqual({ x: 18, y: 2 });
   });
 
   it('blocks a second RESET after the single allowed use', () => {

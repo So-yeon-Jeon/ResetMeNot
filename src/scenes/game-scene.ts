@@ -1855,7 +1855,10 @@ export class GameScene extends Phaser.Scene {
       }
       if (object.type === 'door') {
         const doorState = object.open ? 'open' : 'closed';
-        const assetKey = visual.stateAssetKeys?.[doorState] ?? object.assetKeys?.[doorState];
+        const assetKey =
+          visual.stableStateFrameAssetKey ??
+          visual.stateAssetKeys?.[doorState] ??
+          object.assetKeys?.[doorState];
         this.objectSprites.push(
           ...this.renderAssetObject(
             assetKey,
@@ -1866,6 +1869,21 @@ export class GameScene extends Phaser.Scene {
             visual.foregroundCrop,
           ),
         );
+        if (!object.open && visual.closedOverlay) {
+          const overlay = visual.closedOverlay;
+          this.objectSprites.push(
+            ...this.renderAssetObject(
+              overlay.assetKey,
+              visualPosition,
+              (visual.depth ?? 0.7) + 0.01,
+              {
+                x: (visualOffset?.x ?? 0) + overlay.offset.x,
+                y: (visualOffset?.y ?? 0) + overlay.offset.y,
+              },
+              overlay.displaySize,
+            ),
+          );
+        }
       }
       if (object.type === 'box') {
         const boxSprites = this.renderAssetObject(
@@ -1875,8 +1893,14 @@ export class GameScene extends Phaser.Scene {
           visualOffset,
           visual.displaySize,
         );
-        if (boxSprites.length > 0) this.objectSprites.push(...boxSprites);
-        else {
+        if (boxSprites.length > 0) {
+          if (visual.flipX) {
+            boxSprites.forEach((sprite) => {
+              if (sprite instanceof Phaser.GameObjects.Image) sprite.setFlipX(true);
+            });
+          }
+          this.objectSprites.push(...boxSprites);
+        } else {
           this.objectSprites.push(
             this.add
               .rectangle(pixel.x, pixel.y, GRID_SIZE - 6, GRID_SIZE - 6, 0x9a754f)
@@ -1894,6 +1918,13 @@ export class GameScene extends Phaser.Scene {
           visual.displaySize,
         );
         if (leverSprites.length > 0) {
+          if (object.active) {
+            leverSprites.forEach((sprite) => {
+              if (!(sprite instanceof Phaser.GameObjects.Image)) return;
+              if (visual.activeTint !== undefined) sprite.setTint(visual.activeTint);
+              if (visual.activeFlipX) sprite.setFlipX(true);
+            });
+          }
           this.objectSprites.push(...leverSprites);
         } else {
           this.objectSprites.push(

@@ -503,7 +503,7 @@ function applyInteract(state: GameState, map: GridMap): ActionResult {
     if (
       !isPuzzleObject &&
       !isKeyOnPlayer &&
-      (candidate.type === 'door'
+      (candidate.type === 'door' || candidate.type === 'lever'
         ? !relativeCellsContain(candidate.position, candidate.interactionCells, target)
         : positionKey(candidate.position) !== positionKey(target))
     ) {
@@ -1006,7 +1006,8 @@ function blocksPosition(object: WorldObjectState, position: GridPosition): boole
       samePosition(object.position, position)
     );
   }
-  if (object.type === 'lever') return samePosition(object.position, position);
+  if (object.type === 'lever')
+    return relativeCellsContain(object.position, object.collisionCells, position);
   if (object.type === 'prop')
     return relativeCellsContain(object.position, object.collisionCells, position);
   if (object.type === 'puzzle-object') {

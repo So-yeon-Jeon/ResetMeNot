@@ -256,7 +256,11 @@
             { "name": "keyId", "type": "string", "value": "chapter1-key" },
             { "name": "consumesKey", "type": "bool", "value": false },
             { "name": "clearOnOpen", "type": "bool", "value": false },
-            { "name": "interactionCells", "type": "string", "value": "0,0|1,0|2,0" },
+            {
+              "name": "interactionCells",
+              "type": "string",
+              "value": "0,-1|1,-1|2,-1|0,0|1,0|2,0"
+            },
             { "name": "collisionCells", "type": "string", "value": "" },
             {
               "name": "closedAssetKey",

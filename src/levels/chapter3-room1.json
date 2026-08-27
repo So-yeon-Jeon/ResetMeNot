@@ -124,7 +124,7 @@
         {
           "name": "chapter3-left-bookshelf",
           "class": "Prop",
-          "x": 384,
+          "x": 352,
           "y": 32,
           "width": 32,
           "height": 32,
@@ -148,7 +148,7 @@
         {
           "name": "chapter3-right-desk",
           "class": "Prop",
-          "x": 320,
+          "x": 192,
           "y": 128,
           "width": 32,
           "height": 32,
@@ -160,7 +160,7 @@
         {
           "name": "chapter3-right-chair",
           "class": "Prop",
-          "x": 384,
+          "x": 160,
           "y": 128,
           "width": 32,
           "height": 32,
@@ -297,7 +297,7 @@
           "name": "chapter3-final-lever",
           "class": "Lever",
           "x": 448,
-          "y": 96,
+          "y": 160,
           "width": 32,
           "height": 32,
           "properties": [

@@ -57,6 +57,7 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
       'useWallLayer',
       'blockFloorBoundary',
       'movementBlockers',
+      'movementPassages',
       'finalClockStart',
       'finalClockTarget',
       'finalWallMessageAtMs',
@@ -128,6 +129,13 @@ export function loadTiledLevel(source: unknown): LevelDefinition {
       );
       if (touchesVoid) walls.add(key);
     });
+  }
+  for (const passage of parseCollisionCells(properties.movementPassages, 'movementPassages')) {
+    const key = positionKey(passage);
+    if (!floorTiles.has(key)) {
+      fail(`movementPassages는 바닥 타일이어야 합니다: ${passage.x},${passage.y}`);
+    }
+    walls.delete(key);
   }
   const partitionWalls = new Set<string>();
   if (partitionLayer) {
@@ -333,7 +341,8 @@ function initialCollisionCells(object: WorldObjectState): readonly GridPosition[
     return object.collectible && !object.collected ? [{ x: 0, y: 0 }] : [];
   }
   if (object.type === 'door') return object.open ? [] : object.collisionCells;
-  if (object.type === 'box' || object.type === 'lever') return [{ x: 0, y: 0 }];
+  if (object.type === 'lever') return object.collisionCells;
+  if (object.type === 'box') return [{ x: 0, y: 0 }];
   return [];
 }
 
@@ -363,7 +372,7 @@ function createLevelObject(
     Box: ['persistentFields', 'memorySocketId'],
     Prop: ['assetKey', 'collisionCells'],
     Switch: ['acceptedActors', 'requiresCommittedMemory'],
-    Lever: ['mode', 'acceptedActors'],
+    Lever: ['mode', 'acceptedActors', 'interactionCells', 'collisionCells'],
     Key: [
       'persistentFields',
       'collectible',
@@ -435,6 +444,12 @@ function createLevelObject(
         position,
         oneOf(props.mode ?? 'toggle', ['toggle', 'hold'] as const, `${id}.mode`),
         actors(props.acceptedActors),
+        props.interactionCells === undefined
+          ? undefined
+          : parseCollisionCells(props.interactionCells, `${id}.interactionCells`),
+        props.collisionCells === undefined
+          ? undefined
+          : parseCollisionCells(props.collisionCells, `${id}.collisionCells`),
       );
     case 'Key':
       return createKey(

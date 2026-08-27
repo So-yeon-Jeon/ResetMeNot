@@ -24,12 +24,21 @@ export type ForegroundCrop = Readonly<{
 
 export type ObjectVisual = Readonly<{
   assetKey?: string;
+  stableStateFrameAssetKey?: string;
+  closedOverlay?: Readonly<{
+    assetKey: string;
+    offset: GridPosition;
+    displaySize?: DisplaySize;
+  }>;
   stateAssetKeys?: Readonly<Partial<Record<'inactive' | 'active' | 'closed' | 'open', string>>>;
   positionOverride?: Readonly<Partial<GridPosition>>;
   offset?: GridPosition;
   offsetsByPosition?: Readonly<Record<string, GridPosition>>;
   offsetsByState?: Readonly<Record<string, GridPosition>>;
   displaySize?: DisplaySize;
+  flipX?: boolean;
+  activeTint?: number;
+  activeFlipX?: boolean;
   depth?: number;
   foregroundCrop?: ForegroundCrop;
   stateTransition?: StateTransitionVisual;

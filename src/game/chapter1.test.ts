@@ -389,6 +389,22 @@ describe('Chapter 1 room 1', () => {
     }
   });
 
+  it('opens the door from its upper-left side while facing right', () => {
+    const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
+    const reset = resetAfterAction(interact(acquired, { x: 9, y: 2 }, 'up'));
+    const withKey = interact(reset, { x: 9, y: 4 }, 'up');
+    const opened = applyAction(
+      at(withKey, { x: 1, y: 8 }, 'right'),
+      { type: 'interact' },
+      level.map,
+    );
+
+    expect(object(opened.state, 'chapter1-door')).toMatchObject({
+      open: true,
+      unlocked: true,
+    });
+  });
+
   it('restarts the Chapter 1 puzzle state from its initial data', () => {
     const acquired = interact(createLevelGameState(level), { x: 3, y: 3 }, 'up');
     const fallen = interact(acquired, { x: 9, y: 2 }, 'up');
