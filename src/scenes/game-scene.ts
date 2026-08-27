@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { ECHO_CHARACTER_ASSET, PLAYER_CHARACTER_ASSET } from '../assets/characters/manifest';
 import { BGM_ASSET_MANIFEST } from '../assets/audio/manifest';
 import { ENDING_ASSET_MANIFEST } from '../assets/ending/manifest';
+import { OPENING_AUDIO_ASSET_MANIFEST } from '../assets/opening/audio-manifest';
+import { OPENING_ASSET_MANIFEST } from '../assets/opening/manifest';
 import { GRID_SIZE } from '../game-config';
 import type { GameAction } from '../game/action';
 import { bgmAssetKeyForChapter } from '../game/bgm';
@@ -9,6 +11,7 @@ import { chapter4ResetFeedback } from '../game/chapter4-puzzle';
 import { calculateFinalClockHandAngles, formatClockTime } from '../game/clock';
 import { finalWallMessage } from '../game/final-wall-message';
 import { createEndingSequence, nextEndingPageIndex, type EndingPage } from '../game/ending';
+import { createOpeningSequence, nextOpeningPageIndex, type OpeningPage } from '../game/opening';
 import {
   advanceGameSession,
   createGameSession,
@@ -65,6 +68,23 @@ const ENDING_PAGE_FADE_OUT_MS = 320;
 const ENDING_PAGE_FADE_IN_MS = 420;
 const ENDING_PAGE_SWAP_DELAY_MS = 340;
 const ENDING_TITLE_SAFE_MARGIN = 16;
+const OPENING_REVEAL_FADE_MS = 600;
+const OPENING_PAGE_FADE_OUT_MS = 320;
+const OPENING_PAGE_FADE_IN_MS = 420;
+const OPENING_PAGE_SWAP_DELAY_MS = 340;
+const OPENING_DIALOGUE_BOTTOM_MARGIN = 10;
+const OPENING_DIALOGUE_HORIZONTAL_MARGIN = 24;
+const OPENING_DIALOGUE_MAX_HEIGHT_RATIO = 0.28;
+const OPENING_DIALOGUE_CONTINUE_INSET_X = 132;
+const OPENING_DIALOGUE_CONTINUE_INSET_Y = 56;
+const TITLE_PAGE_FADE_OUT_MS = 360;
+const TITLE_PAGE_SWAP_DELAY_MS = 380;
+const TITLE_PLAY_CENTER_Y = 0.66;
+const TITLE_PLAY_WIDTH = 0.34;
+const TITLE_PLAY_HEIGHT = 0.12;
+const TITLE_BGM_ASSET_KEY = 'opening-title';
+const OPENING_BGM_ASSET_KEY = 'opening-prologue';
+const OPENING_BGM_VOLUME = 0.55;
 const FINAL_CLOCK_MINUTE_HAND_ASSET_KEY = 'chapter5-final-clock-minute-hand';
 const FINAL_CLOCK_FACE_CENTER = { x: 96, y: 80 };
 const FINAL_CLOCK_MINUTE_HAND_ORIGIN_Y = 0.7;
@@ -122,6 +142,13 @@ export class GameScene extends Phaser.Scene {
   private endingHud!: Phaser.GameObjects.Text;
   private endingCaptionPanel!: Phaser.GameObjects.Rectangle;
   private endingImage?: Phaser.GameObjects.Image;
+  private openingCaptionPanel?: Phaser.GameObjects.Image;
+  private openingHud?: Phaser.GameObjects.Text;
+  private openingContinueHud?: Phaser.GameObjects.Text;
+  private openingImage?: Phaser.GameObjects.Image;
+  private titleImage?: Phaser.GameObjects.Image;
+  private titlePlayButton?: Phaser.GameObjects.Rectangle;
+  private hudMasks: Phaser.GameObjects.Rectangle[] = [];
   private echoSprites: Phaser.GameObjects.Sprite[] = [];
   private objectSprites: Phaser.GameObjects.GameObject[] = [];
   private isMoving = false;
@@ -134,6 +161,11 @@ export class GameScene extends Phaser.Scene {
   private endingPages: readonly EndingPage[] = [];
   private endingPageIndex = 0;
   private isEndingPageTransitioning = false;
+  private openingPages: readonly OpeningPage[] = [];
+  private openingPageIndex = 0;
+  private isOpeningActive = false;
+  private isOpeningPageTransitioning = false;
+  private isTitleActive = false;
   private mapOrigin = { x: 0, y: 0 };
   private inspectionOverlay?: Phaser.GameObjects.Container;
   private codeEntryOverlay?: Phaser.GameObjects.Container;
@@ -141,6 +173,8 @@ export class GameScene extends Phaser.Scene {
   private chapter4ClockTween?: Phaser.Tweens.Tween;
   private finalWallMessageText?: Phaser.GameObjects.Text;
   private finalClockMinuteHand?: Phaser.GameObjects.Image;
+  private titleBgm?: Phaser.Sound.BaseSound;
+  private openingBgm?: Phaser.Sound.BaseSound;
   private bgm?: Phaser.Sound.BaseSound;
   private bgmAssetKey?: string;
 
@@ -167,6 +201,7 @@ export class GameScene extends Phaser.Scene {
     const assets = new Map([
       ...Object.values(CHAPTER_VISUAL_THEMES).flatMap((theme) => Object.entries(theme.assets)),
       ...Object.entries(ENDING_ASSET_MANIFEST),
+      ...Object.entries(OPENING_ASSET_MANIFEST),
     ]);
     assets.forEach((asset, assetKey) => {
       if (!asset.sourceAvailable) return;
@@ -182,6 +217,9 @@ export class GameScene extends Phaser.Scene {
     Object.entries(BGM_ASSET_MANIFEST).forEach(([assetKey, asset]) => {
       this.load.audio(assetKey, asset.path);
     });
+    Object.entries(OPENING_AUDIO_ASSET_MANIFEST).forEach(([assetKey, asset]) => {
+      this.load.audio(assetKey, asset.path);
+    });
   }
 
   create(): void {
@@ -189,20 +227,23 @@ export class GameScene extends Phaser.Scene {
       this.renderLoadError(this.loadError);
       return;
     }
-    this.mapOrigin = this.currentMapCameraLayout().mapOrigin;
-
-    this.drawMap();
-    this.createPlayer();
-    this.configureMapCamera();
-    this.createObjects();
-    this.createFinalWallMessage();
     this.createInstructions();
     this.createKeyboardControls();
-    this.syncBgmForCurrentChapter();
+    this.startTitleScreen();
   }
 
   update(_time: number, delta: number): void {
     if (this.loadError) return;
+    if (this.isTitleActive) {
+      this.tryStartTitleBgm();
+      if (Phaser.Input.Keyboard.JustDown(this.continueKey)) this.startOpeningFromTitle();
+      return;
+    }
+    if (this.isOpeningActive) {
+      this.tryStartOpeningBgm();
+      if (Phaser.Input.Keyboard.JustDown(this.continueKey)) this.advanceOpeningPage();
+      return;
+    }
     this.syncBgmForCurrentChapter();
     const previousPhase = this.gameState.phase;
     const previousClockWarning = this.gameState.finalClockWarning;
@@ -1001,23 +1042,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createInstructions(): void {
-    this.add
-      .rectangle(0, 0, this.scale.width, TOP_HUD_SAFE_MARGIN, 0x0d0c13, 1)
-      .setOrigin(0, 0)
-      .setScrollFactor(0)
-      .setDepth(HUD_MASK_DEPTH);
-    this.add
-      .rectangle(
-        0,
-        this.scale.height - BOTTOM_HUD_MASK_HEIGHT,
-        this.scale.width,
-        BOTTOM_HUD_MASK_HEIGHT,
-        0x0d0c13,
-        1,
-      )
-      .setOrigin(0, 0)
-      .setScrollFactor(0)
-      .setDepth(HUD_MASK_DEPTH);
+    this.hudMasks = [
+      this.add
+        .rectangle(0, 0, this.scale.width, TOP_HUD_SAFE_MARGIN, 0x0d0c13, 1)
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(HUD_MASK_DEPTH),
+      this.add
+        .rectangle(
+          0,
+          this.scale.height - BOTTOM_HUD_MASK_HEIGHT,
+          this.scale.width,
+          BOTTOM_HUD_MASK_HEIGHT,
+          0x0d0c13,
+          1,
+        )
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(HUD_MASK_DEPTH),
+    ];
 
     this.instructionsHud = this.add
       .text(
@@ -2151,6 +2194,241 @@ export class GameScene extends Phaser.Scene {
       camera.startFollow(this.player, true, 1, 1);
       camera.centerOn(this.player.x, this.player.y);
     }
+  }
+
+  private startOpeningSequence(): void {
+    this.openingPages = createOpeningSequence();
+    this.openingPageIndex = 0;
+    this.isOpeningActive = true;
+    this.isOpeningPageTransitioning = false;
+    this.hudMasks.forEach((mask) => mask.setVisible(false));
+    this.resetHud.setVisible(false);
+    this.instructionsHud.setVisible(false);
+    this.objectiveHud.setVisible(false);
+    this.feedbackHud.setVisible(false);
+    this.phaseHud.setVisible(false);
+    this.phaseHudPanel.setVisible(false);
+    this.clockHud.setVisible(false);
+    this.renderOpeningPage();
+    this.tryStartOpeningBgm();
+    this.cameras.main.fadeIn(OPENING_REVEAL_FADE_MS, 8, 7, 12);
+  }
+
+  private startTitleScreen(): void {
+    this.isTitleActive = true;
+    this.hudMasks.forEach((mask) => mask.setVisible(false));
+    this.resetHud.setVisible(false);
+    this.instructionsHud.setVisible(false);
+    this.objectiveHud.setVisible(false);
+    this.feedbackHud.setVisible(false);
+    this.phaseHud.setVisible(false);
+    this.phaseHudPanel.setVisible(false);
+    this.clockHud.setVisible(false);
+
+    const titleAsset = OPENING_ASSET_MANIFEST['opening-title'];
+    if (!titleAsset) return;
+    const displaySize = containDisplaySize(
+      { width: titleAsset.width, height: titleAsset.height },
+      { width: this.scale.width, height: this.scale.height },
+    );
+    const titleLeft = (this.scale.width - displaySize.width) / 2;
+    const titleTop = (this.scale.height - displaySize.height) / 2;
+    this.titleImage = this.add
+      .image(this.scale.width / 2, this.scale.height / 2, 'opening-title')
+      .setDisplaySize(displaySize.width, displaySize.height)
+      .setScrollFactor(0)
+      .setDepth(9);
+    this.titlePlayButton = this.add
+      .rectangle(
+        titleLeft + displaySize.width / 2,
+        titleTop + displaySize.height * TITLE_PLAY_CENTER_Y,
+        displaySize.width * TITLE_PLAY_WIDTH,
+        displaySize.height * TITLE_PLAY_HEIGHT,
+        0xffffff,
+        0.001,
+      )
+      .setScrollFactor(0)
+      .setDepth(10)
+      .setInteractive({ useHandCursor: true });
+    this.titlePlayButton.once('pointerdown', () => this.startOpeningFromTitle());
+    this.tryStartTitleBgm();
+    this.cameras.main.fadeIn(OPENING_REVEAL_FADE_MS, 8, 7, 12);
+  }
+
+  private startOpeningFromTitle(): void {
+    if (!this.isTitleActive) return;
+    this.isTitleActive = false;
+    this.titlePlayButton?.disableInteractive();
+    this.stopTitleBgm();
+    this.cameras.main.fadeOut(TITLE_PAGE_FADE_OUT_MS, 8, 7, 12);
+    this.time.delayedCall(TITLE_PAGE_SWAP_DELAY_MS, () => {
+      this.titleImage?.destroy();
+      this.titleImage = undefined;
+      this.titlePlayButton?.destroy();
+      this.titlePlayButton = undefined;
+      this.startOpeningSequence();
+    });
+  }
+
+  private advanceOpeningPage(): void {
+    if (this.isOpeningPageTransitioning) return;
+    this.isOpeningPageTransitioning = true;
+    const nextPageIndex = nextOpeningPageIndex(this.openingPageIndex, this.openingPages.length);
+    this.cameras.main.fadeOut(OPENING_PAGE_FADE_OUT_MS, 8, 7, 12);
+    this.time.delayedCall(OPENING_PAGE_SWAP_DELAY_MS, () => {
+      if (nextPageIndex === undefined) {
+        this.finishOpeningSequence();
+        return;
+      }
+      this.openingPageIndex = nextPageIndex;
+      this.renderOpeningPage();
+      this.cameras.main.fadeIn(OPENING_PAGE_FADE_IN_MS, 8, 7, 12);
+      this.time.delayedCall(OPENING_PAGE_FADE_IN_MS, () => {
+        this.isOpeningPageTransitioning = false;
+      });
+    });
+  }
+
+  private renderOpeningPage(): void {
+    const page = this.openingPages[this.openingPageIndex];
+    if (!page) return;
+
+    this.openingImage?.destroy();
+    this.openingImage = this.add.image(this.scale.width / 2, this.scale.height / 2, page.assetKey);
+    const illustration = OPENING_ASSET_MANIFEST[page.assetKey];
+    const displaySize = illustration
+      ? containDisplaySize(
+          { width: illustration.width, height: illustration.height },
+          { width: this.scale.width, height: this.scale.height },
+        )
+      : { width: this.scale.width, height: this.scale.height };
+    this.openingImage
+      .setDisplaySize(displaySize.width, displaySize.height)
+      .setScrollFactor(0)
+      .setDepth(9);
+
+    const dialogueAsset = OPENING_ASSET_MANIFEST['opening-dialogue-window'];
+    if (!dialogueAsset) return;
+    const dialogueWidth = this.scale.width - OPENING_DIALOGUE_HORIZONTAL_MARGIN * 2;
+    const dialogueHeight = Math.min(
+      (dialogueWidth * dialogueAsset.height) / dialogueAsset.width,
+      this.scale.height * OPENING_DIALOGUE_MAX_HEIGHT_RATIO,
+    );
+    const dialogueCenterY = this.scale.height - OPENING_DIALOGUE_BOTTOM_MARGIN - dialogueHeight / 2;
+    this.openingCaptionPanel ??= this.add
+      .image(this.scale.width / 2, dialogueCenterY, 'opening-dialogue-window')
+      .setScrollFactor(0)
+      .setDepth(10);
+    this.openingCaptionPanel
+      .setPosition(this.scale.width / 2, dialogueCenterY)
+      .setDisplaySize(dialogueWidth, dialogueHeight)
+      .setVisible(true);
+
+    this.openingHud ??= this.add
+      .text(this.scale.width / 2, dialogueCenterY - 4, '', {
+        align: 'center',
+        color: '#f3e8d2',
+        fontFamily: 'serif',
+        fontSize: '20px',
+        lineSpacing: 8,
+        wordWrap: { width: dialogueWidth - 180 },
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(11);
+    this.openingHud
+      .setPosition(this.scale.width / 2, dialogueCenterY - 4)
+      .setText(page.body)
+      .setVisible(true);
+
+    this.openingContinueHud ??= this.add
+      .text(0, 0, 'ENTER', {
+        color: '#d8b65a',
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        letterSpacing: 1,
+      })
+      .setOrigin(1, 1)
+      .setScrollFactor(0)
+      .setDepth(11);
+    this.openingContinueHud
+      .setPosition(
+        this.scale.width / 2 + dialogueWidth / 2 - OPENING_DIALOGUE_CONTINUE_INSET_X,
+        dialogueCenterY + dialogueHeight / 2 - OPENING_DIALOGUE_CONTINUE_INSET_Y,
+      )
+      .setVisible(true);
+  }
+
+  private finishOpeningSequence(): void {
+    this.openingImage?.destroy();
+    this.openingImage = undefined;
+    this.openingCaptionPanel?.destroy();
+    this.openingCaptionPanel = undefined;
+    this.openingHud?.destroy();
+    this.openingHud = undefined;
+    this.openingContinueHud?.destroy();
+    this.openingContinueHud = undefined;
+    this.stopOpeningBgm();
+    this.isOpeningActive = false;
+    this.isOpeningPageTransitioning = false;
+
+    this.mapOrigin = this.currentMapCameraLayout().mapOrigin;
+    this.drawMap();
+    this.createPlayer();
+    this.configureMapCamera();
+    this.createObjects();
+    this.createFinalWallMessage();
+    this.hudMasks.forEach((mask) => mask.setVisible(true));
+    this.updateResetHud();
+    this.updateInstructionsHud();
+    this.updateObjectiveHud();
+    this.feedbackHud.setVisible(true);
+    this.updateClockHud();
+    this.cameras.main.fadeIn(OPENING_PAGE_FADE_IN_MS, 8, 7, 12);
+  }
+
+  private tryStartOpeningBgm(): void {
+    if (
+      !this.isOpeningActive ||
+      this.sound.locked ||
+      this.openingBgm?.isPlaying ||
+      !this.cache.audio.exists(OPENING_BGM_ASSET_KEY)
+    )
+      return;
+
+    this.openingBgm = this.sound.add(OPENING_BGM_ASSET_KEY, {
+      loop: true,
+      volume: OPENING_BGM_VOLUME,
+    });
+    this.openingBgm.play();
+  }
+
+  private tryStartTitleBgm(): void {
+    if (
+      !this.isTitleActive ||
+      this.sound.locked ||
+      this.titleBgm?.isPlaying ||
+      !this.cache.audio.exists(TITLE_BGM_ASSET_KEY)
+    )
+      return;
+
+    this.titleBgm = this.sound.add(TITLE_BGM_ASSET_KEY, {
+      loop: true,
+      volume: OPENING_BGM_VOLUME,
+    });
+    this.titleBgm.play();
+  }
+
+  private stopOpeningBgm(): void {
+    this.openingBgm?.stop();
+    this.openingBgm?.destroy();
+    this.openingBgm = undefined;
+  }
+
+  private stopTitleBgm(): void {
+    this.titleBgm?.stop();
+    this.titleBgm?.destroy();
+    this.titleBgm = undefined;
   }
 
   private startEndingSequence(cameraAlreadyFaded = false): void {
